@@ -68,7 +68,7 @@
     "build:prod": "if [ -z \"$(git status --porcelain)\" ]; then npx env-cmd -e prod npm run build-raw; else echo 'refusing to run production build with uncommited changes in the working directory'; exit 1; fi",
     "build": "yarn build:prod",
     "eject": "react-scripts eject",
-    "ipfs": "yarn build && ipfs-deploy build/ --pinner infura --pinner pinata --dns cloudflare # requires env vars IPFS_DEPLOY_CLOUDFLARE__API_TOKEN, IPFS_DEPLOY_CLOUDFLARE__ZONE, IPFS_DEPLOY_CLOUDFLARE__RECORD, IPFS_DEPLOY_PINATA__API_KEY, IPFS_DEPLOY_PINATA__SECRET_API_KEY",
+    "ipfs": "yarn build && ipfs-deploy build/ --pinner infura --pinner pinata --dns cloudflare # requires env vars IPFS_DEPLOY_CLOUDFLARE__API_TOKEN, IPFS_DEPLOY_CLOUDFLARE__ZONE, IPFS_DEPLOY_CLOUDFLARE__RECORD, IPFS_DEPLOY_PINATA__API_KEY, IPFS_DEPLOY_PINATA__SECRET_API_KEY, IPFS_DEPLOY_INFURA__PROJECT_ID, IPFS_DEPLOY_INFURA__PROJECT_SECRET",
     "start-raw": "REACT_APP_GIT_COMMIT=`git rev-parse --short HEAD` REACT_APP_GIT_COMMIT_DATE=`git show -s --format=%ci HEAD` react-scripts start # run dev mode in the context of an env that's already been set; WARNING build-raw and start-raw each separately define the computation of env vars REACT_APP_GIT_COMMIT and REACT_APP_GIT_COMMIT_DATE, and these must be identical in both places",
     "start:dev": "yarn env-cmd -e dev yarn start-raw",
     "start:prod-test": "yarn env-cmd -e prod-test yarn start-raw",
