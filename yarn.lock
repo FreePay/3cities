@@ -13537,9 +13537,9 @@ react-router@6.4.2:
   dependencies:
     "@remix-run/router" "1.0.2"
 
-"react-scripts@https://gitpkg.now.sh/api/pkg.tgz?url=ryanberckmans%2Fcreate-react-app%2Fpackages%2Freact-scripts&commit=postcss-tailwind-fix-v0.1":
+"react-scripts@https://gitpkg.now.sh/ryanberckmans/create-react-app/packages/react-scripts?postcss-tailwind-fix-v0.1":
   version "5.0.1"
-  resolved "https://gitpkg.now.sh/api/pkg.tgz?url=ryanberckmans%2Fcreate-react-app%2Fpackages%2Freact-scripts&commit=postcss-tailwind-fix-v0.1#22a307e9b66060b5ef52d5e27645fe5cb2414e51"
+  resolved "https://gitpkg.now.sh/ryanberckmans/create-react-app/packages/react-scripts?postcss-tailwind-fix-v0.1#22a307e9b66060b5ef52d5e27645fe5cb2414e51"
   dependencies:
     "@babel/core" "^7.16.0"
     "@pmmmwh/react-refresh-webpack-plugin" "^0.5.3"
