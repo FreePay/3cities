@@ -19,7 +19,7 @@ export interface Observer<T> {
 // isObserver returns a TypeScript type assertion that the passed o is
 // an Observer (or not)
 export function isObserver<T>(o: T | Observer<T>): o is Observer<T> {
-  return typeof o === 'object' && ('isObserver' in o) && o['isObserver'] === true;
+  return o !== null && typeof o === 'object' && ('isObserver' in o) && o['isObserver'] === true;
 }
 
 // ObservableValue<T> enables subscriptions to synchronously observe a
