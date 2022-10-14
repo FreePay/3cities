@@ -5,7 +5,7 @@
 /* @import "./custom-components.css"; */
 @import "tailwindcss/utilities";
 /* @import "./custom-utilities.css"; */
-@import './testImport';
+/* @import './testImport'; WARNING testImport.css is currently empty, which triggers a warning from postcss-import, and that warning is treated as an error in github workflow CI, causing the build to fail, so we comment this out for now, but leave it in as an example for later */
 
 /* test of tailwindcss/nesting postcss plugin */
 /* nesting syntax is not currently supported by the tailwindcss/nesting postcss plugin https://github.com/tailwindlabs/tailwindcss-intellisense/issues/539#issuecomment-1108709757 */
