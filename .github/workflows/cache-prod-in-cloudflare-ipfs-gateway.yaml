@@ -14,4 +14,5 @@ jobs:
         - run: chrome --headless --disable-gpu --screenshot --window-size=1280,1696 https://3cities.xyz
         - uses: actions/upload-artifact@v3
           with:
+            name: screenshot
             path: screenshot.png
