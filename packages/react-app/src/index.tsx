@@ -4,7 +4,7 @@ import React from "react";
 import { createRoot } from "react-dom/client";
 import { HashRouter, Link, Route, Routes } from "react-router-dom";
 import App from "./App";
-import { buildGitCommit, buildGitCommitDate, buildPackageJsonVersion } from "./buildInfo";
+import { buildGitCommit, buildGitCommitDate, buildGitTag, buildPackageJsonVersion } from "./buildInfo";
 import { ConnectedWalletAddressContextObserverProvider } from "./connectedWalletContextProvider";
 import "./index.css";
 import { MainWrapper } from "./MainWrapper";
@@ -36,7 +36,7 @@ root.render(
                 {/* TODO refactor this to use react-router's nested routers and Outlet where there's a single App component that contains the Container/Header/WalletButton and Pay is rendered into an outlet */}
                 <Route path="/" element={<App />} />
                 <Route path="/pay" element={<Pay />} />
-                <Route path="/build" element={<span><Link to="/">3cities</Link> v{buildPackageJsonVersion} {buildGitCommit} {buildGitCommitDate}</span>} />
+                <Route path="/build" element={<span><Link to="/">3cities</Link> package: {buildPackageJsonVersion} git: {buildGitTag} {buildGitCommit} {buildGitCommitDate}</span>} />
               </Routes>
             </MainWrapper>
           </HashRouter>

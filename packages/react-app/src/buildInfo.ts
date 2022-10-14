@@ -9,3 +9,4 @@ import pkg from "../package.json";
 export const buildPackageJsonVersion: string = pkg.version;
 export const buildGitCommit: string = process.env['REACT_APP_GIT_COMMIT'] || '';
 export const buildGitCommitDate: string = process.env['REACT_APP_GIT_COMMIT_DATE'] || '';
+export const buildGitTag: string = process.env['REACT_APP_GIT_TAG'] || '';

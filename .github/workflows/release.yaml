@@ -26,6 +26,8 @@ jobs:
     steps:
       - uses: ./.github/actions/setup
       - run: yarn build
+        env:
+          REACT_APP_GIT_TAG: ${{ needs.tag.outputs.new_tag }}
       - name: Pin to IPFS on Pinata
         id: pinata
         uses: aquiladev/ipfs-action@04b43256a5b66e2023e237d48c84784a2ec298dd
