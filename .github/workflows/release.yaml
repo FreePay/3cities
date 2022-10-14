@@ -33,7 +33,7 @@ jobs:
         id: pinata
         uses: aquiladev/ipfs-action@04b43256a5b66e2023e237d48c84784a2ec298dd
         with:
-          path: ./build
+          path: ./packages/react-app/build
           pinName: 3cities ${{ needs.tag.outputs.new_tag }}
           service: pinata
           pinataKey: ${{ secrets.PINATA_API_KEY }}
@@ -42,7 +42,7 @@ jobs:
         id: infura
         uses: aquiladev/ipfs-action@04b43256a5b66e2023e237d48c84784a2ec298dd
         with:
-          path: ./build
+          path: ./packages/react-app/build
           pinName: 3cities ${{ needs.tag.outputs.new_tag }}
           service: infura
           infuraProjectId: ${{ secrets.INFURA_PROJECT_ID }}
