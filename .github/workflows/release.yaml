@@ -24,7 +24,7 @@ jobs:
     if: ${{ needs.tag.outputs.new_tag != null }}
     runs-on: ubuntu-latest
     steps:
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup.yml
       - run: yarn build
       - name: Pin to IPFS on Pinata
         id: pinata
