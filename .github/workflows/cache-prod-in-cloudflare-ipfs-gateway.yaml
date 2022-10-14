@@ -1,0 +1,11 @@
+# 3cities uses cloudflare's ipfs gateway. but, there is a caching issue where the 3cities site will be evicted from the cf gateway if it hasn't been recently loaded, causing users to experience 60s+ loading times. As a bandaid fix, we'll periodically load the site to keep it fresh inside cf
+name: Load prod site for cloudflare cache
+on:
+  schedule:
+    - cron: '*/10 * * * *' # every 10 minutes
+jobs:
+  load-site:
+    runs-on: ubuntu-latest
+    steps:
+        # load the site in ubuntu's default browser
+        run: xdg-open https://3cities.xyz
