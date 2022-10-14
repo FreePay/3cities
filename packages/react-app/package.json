@@ -1,6 +1,5 @@
 {
   "name": "@3cities/react-app",
-  "version": "1.0.1",
   "homepage": "./",
   "browserslist": {
     "production": [

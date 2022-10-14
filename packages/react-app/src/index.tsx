@@ -1,9 +1,9 @@
 import { DAppProvider } from "@usedapp/core";
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { HashRouter, Link, Route, Routes } from "react-router-dom";
+import { HashRouter, Route, Routes } from "react-router-dom";
 import App from "./App";
-import { buildGitCommit, buildGitCommitDate, buildGitTag, buildPackageJsonVersion } from "./buildInfo";
+import { buildGitCommit, buildGitCommitDate, buildGitTag } from "./buildInfo";
 import { ConnectedWalletAddressContextObserverProvider } from "./connectedWalletContextProvider";
 import "./index.css";
 import { MainWrapper } from "./MainWrapper";
