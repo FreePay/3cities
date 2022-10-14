@@ -8,4 +8,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
         # load the site in ubuntu's default browser
-        run: xdg-open https://3cities.xyz
+        - run: xdg-open https://3cities.xyz
