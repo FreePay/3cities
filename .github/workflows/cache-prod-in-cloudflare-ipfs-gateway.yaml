@@ -10,6 +10,7 @@ jobs:
     steps:
         # load the site in ubuntu's default browser
         - uses: browser-actions/setup-chrome@latest
+        - run: chrome --version
         - run: chrome --headless --disable-gpu --screenshot --window-size=1280,1696 https://3cities.xyz
         - uses: actions/upload-artifact@v3
           with:
