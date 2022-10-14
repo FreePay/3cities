@@ -16,13 +16,11 @@
   },
   "dependencies": {
     "@3cities/contracts": "^1.0.0",
-    "@apollo/client": "^3.7.0",
     "@ethersproject/contracts": "5.6.0",
     "@ethersproject/providers": "5.6.4",
     "@msgpack/msgpack": "^2.8.0",
     "@usedapp/core": "^1.0.1",
     "fflate": "^0.7.4",
-    "graphql": "^16.6.0",
     "immer": "^9.0.15",
     "react": "^18.2.0",
     "react-currency-input-field": "^3.6.5",

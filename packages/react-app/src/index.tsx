@@ -1,4 +1,3 @@
-import { ApolloClient, ApolloProvider, InMemoryCache } from "@apollo/client";
 import { DAppProvider } from "@usedapp/core";
 import React from "react";
 import { createRoot } from "react-dom/client";
@@ -11,13 +10,6 @@ import { MainWrapper } from "./MainWrapper";
 import { Pay } from "./Pay";
 import { config } from "./usedappConfig";
 
-// You should replace this url with your own and put it into a .env file
-// See all subgraphs: https://thegraph.com/explorer/
-const client = new ApolloClient({
-  cache: new InMemoryCache(),
-  uri: "https://api.thegraph.com/subgraphs/name/paulrberg/create-eth-app",
-});
-
 const root = createRoot((() => {
   const r = document.getElementById("root");
   if (r === null) throw new Error("couldn't find root element");
@@ -29,18 +21,16 @@ root.render(
   <React.StrictMode>
     <DAppProvider config={config} >
       <ConnectedWalletAddressContextObserverProvider>
-        <ApolloProvider client={client} >
-          <HashRouter>
-            <MainWrapper>
-              <Routes>
-                {/* TODO refactor this to use react-router's nested routers and Outlet where there's a single App component that contains the Container/Header/WalletButton and Pay is rendered into an outlet */}
-                <Route path="/" element={<App />} />
-                <Route path="/pay" element={<Pay />} />
-                <Route path="/build" element={<span><Link to="/">3cities</Link> package: {buildPackageJsonVersion} git: {buildGitTag} {buildGitCommit} {buildGitCommitDate}</span>} />
-              </Routes>
-            </MainWrapper>
-          </HashRouter>
-        </ApolloProvider>
+        <HashRouter>
+          <MainWrapper>
+            <Routes>
+              {/* TODO refactor this to use react-router's nested routers and Outlet where there's a single App component that contains the Container/Header/WalletButton and Pay is rendered into an outlet */}
+              <Route path="/" element={<App />} />
+              <Route path="/pay" element={<Pay />} />
+              <Route path="/build" element={<span>3cities {buildGitTag} {buildGitCommit} {buildGitCommitDate}</span>} />
+            </Routes>
+          </MainWrapper>
+        </HashRouter>
       </ConnectedWalletAddressContextObserverProvider>
     </DAppProvider>
   </React.StrictMode>

@@ -9,13 +9,11 @@ import { serializeToModifiedBase64 } from "./serialize";
 
 // Old imports:
 // import { abis, addresses } from "@3cities/contracts";
-// import { useQuery } from "@apollo/client";
 // import { Contract } from "@ethersproject/contracts";
 // import { formatEther } from '@ethersproject/units';
 // import { shortenAddress, useCall, useEtherBalance, useEthers, useLookupAddress, useTokenBalance } from "@usedapp/core";
 // import React, { useEffect, useState } from "react";
 // import { Body, Container, Header } from "./components";
-// import GET_TRANSFERS from "./graphql/subgraph";
 // import useAddressOrENS from "./hooks/useAddressOrENS";
 // import { nativeCurrencies, tokens } from "./usedappCurrencies";
 // import TokenBalance from "./TokenBalance";
@@ -111,17 +109,6 @@ function App() {
   //   }) ?? {};
   // console.log(contractCallError, tokenBalance);
 
-  // const { loading, error: subgraphQueryError, data } = useQuery(GET_TRANSFERS);
-
-  // useEffect(() => {
-  //   if (subgraphQueryError) {
-  //     console.error("Error while querying subgraph:", subgraphQueryError.message);
-  //     return;
-  //   }
-  //   if (!loading && data && data.transfers) {
-  //     console.log({ transfers: data.transfers });
-  //   }
-  // }, [loading, subgraphQueryError, data]);
 
   // const STAKING_CONTRACT = '0x00000000219ab540356cBB839Cbe05303d7705Fa';
   // const stakingBalance = useEtherBalance(STAKING_CONTRACT);
