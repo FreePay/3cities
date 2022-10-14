@@ -58,7 +58,7 @@ jobs:
           RECORD_DOMAIN: '3cities.xyz'
           RECORD_NAME: '_dnslink'
           CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-        uses: textileio/cloudflare-update-dnslink@0fe7b7a1ffc865db3a4da9773f0f987447ad5848
+        uses: textileio/cloudflare-update-dnslink@30414a408191218c8259e932ebdf4cbb7c652fe8
         with:
           cid: ${{ steps.pinata.outputs.hash }}
       - name: Release
