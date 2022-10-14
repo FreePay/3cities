@@ -9,4 +9,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
         # load the site in ubuntu's default browser
-        - run: xdg-open https://3cities.xyz
+        - uses: browser-actions/setup-chrome@latest
+        - run: chrome --headless --disable-gpu --screenshot --window-size=1280,1696 https://3cities.xyz
