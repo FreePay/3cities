@@ -27,7 +27,7 @@ root.render(
               {/* TODO refactor this to use react-router's nested routers and Outlet where there's a single App component that contains the Container/Header/WalletButton and Pay is rendered into an outlet */}
               <Route path="/" element={<App />} />
               <Route path="/pay" element={<Pay />} />
-              <Route path="/build" element={<span>3cities {buildGitTag} {buildGitCommit} {buildGitCommitDate}</span>} />
+              <Route path="/build" element={<span>3cities {buildGitTag} {buildGitCommit} {buildGitCommitDate}<br />Time now: {(new Date()).toUTCString()}</span>} />
             </Routes>
           </MainWrapper>
         </HashRouter>
