@@ -2,7 +2,7 @@
 name: Load prod site for cloudflare cache
 on:
   schedule:
-    - cron: '*/45 * * * *' # every 45 minutes
+    - cron: '*/75 * * * *' # every 75 minutes
   workflow_dispatch:
 jobs:
   load-site:
