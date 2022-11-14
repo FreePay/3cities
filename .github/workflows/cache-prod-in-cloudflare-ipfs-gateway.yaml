@@ -12,7 +12,8 @@ jobs:
         - uses: browser-actions/setup-chrome@latest
         - run: chrome --version
         - run: chrome --headless --disable-gpu --screenshot --window-size=1280,1696 "https://3cities.xyz/#/build"
-        - uses: actions/upload-artifact@v3
-          with:
-            name: screenshot
-            path: screenshot.png
+        # Here we comment out the artifact uploading so as not to consume artifact storage quota in our github account
+        #- uses: actions/upload-artifact@v3
+        #  with:
+        #    name: screenshot
+        #    path: screenshot.png
