@@ -6,6 +6,7 @@ on:
   workflow_dispatch:
 jobs:
   load-site:
+    if: ${{ false }}  # disable for now
     runs-on: ubuntu-latest
     steps:
         # load the site in ubuntu's default browser
