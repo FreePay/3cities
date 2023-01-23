@@ -29,3 +29,5 @@ yarn-error.log*
 # subgraph
 packages/subgraph/build/
 packages/subgraph/src/types/
+
+3cities-test-private-key
