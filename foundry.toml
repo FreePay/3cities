@@ -1,0 +1,4 @@
+[rpc_endpoints]
+goerli = "https://eth-goerli.g.alchemy.com/v2/FlOQbm_9tqyr6vTDiUooBl6MI2MkCdR1"
+optimismGoerli = "https://opt-goerli.g.alchemy.com/v2/65S7gxqK5X5HibXOreCUpvSODw9CFyvI"
+arbitrumGoerli = "https://arb-goerli.g.alchemy.com/v2/8n3QLxXoagfvugVAzAD7e4yyZ74T6sE1"
