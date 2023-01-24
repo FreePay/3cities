@@ -8,6 +8,7 @@ jobs:
   build-dev:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3 # we might think that this actions/checkout is redundant because actions/setup also runs actions/checkout, but it's not, because this line checks out the code for actions/setup. TODO doe that mean the actions/checkout in actions/setup is redundant?
       - uses: ./.github/actions/setup
       - run: yarn build
         env:
