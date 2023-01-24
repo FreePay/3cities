@@ -1,84 +1,105 @@
-import { Arbitrum, ArbitrumRinkeby, Dai, Ether, Kovan, KovanDai, Mainnet, NativeCurrency, Optimism, OptimismKovan, Token, ZkSyncTestnet } from "@usedapp/core";
+import { Arbitrum, ArbitrumGoerli, Goerli, Mainnet, NativeCurrency, Optimism, OptimismGoerli, Token, ZkSyncTestnet as ZkSyncGoerli } from "@usedapp/core";
 import { isProduction } from "./isProduction";
 import { NonEmptyArray } from "./NonEmptyArray";
 
-// WARNING currencies defined here won't actually work at runtime unless an rpc url is defined for their chainId in the loaded @useDapp/core.Config.
+// NB the EF recommends that new app testing occur on the Sepolia
+// testnet, and that validating/staking testing occur on the Goerli
+// testnet. We'd prefer to follow this recommendation and use Sepolia
+// for all testing. However, Sepolia currently does not have official
+// testnet deployments for most of gwthe tokens and L2s we use. For
+// example, none of DAI, USDT, or USDC have official deployments on
+// Sepolia. So, we currently use Goerli wherever possible and don't
+// use Sepolia. TODO migrate off Goerli to Sepolia
+// https://ethereum.org/en/developers/docs/networks/#sepolia
+// https://chainlist.org/
+
+// WARNING currencies defined here won't actually work at runtime
+// unless their chainId has a corresponding provider defined in our
+// wagmi config. NB this also acts as a protective feature where
+// production tokens defined here (eg. real ETH or DAI) won't work at
+// all if a mainnet provider isn't defined in the active wagmi config.
 
 // In our token registry, every production network has a single
-// testnet. Here, we have adopted Kovan as the single testnet for
-// mainnet.
+// testnet. Here, we have adopted Goerli as the single testnet for
+// mainnet per the EF's recommendation to use Goerli for app development 
 // Mainnet chainId: 1
-// Kovan chainId: 42
-// https://chainlist.org/
-const KovanEther = new NativeCurrency('Ether', 'ETH', Kovan.chainId);
+// Goerli chainId: 5
+const ETH = new NativeCurrency('Ether', 'ETH', Mainnet.chainId);
+const GoerliETH = new NativeCurrency('Ether', 'ETH', Goerli.chainId);
 const WETH = new Token('Wrapped Ether', 'WETH', Mainnet.chainId, '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', 18);
-const KovanWETH = new Token('Wrapped Ether', 'WETH', Kovan.chainId, '0xd0A1E359811322d97991E03f863a0C30C2cF029C', 18);
+const GoerliWETH = new Token('Wrapped Ether', 'WETH', Goerli.chainId, '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6', 18);
+const DAI = new Token('Dai', 'DAI', Mainnet.chainId, '0x6B175474E89094C44Da98b954EedeAC495271d0F', 18);
+const GoerliDAI = new Token('Dai', 'DAI', Goerli.chainId, '0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844', 18);
 const USDC = new Token('USD Coin', 'USDC', Mainnet.chainId, '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48', 6);
-const KovanUSDC = new Token('USD Coin', 'USDC', Kovan.chainId, '0x50dC5200082d37d5dd34B4b0691f36e3632fE1A8', 6);
+const GoerliUSDC = new Token('USD Coin', 'USDC', Goerli.chainId, '0x07865c6E87B9F70255377e024ace6630C1Eaa37F', 6);
 const USDT = new Token('Tether USD', 'USDT', Mainnet.chainId, '0xdac17f958d2ee523a2206206994597c13d831ec7', 6);
-const KovanUSDT = new Token('Tether USD', 'USDT', Kovan.chainId, '0xe0BB0D3DE8c10976511e5030cA403dBf4c25165B', 6);
+const GoerliUSDT = new Token('Tether USD', 'USDT', Goerli.chainId, '0xC2C527C0CACF457746Bd31B2a698Fe89de2b6d49', 6);
 
-// Optimism token list (for mainnet and Optimism Kovan https://static.optimism.io/optimism.tokenlist.json)
+// Optimism L2 token list (see very useful reference for mainnet, Optimism Goerli, Goerli, and other chains https://static.optimism.io/optimism.tokenlist.json)
 // Optimism mainnet chainId: 10
-// Optimism Kovan chainId: 69
-const OptimismEther = new NativeCurrency('Ether', 'ETH', Optimism.chainId);
-const OptimismKovanEther = new NativeCurrency('Ether', 'ETH', OptimismKovan.chainId);
+// Optimism mainnet block explorer: https://optimistic.etherscan.io/
+// Optimism Goerli chainId: 420
+// Optimism Goerli block explorer: https://goerli-optimism.etherscan.io/
+const OptimismETH = new NativeCurrency('Ether', 'ETH', Optimism.chainId);
+const OptimismGoerliETH = new NativeCurrency('Ether', 'ETH', OptimismGoerli.chainId);
 const OptimismWETH = new Token('Wrapped Ether', 'WETH', Optimism.chainId, '0x4200000000000000000000000000000000000006', 18);
-const OptimismKovanWETH = new Token('Wrapped Ether', 'WETH', OptimismKovan.chainId, '0x4200000000000000000000000000000000000006', 18);
-const OptimismDai = new Token('Dai', 'DAI', Optimism.chainId, '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1');
-const OptimismKovanDai = new Token('Dai', 'DAI', OptimismKovan.chainId, '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1');
-const OptimismUSDC = new Token('USD Coin', 'USDC', Optimism.chainId, '0x7F5c764cBc14f9669B88837ca1490cCa17c31607', 6); // TODO OptimismUSDC matches the contract address in the explorer, https://optimistic.etherscan.io/token/0x7f5c764cbc14f9669b88837ca1490cca17c31607 but it seems to fail to load based on a quick test with our TokenBalance component returning '?'
-const OptimismKovanUSDC = new Token('USD Coin', 'USDC', OptimismKovan.chainId, '0x3e22e37Cb472c872B5dE121134cFD1B57Ef06560', 6); // unsure: optimism's tokenlist lists OptimismKovanUSDC as 0x4e62882864fB8CE54AFfcAf8D899A286762B011B, but 0x3e22e37Cb472c872B5dE121134cFD1B57Ef06560 is what I get when I receive faucet USDC
+const OptimismGoerliWETH = new Token('Wrapped Ether', 'WETH', OptimismGoerli.chainId, '0x4200000000000000000000000000000000000006', 18);
+const OptimismDAI = new Token('Dai', 'DAI', Optimism.chainId, '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1');
+const OptimismGoerliDAI = new Token('Dai', 'DAI', OptimismGoerli.chainId, '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1');
+const OptimismUSDC = new Token('USD Coin', 'USDC', Optimism.chainId, '0x7F5c764cBc14f9669B88837ca1490cCa17c31607', 6);
+const OptimismGoerliUSDC = new Token('USD Coin', 'USDC', OptimismGoerli.chainId, '0x7E07E15D2a87A24492740D16f5bdF58c16db0c4E', 6);
 const OptimismUSDT = new Token('Tether USD', 'USDT', Optimism.chainId, '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58', 6);
-const OptimismKovanUSDT = new Token('Tether USD', 'USDT', OptimismKovan.chainId, '0x7F5c764cBc14f9669B88837ca1490cCa17c31607', 6); // TODO WARNING not sure why this addresss is the same as OptimismUSDC but that's how it is defined in the Optimism token list
+const OptimismGoerliUSDT = new Token('Tether USD', 'USDT', OptimismGoerli.chainId, '0x853eb4bA5D0Ba2B77a0A5329Fd2110d5CE149ECE', 6);
 
-// Arbitrum mainnet token list: https://bridge.arbitrum.io/token-list-42161.json
-// Arbitrum rinkeby token list: https://bridge.arbitrum.io/token-list-421611.json
+// Arbitrum token list: https://tokenlist.arbitrum.io/ArbTokenLists/arbed_arb_whitelist_era.json
 // Arbitrum mainnet chainId: 42161
-// Arbitrum Rinkeby chainId: 421611
-const ArbitrumEther = new NativeCurrency('Ether', 'ETH', Arbitrum.chainId);
-const ArbitrumRinkebyEther = new NativeCurrency('Ether', 'ETH', ArbitrumRinkeby.chainId);
+// Arbitrum block explorer: https://arbiscan.io/
+// Arbitrum Goerli chainId: 421613
+// Arbitrum Goerli block explorer #1 https://testnet.arbiscan.io/
+// Arbitrum Goerli block explorer #2 https://goerli-rollup-explorer.arbitrum.io/
+const ArbitrumETH = new NativeCurrency('Ether', 'ETH', Arbitrum.chainId);
+const ArbitrumGoerliETH = new NativeCurrency('Ether', 'ETH', ArbitrumGoerli.chainId);
 const ArbitrumWETH = new Token('Wrapped Ether', 'WETH', Arbitrum.chainId, '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1', 18);
-const ArbitrumRinkebyWETH = new Token('Wrapped Ether', 'WETH', ArbitrumRinkeby.chainId, '0xB47e6A5f8b33b3F17603C83a0535A9dcD7E32681', 18);
-const ArbitrumDai = new Token('Dai', 'DAI', Arbitrum.chainId, '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1');
-const ArbitrumRinkebyDai = new Token('Dai', 'DAI', ArbitrumRinkeby.chainId, '0x2f3c1b6a51a469051a22986aa0ddf98466cc8d3c');
+const ArbitrumGoerliWETH = new Token('Wrapped Ether', 'WETH', ArbitrumGoerli.chainId, '0xe39Ab88f8A4777030A534146A9Ca3B52bd5D43A3', 18);
+const ArbitrumDAI = new Token('Dai', 'DAI', Arbitrum.chainId, '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1');
+const ArbitrumGoerliDAI = new Token('Dai', 'DAI', ArbitrumGoerli.chainId, '0x8411120Df646D6c6DA15193Ebe9E436c1c3a5222');
 const ArbitrumUSDC = new Token('USD Coin', 'USDC', Arbitrum.chainId, '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8', 6);
-const ArbitrumRinkebyUSDC = new Token('USD Coin', 'USDC', ArbitrumRinkeby.chainId, '0x1E77ad77925Ac0075CF61Fb76bA35D884985019d', 6);
+const ArbitrumGoerliUSDC = new Token('USD Coin', 'USDC', ArbitrumGoerli.chainId, '0x8FB1E3fC51F3b789dED7557E680551d93Ea9d892', 6);
 const ArbitrumUSDT = new Token('Tether USD', 'USDT', Arbitrum.chainId, '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', 6);
-// const ArbitrumRinkebyUSDT = new Token('Tether USD', 'USDT', ArbitrumRinkeby.chainId, '', 6); // TODO unsure of Tether address on Arbitrum Rinkeby
+const ArbitrumGoerliUSDT = new Token('Tether USD', 'USDT', ArbitrumGoerli.chainId, '0xB401e876346B3C77DD51781Efba5223d2F1e6697', 6);
 
 // ZkSync Goerli token list: https://zksync2-testnet.zkscan.io/tokens
 // ZkSync Goerli chainId: 280
-const ZkSyncGoerliEther = new NativeCurrency('Ether', 'ETH', ZkSyncTestnet.chainId);
-// TODO ZkSyncGoerliWETH, unsure of WETH address on ZkSyncGoerli
-const ZkSyncGoerliDai = new Token('Dai', 'DAI', ZkSyncTestnet.chainId, '0xE8c7cE6Ee9Fc75196bC5317883bD73A0F4ac7Bc0');
-const ZkSyncGoerliUSDC = new Token('USD Coin', 'USDC', ZkSyncTestnet.chainId, '0x51A86f7c855e2Ccef4DeCE8b90409C2a639641E5', 6); // TODO multiple USDC tokens appear on ZkSync Goerli, which is correct?
-const ZkSyncGoerliUSDT = new Token('Tether USD', 'USDT', ZkSyncTestnet.chainId, '0x192D8955DBCB4a811ED73715894504e16A5F4466', 6); // TODO multiple USDT tokens appear on ZkSync Goerli, which is correct?
+const ZkSyncGoerliETH = new NativeCurrency('Ether', 'ETH', ZkSyncGoerli.chainId);
+// const ZkSyncGoerliWETH = new Token('Wrapped Ether', 'WETH', ZkSyncGoerli.chainId, 'TODO', 18); // TODO I found a found a contract src for WETH on zkSync 2.0, but I couldn't find a WETH deployment on ZkSync Goerli https://github.com/syncswap/weth --> maybe WETH is intended to not exist on zKSync as some possible consequence of being a zk rollup / emphasizing account abstraction?
+const ZkSyncGoerliDAI = new Token('Dai', 'DAI', ZkSyncGoerli.chainId, '0x2E4805d59193E173C9C8125B4Fc8F7f9c7a3a3eD');
+const ZkSyncGoerliUSDC = new Token('USD Coin', 'USDC', ZkSyncGoerli.chainId, '0x852a4599217E76aA725F0AdA8BF832a1F57a8A91', 6);
+// const ZkSyncGoerliUSDT = new Token('Tether USD', 'USDT', ZkSyncGoerli.chainId, 'TODO', 6); // TODO I didn't yet find a canonical/popular deployment of USDT on zkSync Goerli. The swap app I used to receive DAI and USDC did not support USDT
 
 // TEST a shorter list of native currencies for testing purposes
 // export const nativeCurrencies2: Readonly<NonEmptyArray<NativeCurrency>> = isProduction ? [
 //   Ether,
 // ] : [
-//   KovanEther,
+//   GoerliETH,
 // ];
 
 // nativeCurrencies is our static global definition of all supported native currencies for all supported chains.
 export const nativeCurrencies: Readonly<NonEmptyArray<NativeCurrency>> = isProduction ? [
-  Ether,
-  OptimismEther,
-  ArbitrumEther,
+  ETH,
+  OptimismETH,
+  ArbitrumETH,
 ] : [
-  KovanEther,
-  OptimismKovanEther,
-  ArbitrumRinkebyEther,
-  ZkSyncGoerliEther,
+  GoerliETH,
+  OptimismGoerliETH,
+  ArbitrumGoerliETH,
+  ZkSyncGoerliETH,
 ];
 
 // TEST a shorter list of tokens for testing purposes
 // export const tokens2: Readonly<NonEmptyArray<Token>> = isProduction ? [
-//   Dai,
+//   DAI,
 // ] : [
-//   KovanDai,
+//   GoerliDAI,
 // ];
 
 // tokens is our static global definition of all supported erc20 tokens for all supported chains.
@@ -87,9 +108,9 @@ export const tokens: Readonly<NonEmptyArray<Token>> = isProduction ? [
   WETH,
   OptimismWETH,
   ArbitrumWETH,
-  Dai,
-  OptimismDai,
-  ArbitrumDai,
+  DAI,
+  OptimismDAI,
+  ArbitrumDAI,
   USDC,
   OptimismUSDC,
   ArbitrumUSDC,
@@ -97,20 +118,20 @@ export const tokens: Readonly<NonEmptyArray<Token>> = isProduction ? [
   OptimismUSDT,
   ArbitrumUSDT,
 ] : [
-  KovanWETH,
-  OptimismKovanWETH,
-  ArbitrumRinkebyWETH,
-  KovanDai,
-  OptimismKovanDai,
-  ArbitrumRinkebyDai,
-  ZkSyncGoerliDai,
-  KovanUSDC,
-  OptimismKovanUSDC,
-  ArbitrumRinkebyUSDC,
+  GoerliWETH,
+  OptimismGoerliWETH,
+  ArbitrumGoerliWETH,
+  GoerliDAI,
+  OptimismGoerliDAI,
+  ArbitrumGoerliDAI,
+  ZkSyncGoerliDAI,
+  GoerliUSDC,
+  OptimismGoerliUSDC,
+  ArbitrumGoerliUSDC,
   ZkSyncGoerliUSDC,
-  KovanUSDT,
-  OptimismKovanUSDT,
-  ZkSyncGoerliUSDT,
+  GoerliUSDT,
+  OptimismGoerliUSDT,
+  ArbitrumGoerliUSDT,
 ];
 
 export type TokenKey = string // see getTokenKey

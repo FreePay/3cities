@@ -5,7 +5,7 @@ import { useEthers, useLookupAddress } from "@usedapp/core";
 // is set, or else undefined if no address is connected.
 export default function useConnectedWalletAddressOrENS(): string | undefined {
     const { account } = useEthers();
-    const ens = useLookupAddress();
+    const ens = useLookupAddress(account);
     if (typeof account !== 'string') return undefined;
     if (typeof ens === 'string') return ens;
     return account;
