@@ -1,3 +1,9 @@
+
+![Release status](https://github.com/3cities/3cities/actions/workflows/release.yaml/badge.svg)
+![Dev branch status](https://github.com/3cities/3cities/actions/workflows/build-dev.yaml/badge.svg)
+
+## Create Eth App boilerplate below here
+
 This project was bootstrapped with [Create Eth App](https://github.com/paulrberg/create-eth-app).
 
 ## Project Structure
