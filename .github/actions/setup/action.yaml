@@ -2,7 +2,7 @@ name: Setup
 runs:
   using: composite
   steps:
-    # - uses: actions/checkout@v3 # seeing what happens when this is disabled
+    - uses: actions/checkout@v3 # this action may be (is currently always) run in a context where the code is already checked out, but here we run actions/checkout to ensure this action is context-free and internally consistent
     - uses: actions/setup-node@v3
       with:
         node-version-file: '.nvmrc'

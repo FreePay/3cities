@@ -24,7 +24,7 @@ jobs:
     if: ${{ needs.tag.outputs.new_tag != null }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v3 # check out code for actions/setup
       - uses: ./.github/actions/setup
       - run: yarn build
         env:
