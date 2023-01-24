@@ -1,4 +1,4 @@
-name: Release
+name: production release
 on:
   push:
     branches:
