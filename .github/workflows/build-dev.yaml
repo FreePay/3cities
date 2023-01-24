@@ -1,0 +1,14 @@
+name: Build dev
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+jobs:
+  build-dev:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup
+      - run: yarn build
+        env:
+          REACT_APP_GIT_TAG: dev
