@@ -1,19 +1,21 @@
-import { Arbitrum, ArbitrumRinkeby, Config, Kovan, Mainnet, NodeUrls, Optimism, OptimismKovan, ZkSyncTestnet } from "@usedapp/core";
+import { Arbitrum, ArbitrumGoerli, Config, Goerli, Mainnet, NodeUrls, Optimism, OptimismGoerli, ZkSyncTestnet } from "@usedapp/core";
 import { isProduction } from "./isProduction";
 
-const INFURA_PROJECT_ID = "defba93b47f748f09fcead8282b9e58e"; // TODO get our own Infura id, this is the one that ships with create-eth-app
-
-const readOnlyChainId: number = isProduction ? Mainnet.chainId : Kovan.chainId;
+const readOnlyChainId: number = isProduction ? Mainnet.chainId : Goerli.chainId;
 
 const readOnlyUrls: NodeUrls = isProduction ? {
   [Mainnet.chainId]: `https://eth-mainnet.alchemyapi.io/v2/Ol1s45gSHsu__OExc-Yh1bfxt-DVJMXq`,
-  [Optimism.chainId]: 'https://mainnet.optimism.io', // NB Optimism guidance is that this endpoint is not for production systems. They ask that you get your own optimism endpoint from Alchemy or Infura
-  [Arbitrum.chainId]: 'https://arb1.arbitrum.io/rpc',
+  [Optimism.chainId]: 'https://opt-mainnet.g.alchemy.com/v2/_mmH6xoATzxwTHYEpuVL_6Yf8mY_xf9H',
+  [Arbitrum.chainId]: 'https://arb-mainnet.g.alchemy.com/v2/qSTX0YehhXuj-fZycDbNlNuKhN4MBGP3',
 } : {
-  [Kovan.chainId]: `https://kovan.infura.io/v3/${INFURA_PROJECT_ID}`,
-  [OptimismKovan.chainId]: 'https://kovan.optimism.io',
-  [ArbitrumRinkeby.chainId]: 'https://rinkeby.arbitrum.io/rpc',
-  [ZkSyncTestnet.chainId]: 'https://zksync2-testnet.zksync.dev',
+  [Goerli.chainId]: 'https://eth-goerli.g.alchemy.com/v2/FlOQbm_9tqyr6vTDiUooBl6MI2MkCdR1',
+  [OptimismGoerli.chainId]: 'https://opt-goerli.g.alchemy.com/v2/65S7gxqK5X5HibXOreCUpvSODw9CFyvI',
+  [ArbitrumGoerli.chainId]: 'https://arb-goerli.g.alchemy.com/v2/8n3QLxXoagfvugVAzAD7e4yyZ74T6sE1',
+  [ZkSyncTestnet.chainId]: (() => {
+    const s = ZkSyncTestnet.rpcUrl;
+    if (s === undefined) throw "ZkSyncTestnet.rpcUrl undefined";
+    return s;
+  })(),
 };
 
 export const config: Config = {
