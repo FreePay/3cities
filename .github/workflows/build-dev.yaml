@@ -1,4 +1,4 @@
-# a workflow to automatically build the dev branch. Github automatically makes the result of this workflow available as a status check, and we configured the main branch's protected branch settings to require this status check to pass.
+# a workflow to automatically build the dev branch.
 name: dev branch build
 on:
   push:
@@ -11,3 +11,5 @@ jobs:
     steps:
       - uses: actions/checkout@v3 # check out code for actions/verify-build
       - uses: ./.github/actions/verify-build
+  dev-branch-build: # no-op job to force a workflow-level "dev-branch-build" github status check to be published. Github automatically makes the result of each workflow job available as a status check, and we configured the main branch's protected branch settings to require this workflow-level "dev-branch-build" status check to pass
+    needs: [verify-build]
