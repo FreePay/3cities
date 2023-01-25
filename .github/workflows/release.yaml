@@ -34,6 +34,8 @@ jobs:
       - run: yarn build
         env:
           REACT_APP_GIT_TAG: ${{ needs.tag.outputs.new_tag }}
+      - run: touch ./packages/react-app/build/static/fake-source.map # TODO rm temp to trigger failure
+      - run: (find ./packages/react-app/build | grep "map$" || exit 0 && exit 1;) # sanity check to ensure sourcemaps are disabled in production build to avoid leaking our web src
       - name: Pin to IPFS on Pinata
         id: pinata
         uses: aquiladev/ipfs-action@04b43256a5b66e2023e237d48c84784a2ec298dd
