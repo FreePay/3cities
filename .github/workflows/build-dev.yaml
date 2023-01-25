@@ -1,3 +1,4 @@
+# a workflow to automatically build the dev branch. Github automatically makes the result of this workflow available as a status check, and we configured the main branch's protected branch settings to require this status check to pass.
 name: dev branch build
 on:
   push:
@@ -5,11 +6,8 @@ on:
       - dev
   workflow_dispatch:
 jobs:
-  build-dev:
+  verify-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3 # check out code for actions/setup
-      - uses: ./.github/actions/setup
-      - run: yarn build
-        env:
-          REACT_APP_GIT_TAG: dev
+      - uses: actions/checkout@v3 # check out code for actions/verify-build
+      - uses: ./.github/actions/verify-build
