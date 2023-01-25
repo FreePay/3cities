@@ -15,6 +15,8 @@
     "subgraph:build": "yarn workspace @3cities/subgraph build",
     "subgraph:deploy": "yarn workspace @3cities/subgraph deploy",
     "react-app:analyze": "yarn workspace @3cities/react-app analyze",
+    "react-app:build:dev": "yarn workspace @3cities/react-app build:dev",
+    "react-app:build:prod-test": "yarn workspace @3cities/react-app build:prod-test",
     "react-app:build": "yarn workspace @3cities/react-app build",
     "react-app:eject": "yarn workspace @3cities/react-app eject",
     "react-app:start": "yarn workspace @3cities/react-app start",
