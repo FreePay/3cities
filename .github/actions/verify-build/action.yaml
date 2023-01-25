@@ -1,0 +1,9 @@
+name: verify build
+runs:
+  using: composite
+  steps:
+    - uses: ./.github/actions/setup # here we know the code for actions/setup has already been checked out because we're currently running checked out code
+    # TODO run tests
+    - run: yarn react-app:build:dev # verify dev build works
+    - run: yarn react-app:build:prod-test # verify prod-test build works
+    - run: yarn build # verify production build works
