@@ -5,5 +5,8 @@ runs:
     - uses: ./.github/actions/setup # here we know the code for actions/setup has already been checked out because we're currently running checked out code
     # TODO run tests
     - run: yarn react-app:build:dev # verify dev build works
+      shell: bash # NB when using a composite action type, it's necessary to set the shell (not sure why, and docs don't say), whereas you can use `run: yarn build` in a workflow without specifying the shell https://stackoverflow.com/a/71042698
     - run: yarn react-app:build:prod-test # verify prod-test build works
+      shell: bash
     - run: yarn build # verify production build works
+      shell: bash
