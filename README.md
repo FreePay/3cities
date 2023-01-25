@@ -1,6 +1,6 @@
 
-![Release status](https://github.com/3cities/3cities/actions/workflows/release.yaml/badge.svg)
-![Dev branch status](https://github.com/3cities/3cities/actions/workflows/build-dev.yaml/badge.svg)
+[![Release status](https://github.com/3cities/3cities/actions/workflows/release.yaml/badge.svg)](https://github.com/3cities/3cities/actions/workflows/release.yaml)
+[![Dev branch status](https://github.com/3cities/3cities/actions/workflows/build-dev.yaml/badge.svg)](https://github.com/3cities/3cities/actions/workflows/build-dev.yaml)
 
 ## Create Eth App boilerplate below here
 
