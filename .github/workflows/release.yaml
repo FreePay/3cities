@@ -21,6 +21,7 @@ jobs:
         id: github-tag-action
         uses: 3cities/github-tag-action@d745f2e74aaf1ee82e747b181f7a0967978abee0
         with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
           release_branches: .*
           default_bump: patch
   release:
