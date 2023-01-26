@@ -8,7 +8,7 @@ jobs:
   verify-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3 # check out code for actions/verify-build
+      - uses: 3cities/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # check out code for actions/verify-build
       - uses: ./.github/actions/verify-build
   tag:
     runs-on: ubuntu-latest
@@ -16,12 +16,11 @@ jobs:
       new_tag: ${{ steps.github-tag-action.outputs.new_tag }}
       changelog: ${{ steps.github-tag-action.outputs.changelog }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: 3cities/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
       - name: Bump and tag
         id: github-tag-action
-        uses: mathieudutour/github-tag-action@d745f2e74aaf1ee82e747b181f7a0967978abee0
+        uses: 3cities/github-tag-action@5bd9038fd1cc379dfe97904dda3a4b5b3af5d606
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
           release_branches: .*
           default_bump: patch
   release:
@@ -29,7 +28,7 @@ jobs:
     if: ${{ needs.tag.outputs.new_tag != null }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3 # check out code for actions/setup
+      - uses: 3cities/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # check out code for actions/setup
       - uses: ./.github/actions/setup
       - run: yarn build
         env:
@@ -38,7 +37,7 @@ jobs:
       - run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing release build" && exit 1);) # sanity check to ensure sourcemaps are disabled in production build to avoid leaking our web src
       - name: Pin to IPFS on Pinata
         id: pinata
-        uses: aquiladev/ipfs-action@04b43256a5b66e2023e237d48c84784a2ec298dd
+        uses: 3cities/ipfs-action@04b43256a5b66e2023e237d48c84784a2ec298dd
         with:
           path: ./packages/react-app/build
           pinName: 3cities ${{ needs.tag.outputs.new_tag }}
@@ -47,7 +46,7 @@ jobs:
           pinataSecret: ${{ secrets.PINATA_API_SECRET_KEY }}
       - name: Pin to IPFS on Infura
         id: infura
-        uses: aquiladev/ipfs-action@04b43256a5b66e2023e237d48c84784a2ec298dd
+        uses: 3cities/ipfs-action@04b43256a5b66e2023e237d48c84784a2ec298dd
         with:
           path: ./packages/react-app/build
           pinName: 3cities ${{ needs.tag.outputs.new_tag }}
@@ -56,7 +55,7 @@ jobs:
           infuraProjectSecret: ${{ secrets.INFURA_PROJECT_SECRET }}
       - name: Convert CIDv0 to CIDv1
         id: convert-cidv0
-        uses: uniswap/convert-cidv0-cidv1@v1.0.0
+        uses: 3cities/convert-cidv0-cidv1@c53a468c3602a85dd979c02ec4ddd9102849395e
         with:
           cidv0: ${{ steps.pinata.outputs.hash }}
       - name: Update DNS with new IPFS hash
@@ -65,16 +64,16 @@ jobs:
           RECORD_DOMAIN: '3cities.xyz'
           RECORD_NAME: '_dnslink'
           CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-        uses: textileio/cloudflare-update-dnslink@30414a408191218c8259e932ebdf4cbb7c652fe8
+        uses: 3cities/cloudflare-update-dnslink@30414a408191218c8259e932ebdf4cbb7c652fe8
         with:
           cid: ${{ steps.pinata.outputs.hash }}
       - name: Release
-        uses: actions/create-release@v1.1.0
+        uses: 3cities/release-action@a5996b3a733af99dce9d614dc1d70412e81735c7
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tag_name: ${{ needs.tag.outputs.new_tag }}
-          release_name: Release ${{ needs.tag.outputs.new_tag }}
+          tag: ${{ needs.tag.outputs.new_tag }}
+          name: Release ${{ needs.tag.outputs.new_tag }}
           body: |
             IPFS hash of the deployment:
             - CIDv0: `${{ steps.pinata.outputs.hash }}`
