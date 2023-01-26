@@ -2,12 +2,12 @@ name: setup
 runs:
   using: composite
   steps:
-    - uses: actions/checkout@v3 # this action may be (is currently always) run in a context where the code is already checked out, but here we run actions/checkout to ensure this action is context-free and internally consistent
-    - uses: actions/setup-node@v3
+    - uses: 3cities/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # this action may be (is currently always) run in a context where the code is already checked out, but here we run actions/checkout to ensure this action is context-free and internally consistent
+    - uses: 3cities/setup-node@3dbcda8bc2eb5ec6aa3fbde01feaae3236952db8
       with:
         node-version-file: '.nvmrc'
         cache: yarn
-    - uses: actions/cache@v3
+    - uses: 3cities/cache@2b5a782c6414f96354f95902141714b127692d1e
       id: install-cache
       with:
         path: node_modules/
