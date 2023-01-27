@@ -19,7 +19,7 @@ jobs:
       - uses: 3cities/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c
       - name: Bump version and push tag
         id: github-tag-action
-        uses: 3cities/github-tag-action@5bd9038fd1cc379dfe97904dda3a4b5b3af5d606
+        uses: 3cities/github-tag-action@1bda50e6b565208d1848942bdac0c97ed0b474ed
         with:
           release_branches: main
   release:
