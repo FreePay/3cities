@@ -34,36 +34,13 @@ jobs:
           REACT_APP_GIT_TAG: ${{ needs.tag.outputs.new_tag }}
       # - run: touch ./packages/react-app/build/static/fake-source.map # uncomment this to test source map detection and trigger a release workflow failure
       - run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing release build" && exit 1);) # sanity check to ensure sourcemaps are disabled in production build to avoid leaking our web src
-      - name: Pin to IPFS on Pinata
-        id: pinata
-        uses: 3cities/ipfs-action@2bba89f192102bc8e6bae48355d13ba2d1739cf2
-        with:
-          path: ./packages/react-app/build
-          pinName: 3cities ${{ needs.tag.outputs.new_tag }}
-          service: pinata
-          pinataKey: ${{ secrets.PINATA_API_KEY }}
-          pinataSecret: ${{ secrets.PINATA_API_SECRET_KEY }}
-      - name: Pin to IPFS on Infura
-        id: infura
-        uses: 3cities/ipfs-action@2bba89f192102bc8e6bae48355d13ba2d1739cf2
-        with:
-          path: ./packages/react-app/build
-          pinName: 3cities ${{ needs.tag.outputs.new_tag }}
-          service: infura
-          infuraProjectId: ${{ secrets.INFURA_PROJECT_ID }}
-          infuraProjectSecret: ${{ secrets.INFURA_PROJECT_SECRET }}
-      - name: Pin to IPFS on NFT.Storage
+      - name: Pin to IPFS on NFT.Storage # NFT.Storage is recommended by cloudflare as the pinning service that's the most quickly ingested by cloudflare ipfs gateways
         id: nft-storage
-        uses: 3cities/ipfs-action@2bba89f192102bc8e6bae48355d13ba2d1739cf2
+        uses: 3cities/ipfs-action@19879f7df881441a7f1ae2257b63674fa33b8f26
         with:
           path: ./packages/react-app/build
           service: nft.storage
           nftStorageApiKey: ${{ secrets.NFT_STORAGE_API_KEY }}
-      - name: Convert CIDv0 to CIDv1
-        id: convert-cidv0
-        uses: 3cities/convert-cidv0-cidv1@c53a468c3602a85dd979c02ec4ddd9102849395e
-        with:
-          cidv0: ${{ steps.pinata.outputs.hash }}
       - name: Update DNS with new IPFS hash
         env:
           CLOUDFLARE_TOKEN: ${{ secrets.CLOUDFLARE_TOKEN }}
@@ -72,7 +49,7 @@ jobs:
           CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
         uses: 3cities/cloudflare-update-dnslink@30414a408191218c8259e932ebdf4cbb7c652fe8
         with:
-          cid: ${{ steps.pinata.outputs.hash }}
+          cid: ${{ steps.nft-storage.outputs.hash }}
       - name: Release
         uses: 3cities/release-action@a5996b3a733af99dce9d614dc1d70412e81735c7
         env:
@@ -82,8 +59,7 @@ jobs:
           name: Release ${{ needs.tag.outputs.new_tag }}
           body: |
             IPFS hash of the deployment:
-            - CIDv0: `${{ steps.pinata.outputs.hash }}`
-            - CIDv1: `${{ steps.convert-cidv0.outputs.cidv1 }}`
+            - CIDv1: `${{ steps.nft-storage.outputs.hash }}`
 
             The latest release is always accessible via our alias to the Cloudflare IPFS gateway at [3cities.xyz](https://3cities.xyz).
 
@@ -93,8 +69,8 @@ jobs:
             Your 3cities settings are never remembered across different URLs.
 
             IPFS gateways:
-            - https://${{ steps.convert-cidv0.outputs.cidv1 }}.ipfs.dweb.link/
-            - https://${{ steps.convert-cidv0.outputs.cidv1 }}.ipfs.cf-ipfs.com/
-            - [ipfs://${{ steps.pinata.outputs.hash }}/](ipfs://${{ steps.pinata.outputs.hash }}/)
+            - https://${{ steps.nft-storage.outputs.hash }}.ipfs.dweb.link/
+            - https://${{ steps.nft-storage.outputs.hash }}.ipfs.cf-ipfs.com/
+            - [ipfs://${{ steps.nft-storage.outputs.hash }}/](ipfs://${{ steps.nft-storage.outputs.hash }}/)
 
             ${{ needs.tag.outputs.changelog }}
