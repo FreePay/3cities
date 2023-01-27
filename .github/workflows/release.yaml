@@ -38,7 +38,7 @@ jobs:
       - run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing release build" && exit 1);) # sanity check to ensure sourcemaps are disabled in production build to avoid leaking our web src
       - name: Pin to IPFS on Pinata
         id: pinata
-        uses: 3cities/ipfs-action@04b43256a5b66e2023e237d48c84784a2ec298dd
+        uses: 3cities/ipfs-action@872c81662fd56ec1f6d1d15bdd42aab9fa845f4c
         with:
           path: ./packages/react-app/build
           pinName: 3cities ${{ needs.tag.outputs.new_tag }}
@@ -47,13 +47,20 @@ jobs:
           pinataSecret: ${{ secrets.PINATA_API_SECRET_KEY }}
       - name: Pin to IPFS on Infura
         id: infura
-        uses: 3cities/ipfs-action@04b43256a5b66e2023e237d48c84784a2ec298dd
+        uses: 3cities/ipfs-action@872c81662fd56ec1f6d1d15bdd42aab9fa845f4c
         with:
           path: ./packages/react-app/build
           pinName: 3cities ${{ needs.tag.outputs.new_tag }}
           service: infura
           infuraProjectId: ${{ secrets.INFURA_PROJECT_ID }}
           infuraProjectSecret: ${{ secrets.INFURA_PROJECT_SECRET }}
+      - name: Pin to IPFS on NFT.Storage
+        id: nft.storage
+        uses: 3cities/ipfs-action@872c81662fd56ec1f6d1d15bdd42aab9fa845f4c
+        with:
+          path: ./packages/react-app/build
+          service: nft.storage
+          nftStorageApiKey: ${{ secrets.NFT_STORAGE_API_KEY }}
       - name: Convert CIDv0 to CIDv1
         id: convert-cidv0
         uses: 3cities/convert-cidv0-cidv1@c53a468c3602a85dd979c02ec4ddd9102849395e
