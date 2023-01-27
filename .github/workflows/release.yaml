@@ -55,7 +55,7 @@ jobs:
           infuraProjectId: ${{ secrets.INFURA_PROJECT_ID }}
           infuraProjectSecret: ${{ secrets.INFURA_PROJECT_SECRET }}
       - name: Pin to IPFS on NFT.Storage
-        id: nft.storage
+        id: nft-storage
         uses: 3cities/ipfs-action@872c81662fd56ec1f6d1d15bdd42aab9fa845f4c
         with:
           path: ./packages/react-app/build
