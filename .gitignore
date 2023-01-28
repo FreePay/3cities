@@ -1,8 +1,5 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
-# temporary untracked prod deployment script that contains API secrets
-deploy-prod
-
 # dependencies
 node_modules
 .pnp
@@ -30,4 +27,5 @@ yarn-error.log*
 packages/subgraph/build/
 packages/subgraph/src/types/
 
+# chain credentials for testing
 3cities-test-private-key
