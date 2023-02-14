@@ -22,6 +22,7 @@
         "@typescript-eslint"
     ],
     "rules": {
+        "@typescript-eslint/no-inferrable-types": "off",
         "no-restricted-imports": [
             "error",
             {
