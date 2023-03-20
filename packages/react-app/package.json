@@ -48,7 +48,7 @@
     "eslint-plugin-react-hooks": "^4.6.0",
     "postcss": "^8.4.21",
     "postcss-import": "^15.1.0",
-    "react-scripts": "https://gitpkg.now.sh/ryanberckmans/create-react-app/packages/react-scripts?postcss-tailwind-fix-v0.1",
+    "react-scripts": "https://gitpkg.now.sh/ryanberckmans/create-react-app/packages/react-scripts?08746634d19a73958ba9b764b3cda418e1fce151",
     "source-map-explorer": "^2.5.3",
     "tailwindcss": "^3.2.4",
     "typescript": "^4.9.4"
