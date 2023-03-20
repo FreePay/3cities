@@ -6,7 +6,7 @@ import { ReceiverProposedPayment } from "./agreements";
 import { Checkout } from './checkout';
 import { getChainName } from "./getChainName";
 import { LogicalAssetTicker, parseLogicalAssetAmount } from "./logicalAssets";
-import { StrategyPreferences } from "./strategies";
+import { StrategyPreferences } from "./StrategyPreferences";
 import { allTokenTickers } from "./tokens";
 import { allChainIds } from "./usedappConfig";
 
