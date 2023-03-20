@@ -1,5 +1,7 @@
 import { ProposedAgreement } from "./agreements"
-import { StrategyPreferences } from "./strategies";
+import { StrategyPreferences } from "./StrategyPreferences";
+
+// TODO s/checkout.ts/Checkout.ts
 
 // Checkout is a container type for all data required to create a
 // single checkout context. Ie. given a Checkout, a fresh page load
