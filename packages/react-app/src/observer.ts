@@ -2,19 +2,19 @@ import { useEffect, useState } from 'react';
 
 // If our needs ever expand and we may then want to consider replacing our homebrew observer with a more fully-featured reactive programming library, the closest facility to our observer that I've seen is a multicasted subject from rxjs https://rxjs.dev/guide/subject
 
-export type SubscriptionOnValueChangeHandler<T> = (t: T) => void;
-export type Unsubscribe = () => void;
-export interface Subscription<T> {
+export type SubscriptionOnValueChangeHandler<T> = (t: T) => void
+export type Unsubscribe = () => void
+export type Subscription<T> = Readonly<{
   unsubscribe: Unsubscribe, // unsubscribe from this subscription, ie. cancel this subscription. For example, a React component that subscribed should call unsubscribe on unmount to avoid memory leaks and pushing future values into the component that unmounted
   initialValue: T // Observer allows subscriptions to synchronous updates of a stream of values of type T, and this stream is memoryless, and so initialValue is the current value of T, and new values will be pushed into the subscription callback
-}
+}>
 
 // Observer<T> is a facility to subscribe to synchronous updates of a stream of values of type T. See ObservableValue.
-export interface Observer<T> {
+export type Observer<T> = Readonly<{
   subscribe: (s: SubscriptionOnValueChangeHandler<T>) => Subscription<T>, // subscribe to be pushed new values
   isObserver: true, // 
   getCurrentValue: () => T,
-}
+}>
 
 // isObserver returns a TypeScript type assertion that the passed o is
 // an Observer (or not)
@@ -59,11 +59,16 @@ export function isObserver<T>(o: T | Observer<T>): o is Observer<T> {
 // React components/subscriptions are properly unsubscribing on change
 // of observer (as is done in useObservedValue), then this should
 // avoid memory leaks in the case where ObservableValue is gc'd.
-export interface ObservableValue<T> {
+export type ObservableValue<T> = Readonly<{
   getCurrentValue: () => T, // current value of type T. Must be called by new clients if they want the current value because only new/future values are pushed into the observer subscription callback
   observer: Observer<T>, // Observer to pass to clients who want to subscribe to observe the stream of values of type T. Eg. Observer is passed to React components that will subscribe and re-render when the value is updated. Note that stream of values is memoryless and new client subscriptions can only read the current value and have future values pushed to them; historical values are lost (and gc'ing old values is an important property to avoid memory leaks in a long-running app)
   setValueAndNotifyObservers: (t: T) => void, // update the current value to the passed new value and push this new value to all subscriptions. The current (old) value is discarded
-}
+}>
+
+// ObservableValueUpdater is a narrower ObservableValue for clients
+// that only need to update the value being observed and don't need
+// the current value or observer.
+export type ObservableValueUpdater<T> = Pick<ObservableValue<T>, 'setValueAndNotifyObservers'>;
 
 // makeObservableValue constructs a canonical instance of
 // ObservableValue. See note on ObservableValue.
