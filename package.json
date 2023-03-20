@@ -10,6 +10,7 @@
   "private": true,
   "scripts": {
     "build": "yarn react-app:build",
+    "start": "yarn react-app:start",
     "subgraph:auth": "yarn workspace @3cities/subgraph auth",
     "subgraph:codegen": "yarn workspace @3cities/subgraph codegen",
     "subgraph:build": "yarn workspace @3cities/subgraph build",
