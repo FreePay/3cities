@@ -104,6 +104,7 @@ const BaseGoerliDAI: Token = { name: 'Dai', ticker: 'DAI', chainId: baseGoerli.i
 // Scroll Goerli Alpha block explorer #2: https://scroll.io/alpha/rollupscan
 const ScrollGoerliETH: NativeCurrency = { name: 'Ether', ticker: 'ETH', chainId: scrollTestnet.id, decimals: 18 };
 const ScrollGoerliUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: scrollTestnet.id, contractAddress: '0xa0d71b9877f44c744546d649147e3f1e70a93760', decimals: 18 }; // NB this particular test USDC has 18 decimals instead of USDC's usual 6
+const ScrollGoerliDAI: Token = { name: 'Dai', ticker: 'DAI', chainId: scrollTestnet.id, contractAddress: '0x3dF3514437FcdF5c4F714b7025b625b9Acb3e9E1', decimals: 18 }; // this is a random DAI plucked from the explorer and isn't listed in the scroll bridge
 
 function isTokenOnASupportedChain(token: NativeCurrency | Token): boolean {
   return allSupportedChainIds.indexOf(token.chainId) > -1;
@@ -155,6 +156,7 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     GoerliDAI,
     OptimismGoerliDAI,
     ArbitrumGoerliDAI,
+    ScrollGoerliDAI,
     // zkSyncTestnetDAI, // TODO fix/uncomment since zkSyncTestnet regenesis
     BaseGoerliDAI,
     GoerliUSDC,
