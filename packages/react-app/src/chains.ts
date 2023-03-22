@@ -7,40 +7,40 @@ import { NonEmptyArray } from './NonEmptyArray';
 const isTestShorterListOfChains = false; // WARNING test flag to be manually toggled during develpment to cull the list of supported chains down to a minimal set for testing purposes
 // ***************************************************************
 
-export declare const arbitrumNova: {
-  readonly id: 42170;
-  readonly name: "Arbitrum Nova";
-  readonly network: "arbitrumNova";
-  readonly nativeCurrency: {
-    readonly name: "Ether";
-    readonly symbol: "ETH";
-    readonly decimals: 18;
-  };
-  readonly rpcUrls: {
-    readonly default: {
-      readonly http: readonly ["https://nova.arbitrum.io/rpc"];
-    };
-    readonly public: {
-      readonly http: readonly ["https://nova.arbitrum.io/rpc"];
-    };
-  };
-  readonly blockExplorers: {
-    readonly etherscan: {
-      readonly name: "Arbiscan";
-      readonly url: "https://nova.arbiscan.io";
-    };
-    readonly default: {
-      readonly name: "Arbiscan";
-      readonly url: "https://nova.arbiscan.io";
-    };
-  };
-  readonly contracts: {
-    readonly multicall3: {
-      readonly address: "0xcA11bde05977b3631167028862bE2a173976CA11";
-      readonly blockCreated: 1746963;
-    };
-  };
-};
+export const arbitrumNova: Readonly<Chain> = Object.freeze<Chain>({
+  id: 42170,
+  name: "Arbitrum Nova",
+  network: "arbitrumNova",
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ["https://nova.arbitrum.io/rpc"],
+    },
+    public: {
+      http: ["https://nova.arbitrum.io/rpc"],
+    },
+  },
+  blockExplorers: {
+    etherscan: {
+      name: "Arbiscan",
+      url: "https://nova.arbiscan.io",
+    },
+    default: {
+      name: "Arbiscan",
+      url: "https://nova.arbiscan.io",
+    },
+  },
+  contracts: {
+    multicall3: {
+      address: "0xcA11bde05977b3631167028862bE2a173976CA11",
+      blockCreated: 1746963,
+    },
+  },
+});
 
 export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
   const cs = (isProduction ? [
