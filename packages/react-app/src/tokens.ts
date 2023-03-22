@@ -1,5 +1,5 @@
 import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, scrollTestnet, zkSyncTestnet } from '@wagmi/core/chains';
-import { allSupportedChainIds } from "./chains";
+import { allSupportedChainIds, arbitrumNova } from "./chains";
 import { isProduction } from "./isProduction";
 import { NonEmptyArray } from "./NonEmptyArray";
 import { NativeCurrency, Token } from "./Token";
@@ -27,8 +27,8 @@ const isTestShorterListOfTokens = false; // WARNING test flag to be manually tog
 // config.
 
 // By our convention, in our token registry, every production network
-// has a single testnet. Here, we have adopted Goerli as the single
-// testnet for mainnet. See above note on Goerli vs Sepolia.
+// has zero or one testnets. Here, we have adopted Goerli as the
+// single testnet for mainnet. See above note on Goerli vs Sepolia.
 // Mainnet chainId: 1
 // Goerli chainId: 5
 const ETH: NativeCurrency = { name: 'Ether', ticker: 'ETH', chainId: mainnet.id, decimals: 18 };
@@ -75,6 +75,14 @@ const ArbitrumGoerliUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: a
 const ArbitrumUSDT: Token = { name: 'Tether USD', ticker: 'USDT', chainId: arbitrum.id, contractAddress: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', decimals: 6 };
 const ArbitrumGoerliUSDT: Token = { name: 'Tether USD', ticker: 'USDT', chainId: arbitrumGoerli.id, contractAddress: '0xB401e876346B3C77DD51781Efba5223d2F1e6697', decimals: 6 };
 
+// Arbitrum Nova mainnet chainId: 42170
+// Arbitrum Nova block explorer: https://nova.arbiscan.io
+// Arbitrum Nova testnet (none)
+const ArbitrumNovaETH: NativeCurrency = { name: 'Ether', ticker: 'ETH', chainId: arbitrumNova.id, decimals: 18 };
+// const ArbitrumNovaWETH // Slingshot DEX and a few other sources seem to report the ArbitrumNovaWETH contract as https://nova-explorer.arbitrum.io/token/0x722E8BdD2ce80A4422E880164f2079488e115365/token-transfers . However, I don't understand why this contract is an upgradable proxy instead of an immutable WETH contract, so I have not listed it for now. TODO investigate
+const ArbitrumNovaDAI: Token = { name: 'Dai', ticker: 'DAI', chainId: arbitrumNova.id, contractAddress: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1', decimals: 18 };
+const ArbitrumNovaUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: arbitrumNova.id, contractAddress: '0x750ba8b76187092B0D1E87E28daaf484d1b5273b', decimals: 6 };
+
 // zkSync Testnet token list: https://zksync2-testnet.zkscan.io/tokens
 // zkSync Testnet chainId: 280
 const zkSyncTestnetETH: NativeCurrency = { name: 'Ether', ticker: 'ETH', chainId: zkSyncTestnet.id, decimals: 18 };
@@ -108,6 +116,7 @@ export const nativeCurrencies: Readonly<NonEmptyArray<NativeCurrency>> = (() => 
     ETH,
     OptimismETH,
     ArbitrumETH,
+    ArbitrumNovaETH,
   ] : [
     GoerliETH,
     OptimismGoerliETH,
@@ -131,9 +140,11 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     DAI,
     OptimismDAI,
     ArbitrumDAI,
+    ArbitrumNovaDAI,
     USDC,
     OptimismUSDC,
     ArbitrumUSDC,
+    ArbitrumNovaUSDC,
     USDT,
     OptimismUSDT,
     ArbitrumUSDT,
@@ -154,10 +165,8 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     GoerliUSDT,
     OptimismGoerliUSDT,
     ArbitrumGoerliUSDT,
-  ])
-    .filter(isTokenOnASupportedChain) // here we must drop tokens on unsupported chains to ensure that all tokens in our registry are in fact on supported chains so that our token and chain registries are consistent with each other
-    .filter((t) => !isTestShorterListOfTokens || t.ticker === 'DAI') // ie. drop all tokens but DAI if this test flag is set to help test with a shorter list of tokens
-    ;
+  ].filter((t) => !isTestShorterListOfTokens || t.ticker === 'USDC') // ie. drop all tokens but one ticker if this test flag is set to help test with a shorter list of tokens
+  ).filter(isTokenOnASupportedChain); // here we must drop tokens on unsupported chains to ensure that all tokens in our registry are in fact on supported chains so that our token and chain registries are consistent with each other
   const t0 = ts[0];
   if (t0 === undefined) throw new Error(`tokens: set of supported tokens is empty`);
   else return [t0, ...ts.slice(1)];
