@@ -9,6 +9,7 @@ export type Token = Readonly<{
   decimals: IntRange<0, 19>;
   chainId: number;
   contractAddress: `0x${string}`;
+  testnet?: true; // true iff this token is on a testnet chain
 }>
 
 // NativeCurrency is our type for each chain's native currency, eg.
@@ -22,6 +23,7 @@ export type NativeCurrency = Readonly<{
   decimals: 18; // all EVM chains should implement 18 decimals in their native currencies in order to remain compatible with solidity
   chainId: number;
   contractAddress?: never;
+  testnet?: true; // true iff this token is on a testnet chain
 }>
 
 // const t: Token = { name: 'Test', ticker: 'T', decimals: 18, chainId: 5, contractAddress: "0x123" };
