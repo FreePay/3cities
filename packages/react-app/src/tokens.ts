@@ -1,5 +1,5 @@
-import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, scrollTestnet, zkSyncTestnet } from '@wagmi/core/chains';
-import { allSupportedChainIds, arbitrumNova } from "./chains";
+import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, polygonZkEvmTestnet, scrollTestnet } from '@wagmi/core/chains';
+import { allSupportedChainIds, arbitrumNova, polygonZkEvm, taikoTestnet, zkSync, zkSyncTestnet } from "./chains";
 import { isProduction } from "./isProduction";
 import { NonEmptyArray } from "./NonEmptyArray";
 import { NativeCurrency, Token } from "./Token";
@@ -41,6 +41,8 @@ const USDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: mainnet.id, con
 const GoerliUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: goerli.id, contractAddress: '0x07865c6E87B9F70255377e024ace6630C1Eaa37F', decimals: 6 };
 const USDT: Token = { name: 'Tether USD', ticker: 'USDT', chainId: mainnet.id, contractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7', decimals: 6 };
 const GoerliUSDT: Token = { name: 'Tether USD', ticker: 'USDT', chainId: goerli.id, contractAddress: '0xC2C527C0CACF457746Bd31B2a698Fe89de2b6d49', decimals: 6 };
+const LUSD: Token = { name: 'Liquity USD', ticker: 'LUSD', chainId: mainnet.id, contractAddress: '0x5f98805A4E8be255a32880FDeC7F6728C6568bA0', decimals: 18 };
+// TODO GoerliLUSD
 
 // Optimism L2 token list (see very useful reference for mainnet, Optimism Goerli, Goerli, and other chains https://static.optimism.io/optimism.tokenlist.json)
 // Optimism mainnet chainId: 10
@@ -57,6 +59,8 @@ const OptimismUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: optimis
 const OptimismGoerliUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: optimismGoerli.id, contractAddress: '0x7E07E15D2a87A24492740D16f5bdF58c16db0c4E', decimals: 6 };
 const OptimismUSDT: Token = { name: 'Tether USD', ticker: 'USDT', chainId: optimism.id, contractAddress: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58', decimals: 6 };
 const OptimismGoerliUSDT: Token = { name: 'Tether USD', ticker: 'USDT', chainId: optimismGoerli.id, contractAddress: '0x853eb4bA5D0Ba2B77a0A5329Fd2110d5CE149ECE', decimals: 6 };
+const OptimismLUSD: Token = { name: 'Liquity USD', ticker: 'LUSD', chainId: optimism.id, contractAddress: '0xc40F949F8a4e094D1b49a23ea9241D289B7b2819', decimals: 18 };
+// TODO OptimismGoerliLUSD
 
 // Arbitrum token list: https://tokenlist.arbitrum.io/ArbTokenLists/arbed_arb_whitelist_era.json
 // Arbitrum mainnet chainId: 42161
@@ -74,6 +78,8 @@ const ArbitrumUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: arbitru
 const ArbitrumGoerliUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: arbitrumGoerli.id, contractAddress: '0x8FB1E3fC51F3b789dED7557E680551d93Ea9d892', decimals: 6 };
 const ArbitrumUSDT: Token = { name: 'Tether USD', ticker: 'USDT', chainId: arbitrum.id, contractAddress: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', decimals: 6 };
 const ArbitrumGoerliUSDT: Token = { name: 'Tether USD', ticker: 'USDT', chainId: arbitrumGoerli.id, contractAddress: '0xB401e876346B3C77DD51781Efba5223d2F1e6697', decimals: 6 };
+const ArbitrumLUSD: Token = { name: 'Liquity USD', ticker: 'LUSD', chainId: arbitrum.id, contractAddress: '0x93b346b6BC2548dA6A1E7d98E9a421B42541425b', decimals: 18 };
+// TODO ArbitrumGoerliLUSD
 
 // Arbitrum Nova mainnet chainId: 42170
 // Arbitrum Nova block explorer: https://nova.arbiscan.io
@@ -82,15 +88,34 @@ const ArbitrumNovaETH: NativeCurrency = { name: 'Ether', ticker: 'ETH', chainId:
 // const ArbitrumNovaWETH // Slingshot DEX and a few other sources seem to report the ArbitrumNovaWETH contract as https://nova-explorer.arbitrum.io/token/0x722E8BdD2ce80A4422E880164f2079488e115365/token-transfers . However, I don't understand why this contract is an upgradable proxy instead of an immutable WETH contract, so I have not listed it for now. TODO investigate
 const ArbitrumNovaDAI: Token = { name: 'Dai', ticker: 'DAI', chainId: arbitrumNova.id, contractAddress: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1', decimals: 18 };
 const ArbitrumNovaUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: arbitrumNova.id, contractAddress: '0x750ba8b76187092B0D1E87E28daaf484d1b5273b', decimals: 6 };
+// TODO USDT
+// TODO LUSD
 
-// zkSync Testnet token list: https://zksync2-testnet.zkscan.io/tokens
-// zkSync Testnet chainId: 280
+// zkSync and zkSyncTestnet
+const zkSyncETH: NativeCurrency = { name: 'Ether', ticker: 'ETH', chainId: zkSync.id, decimals: 18 };
 const zkSyncTestnetETH: NativeCurrency = { name: 'Ether', ticker: 'ETH', chainId: zkSyncTestnet.id, decimals: 18 };
-// const zkSyncTestnetWETH: Token = { name: 'Wrapped Ether', ticker: 'WETH', chainId: zkSyncTestnet.id, contractAddress: 'TODO', decimals: 18}; // TODO I found a found a contract src for WETH on zkSync 2.0, but I couldn't find a WETH deployment on zkSyncTestnet https://github.com/syncswap/weth --> maybe WETH is intended to not exist on zkSync as some possible consequence of being a zk rollup / emphasizing account abstraction?
-// NB zkSyncTestnet regenesis on Feb 8th, so Dai and USDC addresses need to be updated:
-// const zkSyncTestnetDAI: Token = { name: 'Dai', ticker: 'DAI', chainId: zkSyncTestnet.id, contractAddress: 'TODO', decimals: 18 };
-// const zkSyncTestnetUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: zkSyncTestnet.id, contractAddress: 'TODO', decimals: 6 };
-// const zkSyncTestnetUSDT: Token = { name: 'Tether USD', ticker: 'USDT', chainId: zkSyncTestnet.id, contractAddress: 'TODO', decimals: 6 };
+// TODO does zkSync use WETH?
+const zkSyncUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: zkSync.id, contractAddress: '0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4', decimals: 6 };
+const zkSyncTestnetUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: zkSyncTestnet.id, contractAddress: '0x0faF6df7054946141266420b43783387A78d82A9', decimals: 6 };
+// TODO mainnet DAI
+const zkSyncTestnetDAI: Token = { name: 'Dai', ticker: 'DAI', chainId: zkSyncTestnet.id, contractAddress: '0x3e7676937A7E96CFB7616f255b9AD9FF47363D4b', decimals: 18 };
+// TODO USDT
+// TODO LUSD
+
+// polygonZkEvm and polygonZkEvmTestnet
+// mainnet bridge https://bridge.zkevm-rpc.com
+// testnet bridge https://public.zkevm-test.net/login
+const PolygonZkEvmETH: NativeCurrency = { name: 'Ether', ticker: 'ETH', chainId: polygonZkEvm.id, decimals: 18 };
+const PolygonZkEvmTestnetETH: NativeCurrency = { name: 'Ether', ticker: 'ETH', chainId: polygonZkEvmTestnet.id, decimals: 18 };
+// TODO PolygonZkEvmWETH
+const PolygonZkEvmTestnetWETH: Token = { name: 'Wrapped Ether', ticker: 'WETH', chainId: polygonZkEvmTestnet.id, contractAddress: '0x3ce1bab7b7bAE26775F81Ee3576a99f0EAd5B33C', decimals: 18 };
+const PolygonZkEvmUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: polygonZkEvm.id, contractAddress: '0xA8CE8aee21bC2A48a5EF670afCc9274C7bbbC035', decimals: 6 };
+// const PolygonZkEvmTestnetUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: polygonZkEvmTestnet.id, contractAddress: '', decimals: 6 }; // TODO get contract address (I couldn't bridge test USDC because I couldn't find any test USDC matching the contract polygon's test bridge uses, and I stopped there.)
+const PolygonZkEvmDAI: Token = { name: 'Dai', ticker: 'DAI', chainId: polygonZkEvm.id, contractAddress: '0xC5015b9d9161Dca7e18e32f6f25C4aD850731Fd4', decimals: 18 };
+// const PolygonZkEvmTestnetDAI: Token = { name: 'Dai', ticker: 'DAI', chainId: polygonZkEvmTestnet.id, contractAddress: '', decimals: 18 }; // TODO get contract address (I couldn't bridge test USDC their test bridge doesn't list USDC, and I wasn't sure which goerli USDC contract might be preferred, and I stopped there.)
+// TODO USDT
+const PolygonZkEvmLUSD: Token = { name: 'Liquity USD', ticker: 'LUSD', chainId: polygonZkEvm.id, contractAddress: '0x01E9A866c361eAd20Ab4e838287DD464dc67A50e', decimals: 18 };
+// TODO PolygonZkEvmTestnetLUSD
 
 // Base mainnet chainId: 8453 (Base mainnet is not yet launched)
 // Base block explorer: https://basescan.org/
@@ -106,6 +131,11 @@ const ScrollGoerliETH: NativeCurrency = { name: 'Ether', ticker: 'ETH', chainId:
 const ScrollGoerliUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: scrollTestnet.id, contractAddress: '0xa0d71b9877f44c744546d649147e3f1e70a93760', decimals: 18 }; // NB this particular test USDC has 18 decimals instead of USDC's usual 6
 const ScrollGoerliDAI: Token = { name: 'Dai', ticker: 'DAI', chainId: scrollTestnet.id, contractAddress: '0x3dF3514437FcdF5c4F714b7025b625b9Acb3e9E1', decimals: 18 }; // this is a random DAI plucked from the explorer and isn't listed in the scroll bridge
 
+// Taiko testnet
+const TaikoTestnetETH: NativeCurrency = { name: 'Ether', ticker: 'ETH', chainId: taikoTestnet.id, decimals: 18 };
+const TaikoTestnetUSDC: Token = { name: 'USD Coin', ticker: 'USDC', chainId: taikoTestnet.id, contractAddress: '0xCea5BFE9542eDf828Ebc2ed054CA688f0224796f', decimals: 18 }; // NB this is actually the HORSE token on taiko A2 https://explorer.a2.taiko.xyz/token/0xCea5BFE9542eDf828Ebc2ed054CA688f0224796f/token-transfers
+const TaikoTestnetDAI: Token = { name: 'Dai', ticker: 'DAI', chainId: taikoTestnet.id, contractAddress: '0x6048e5ca54c021D39Cd33b63A44980132bcFA66d', decimals: 18 }; // NB this is actually the BLL (Bull) token on taiko A2 https://explorer.a2.taiko.xyz/token/0x6048e5ca54c021D39Cd33b63A44980132bcFA66d/token-transfers
+
 function isTokenOnASupportedChain(token: NativeCurrency | Token): boolean {
   return allSupportedChainIds.indexOf(token.chainId) > -1;
 }
@@ -118,13 +148,17 @@ export const nativeCurrencies: Readonly<NonEmptyArray<NativeCurrency>> = (() => 
     OptimismETH,
     ArbitrumETH,
     ArbitrumNovaETH,
+    zkSyncETH,
+    PolygonZkEvmETH,
   ] : [
     GoerliETH,
     OptimismGoerliETH,
     ArbitrumGoerliETH,
     zkSyncTestnetETH,
+    PolygonZkEvmTestnetETH,
     BaseGoerliETH,
     ScrollGoerliETH,
+    TaikoTestnetETH,
   ]).filter(isTokenOnASupportedChain); // here we must drop tokens on unsupported chains to ensure that all tokens in our registry are in fact on supported chains so that our token and chain registries are consistent with each other
   const t0 = ts[0];
   if (t0 === undefined) throw new Error(`nativeCurrencies: set of supported nativeCurrencies is empty`);
@@ -142,28 +176,38 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     OptimismDAI,
     ArbitrumDAI,
     ArbitrumNovaDAI,
+    PolygonZkEvmDAI,
     USDC,
     OptimismUSDC,
     ArbitrumUSDC,
     ArbitrumNovaUSDC,
+    zkSyncUSDC,
+    PolygonZkEvmUSDC,
     USDT,
     OptimismUSDT,
     ArbitrumUSDT,
+    LUSD,
+    OptimismLUSD,
+    ArbitrumLUSD,
+    PolygonZkEvmLUSD,
   ] : [
     GoerliWETH,
     OptimismGoerliWETH,
     ArbitrumGoerliWETH,
+    PolygonZkEvmTestnetWETH,
     GoerliDAI,
     OptimismGoerliDAI,
     ArbitrumGoerliDAI,
+    zkSyncTestnetDAI,
     ScrollGoerliDAI,
-    // zkSyncTestnetDAI, // TODO fix/uncomment since zkSyncTestnet regenesis
+    TaikoTestnetDAI,
     BaseGoerliDAI,
     GoerliUSDC,
     OptimismGoerliUSDC,
     ArbitrumGoerliUSDC,
+    zkSyncTestnetUSDC,
     ScrollGoerliUSDC,
-    // zkSyncTestnetUSDC, // TODO fix/uncomment since zkSyncTestnet regenesis
+    TaikoTestnetUSDC,
     GoerliUSDT,
     OptimismGoerliUSDT,
     ArbitrumGoerliUSDT,

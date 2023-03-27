@@ -27,6 +27,7 @@ export const logicalAssetsByTicker: Readonly<{ [key in LogicalAssetTicker]: Logi
       'DAI': true,
       'USDC': true,
       'USDT': true,
+      'LUSD': true,
     },
   },
   'CAD': {
