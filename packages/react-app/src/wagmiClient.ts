@@ -58,8 +58,7 @@ export const wagmiClient = createClient({
     new MetaMaskConnector({
       chains,
       options: {
-        shimDisconnect: true, // here we pass true for both shimDisconnect and shimChainChangedDisconnect so that wagmi patches ergonomic holes in metamask (and possibly some injected wallets), or else the user may experience ergonomically poor UX, including (i) user diconnects their wallet from inside the wallet browser extension, but this disconnect doesn't register with the app, so the app remains 'connected' when in fact it's disconnected, and (ii) user switches the chain from inside the wallet browser extension, and this chain switch causes the wallet to disconnect from the app --> NB these shims are imperfect and the user's wallet will still sometimes disconnect when the user switches chains from inside the wallet https://github.com/MetaMask/metamask-extension/issues/13375 https://github.com/wagmi-dev/wagmi/issues/563
-        shimChainChangedDisconnect: true,
+        shimDisconnect: true, // here we pass true for shimDisconnect so that wagmi patches ergonomic holes in metamask (and possibly some injected wallets), or else the user may experience ergonomically poor UX, such as the user diconnects their wallet from inside the wallet browser extension, but this disconnect doesn't register with the app, so the app remains 'connected' when in fact it's disconnected.
       },
     }),
     new CoinbaseWalletConnector({
@@ -72,8 +71,7 @@ export const wagmiClient = createClient({
     new InjectedConnector({ // NB connectkit's wallet connection modal will only show InjectedConnector in the list of available wallets if there's actually a non-metamask, non-coinbase browser wallet extension, see shouldShowInjectedConnector https://github.com/family/connectkit/blob/8ac82c816c76df9154c37347c0721219d2b88a14/packages/connectkit/src/components/Pages/Connectors/index.tsx#L115 --> I was able to get Backpack.app wallet working --> connectkit detects this InjectedConnector in the wagmi.Client and also detects the Backpack browser extension, and then surfaces the wallet option "Browser Wallet" (NB phantom doesn't show up as an InjectedConnector/Browser Wallet, nor does it show up as a fake MetaMask wallet, it simply doesn't show up)
       chains,
       options: {
-        shimDisconnect: true, // here we pass true for both shimDisconnect and shimChainChangedDisconnect so that wagmi patches ergonomic holes in metamask (and possibly some injected wallets), or else the user may experience ergonomically poor UX, including (i) user diconnects their wallet from inside the wallet browser extension, but this disconnect doesn't register with the app, so the app remains 'connected' when in fact it's disconnected, and (ii) user switches the chain from inside the wallet browser extension, and this chain switch causes the wallet to disconnect from the app --> NB these shims are imperfect and the user's wallet will still sometimes disconnect when the user switches chains from inside the wallet https://github.com/MetaMask/metamask-extension/issues/13375 https://github.com/wagmi-dev/wagmi/issues/563
-        shimChainChangedDisconnect: true,
+        shimDisconnect: true, // here we pass true for shimDisconnect so that wagmi patches ergonomic holes in metamask (and possibly some injected wallets), or else the user may experience ergonomically poor UX, such as the user diconnects their wallet from inside the wallet browser extension, but this disconnect doesn't register with the app, so the app remains 'connected' when in fact it's disconnected.
         name: (detectedName: string | string[]) =>
           `Injected (${typeof detectedName === 'string'
             ? detectedName
