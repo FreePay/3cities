@@ -7,7 +7,7 @@
 // type Fish = { species: 'goldfish' | 'tuna'; weight: number; };
 // type Tuna = Narrow<Fish, 'species', 'tuna'>; --> the set of all Fish where Fish['species'] == 'tuna'
 export type Narrow<A, B extends keyof A, C extends A[B]> = A & {
-  [K in B]-?: A[K] extends object
+  [K in B]: A[K] extends object
   ? C extends Narrow<A[K], keyof A[K], A[K][keyof A[K]]> ? C : never
   : Extract<A[K], C>;
 };
