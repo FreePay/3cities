@@ -1,4 +1,4 @@
-import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, scrollTestnet, zkSyncTestnet } from '@wagmi/core/chains';
+import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, polygonZkEvmTestnet, scrollTestnet } from '@wagmi/core/chains';
 import { Chain } from 'wagmi';
 import { isProduction } from './isProduction';
 import { NonEmptyArray } from './NonEmptyArray';
@@ -6,6 +6,36 @@ import { NonEmptyArray } from './NonEmptyArray';
 // ***************************************************************
 const isTestShorterListOfChains = false; // WARNING test flag to be manually toggled during develpment to cull the list of supported chains down to a minimal set for testing purposes
 // ***************************************************************
+
+export const taikoTestnet: Readonly<Chain> = Object.freeze<Chain>({
+  id: 167004,
+  name: "Taiko A2",
+  network: "taikoA2",
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ["https://l2rpc.a2.taiko.xyz/"],
+    },
+    public: {
+      http: ["https://l2rpc.a2.taiko.xyz/"],
+    },
+  },
+  blockExplorers: {
+    etherscan: {
+      name: "Taiko Explorer",
+      url: "https://l2explorer.a2.taiko.xyz",
+    },
+    default: {
+      name: "Taiko Explorer",
+      url: "https://l2explorer.a2.taiko.xyz",
+    },
+  },
+  testnet: true,
+});
 
 export const arbitrumNova: Readonly<Chain> = Object.freeze<Chain>({
   id: 42170,
@@ -42,6 +72,101 @@ export const arbitrumNova: Readonly<Chain> = Object.freeze<Chain>({
   },
 });
 
+export const zkSyncTestnet: Readonly<Chain> = Object.freeze<Chain>({ // here we declare zkSyncTestnet even though wagmi exports zkSyncTestnet because wagmi's zkSyncTestnet is currently out of date with the latest zkSyncTestnet rpc endpoints.
+  id: 280,
+  name: "zkSync Testnet",
+  network: "zkSync Testnet",
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ["https://testnet.era.zksync.dev"],
+      webSocket: ["wss://testnet.era.zksync.dev/ws"],
+    },
+    public: {
+      http: ["https://testnet.era.zksync.dev"],
+      webSocket: ["wss://testnet.era.zksync.dev/ws"],
+    },
+  },
+  blockExplorers: {
+    etherscan: {
+      name: "zkSync Explorer",
+      url: "https://goerli.explorer.zksync.io",
+    },
+    default: {
+      name: "zkSync Explorer",
+      url: "https://goerli.explorer.zksync.io",
+    },
+  },
+  // TODO add multicall3 to support batched useContractReads -- canonical multicall3 contract deployment doesn't yet exist on zkSyncTestnet 0xcA11bde05977b3631167028862bE2a173976CA11
+  testnet: true,
+});
+
+export const zkSync: Readonly<Chain> = Object.freeze<Chain>({ // here we declare zkSync even though wagmi exports zkSync because wagmi's zkSync is currently out of date with the final zkSync mainnet rpc endpoints.
+  id: 324,
+  name: "zkSync",
+  network: "zkSync",
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ["https://mainnet.era.zksync.io"],
+      webSocket: ["wss://mainnet.era.zksync.io/ws"],
+    },
+    public: {
+      http: ["https://mainnet.era.zksync.io"],
+      webSocket: ["wss://mainnet.era.zksync.io/ws"],
+    },
+  },
+  blockExplorers: {
+    etherscan: {
+      name: "zkSync Explorer",
+      url: "https://explorer.zksync.io",
+    },
+    default: {
+      name: "zkSync Explorer",
+      url: "https://explorer.zksync.io",
+    },
+  },
+  // TODO add multicall3 to support batched useContractReads -- canonical multicall3 contract deployment doesn't yet exist on zkSync 0xcA11bde05977b3631167028862bE2a173976CA11
+});
+
+export const polygonZkEvm: Readonly<Chain> = Object.freeze<Chain>({ // wagmi doesn't yet support polygonZkEvm
+  id: 1101,
+  name: "polygon zkEVM",
+  network: "polygon-zkevm",
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ["https://zkevm-rpc.com"],
+    },
+    public: {
+      http: ["https://zkevm-rpc.com"],
+    },
+  },
+  blockExplorers: {
+    etherscan: {
+      name: "Polygon zkEVM Explorer",
+      url: "https://zkevm.polygonscan.com/",
+    },
+    default: {
+      name: "Polygon zkEVM Explorer",
+      url: "https://zkevm.polygonscan.com/",
+    },
+  },
+  // TODO add multicall3 to support batched useContractReads -- canonical multicall3 contract deployment doesn't yet exist on polygonZkEvm 0xcA11bde05977b3631167028862bE2a173976CA11
+});
+
 export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
   const cs = (isProduction ? [
     // ********* BEGIN PRODUCTION networks *********
@@ -49,6 +174,8 @@ export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
     optimism,
     arbitrum,
     arbitrumNova,
+    zkSync,
+    polygonZkEvm,
     // ********* END PRODUCTION networks *********
   ] : [
     // ********* BEGIN TEST networks *********
@@ -56,10 +183,12 @@ export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
     optimismGoerli,
     arbitrumGoerli,
     zkSyncTestnet,
+    polygonZkEvmTestnet,
     baseGoerli,
     scrollTestnet,
+    taikoTestnet,
     // ********* END TEST networks *********
-    ].filter((c: Chain) => !isTestShorterListOfChains || c.id === scrollTestnet.id)
+  ].filter((c: Chain) => !isTestShorterListOfChains || c.id === scrollTestnet.id)
   );
   const c0 = cs[0];
   if (c0 === undefined) throw new Error(`chainsSupportedBy3cities: set of supported chains is empty`);
