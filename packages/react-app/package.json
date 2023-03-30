@@ -33,8 +33,9 @@
     "react-icons": "^4.7.1",
     "react-router-dom": "^6.6.2",
     "react-use-clipboard": "^1.0.9",
+    "sonner": "^0.3.0",
     "use-immer": "^0.8.1",
-    "wagmi": "^0.10.10"
+    "wagmi": "0.12.6"
   },
   "devDependencies": {
     "@testing-library/dom": "^8.19.1",
