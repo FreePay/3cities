@@ -1,9 +1,12 @@
 import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, polygonZkEvmTestnet, scrollTestnet } from '@wagmi/core/chains';
 import { Chain } from 'wagmi';
-import { allSupportedChainIds, arbitrumNova, polygonZkEvm, taikoTestnet, zkSync, zkSyncTestnet } from "./chains";
+import { allSupportedChainIds, arbitrumNova, lineaTestnet, polygonZkEvm, taikoTestnet, zkSync, zkSyncTestnet } from "./chains";
 import { isProduction } from "./isProduction";
 import { NonEmptyArray } from "./NonEmptyArray";
+import { Optional } from './Optional';
 import { NativeCurrency, Token } from "./Token";
+
+// TODO add stables from https://stablecoins.wtf/ and https://defillama.com/stablecoins
 
 // ***************************************************************
 const isTestShorterListOfTokens = false; // WARNING test flag to be manually toggled during develpment to cull the list of supported tokens down to a minimal set for testing purposes
@@ -134,9 +137,12 @@ const PolygonZkEvmDAI = token(polygonZkEvm, { name: 'Dai', ticker: 'DAI', contra
 const PolygonZkEvmLUSD = token(polygonZkEvm, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x01E9A866c361eAd20Ab4e838287DD464dc67A50e' });
 // TODO PolygonZkEvmTestnetLUSD
 
-// base (not yet launched) and baseGoerli
+// base (mainnet not yet launched) and baseGoerli
 const BaseGoerliETH = nativeCurrency(baseGoerli);
 const BaseGoerliDAI = token(baseGoerli, { name: 'Dai', ticker: 'DAI', contractAddress: '0x7805e80523536fb4872a1cee2c53c4f354953b96' });
+
+// linea (mainnet not yet launched) and lineaTestnet
+const lineaTestnetUSDC = token(lineaTestnet, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x964FF70695da981027c81020B1c58d833D49A640', decimals: 6 });
 
 // scrollTestnet (goerli alpha. mainnet not yet launched)
 const ScrollTestnetETH = nativeCurrency(scrollTestnet);
@@ -218,6 +224,7 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     OptimismGoerliUSDC,
     ArbitrumGoerliUSDC,
     zkSyncTestnetUSDC,
+    lineaTestnetUSDC,
     ScrollTestnetUSDC,
     TaikoTestnetUSDC,
     GoerliUSDT,

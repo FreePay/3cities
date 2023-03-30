@@ -167,6 +167,37 @@ export const polygonZkEvm: Readonly<Chain> = Object.freeze<Chain>({ // wagmi doe
   // TODO add multicall3 to support batched useContractReads -- canonical multicall3 contract deployment doesn't yet exist on polygonZkEvm 0xcA11bde05977b3631167028862bE2a173976CA11
 });
 
+export const lineaTestnet: Readonly<Chain> = Object.freeze<Chain>({ // wagmi does not yet support Consensus lineaTestnet
+  id: 59140,
+  name: "Linea Testnet",
+  network: "linea-testnet",
+  nativeCurrency: {
+    name: "Ether",
+    symbol: "ETH",
+    decimals: 18,
+  },
+  rpcUrls: {
+    default: {
+      http: ["https://rpc.goerli.linea.build"],
+    },
+    public: {
+      http: ["https://rpc.goerli.linea.build"],
+    },
+  },
+  blockExplorers: {
+    etherscan: {
+      name: "Linea Testnet Explorer",
+      url: "https://explorer.goerli.linea.build/",
+    },
+    default: {
+      name: "Linea Testnet Explorer",
+      url: "https://explorer.goerli.linea.build/",
+    },
+  },
+  // TODO add multicall3 to support batched useContractReads -- canonical multicall3 contract deployment doesn't yet exist on Linea 0xcA11bde05977b3631167028862bE2a173976CA11
+  testnet: true,
+});
+
 export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
   const cs = (isProduction ? [
     // ********* BEGIN PRODUCTION networks *********
@@ -185,6 +216,7 @@ export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
     zkSyncTestnet,
     polygonZkEvmTestnet,
     baseGoerli,
+    lineaTestnet,
     scrollTestnet,
     taikoTestnet,
     // ********* END TEST networks *********
@@ -208,4 +240,14 @@ export const allSupportedChainIds: NonEmptyArray<number> = (() => {
 export function getSupportedChainName(chainId: number): string {
   const n = chainsSupportedBy3cities.find(n => n.id === chainId); // O(chains) and in the distance future may want to implement a lookup table of chainId -> chainName that's built statically upon module initialization
   return n === undefined ? `unknown chain ${chainId}` : n.name;
+}
+
+// Sanity tests:
+// TODO conditional compilation of these sanity tests using macros. Compile them in dev, prod-test (to be released at test.3cities.xyz), and prod-preview (a new environment and released at preview.3cities.xyz. preview is a production environment with the only difference between preview and prod being REACT_APP_ENABLE_SANITY_TESTS=true).
+if (chainsSupportedBy3cities.find(c => !(
+  (isProduction && c.testnet === undefined)
+  || (!isProduction && c.testnet === true)
+)) !== undefined) {
+  console.error(chainsSupportedBy3cities);
+  throw new Error(`testnet flag is not set correctly for all chains`);
 }
