@@ -49,7 +49,7 @@ export const wagmiClient = createClient({
     //     showQrModal: true,
     //     metadata: {
     //       name: '3cities',
-    //       description: '',
+    //       description: 'TODO',
     //       url: 'TODO',
     //       icons: ['TODO'],
     //     }
