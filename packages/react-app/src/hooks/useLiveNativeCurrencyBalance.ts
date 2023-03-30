@@ -18,7 +18,7 @@ export function useLiveNativeCurrencyBalance(
       address: makeAddress(address),
       chainId,
       onError(error: Error) {
-        console.error('useMemoEtherBalance: error fetching balance with wagmi.useBalance, chainId', chainId, 'address', address, 'error', error);
+        console.error('useLiveNativeCurrencyBalance: error fetching balance with wagmi.useBalance, chainId', chainId, 'address', address, 'error', error);
       },
     }
   }, [chainId, address, enabled]);

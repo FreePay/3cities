@@ -19,7 +19,7 @@ export function useLiveTokenBalance(
       address: makeAddress(address),
       chainId,
       onError(error: Error) {
-        console.error('useMemoTokenBalance: error fetching balance with wagmi.useBalance, chainId', chainId, 'token', tokenContractAddress, 'address', address, 'error', error);
+        console.error('useLiveTokenBalance: error fetching balance with wagmi.useBalance, chainId', chainId, 'token', tokenContractAddress, 'address', address, 'error', error);
       },
     };
   }, [chainId, address, tokenContractAddress, enabled]);
