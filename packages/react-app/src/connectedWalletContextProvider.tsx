@@ -7,7 +7,7 @@ import { useLiveNativeCurrencyBalance } from './hooks/useLiveNativeCurrencyBalan
 import { useLiveTokenBalance } from './hooks/useLiveTokenBalance';
 import { makeObservableValue, ObservableValue, ObservableValueUpdater, Observer } from './observer';
 import { NativeCurrency, Token } from './Token';
-import { isDust, TokenBalance } from './tokenBalance';
+import { isDust, TokenBalance } from './TokenBalance';
 import { getTokenKey, nativeCurrencies, tokens } from './tokens';
 
 const ConnectedWalletAddressContextObserverContext = React.createContext<Observer<AddressContext | undefined> | undefined>(undefined);
