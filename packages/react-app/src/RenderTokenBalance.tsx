@@ -1,5 +1,5 @@
 import React from "react";
-import { getChainName } from "./getChainName";
+import { getSupportedChainName } from "./chains";
 import { RenderRawTokenBalance } from "./RenderRawTokenBalance";
 import { TokenBalance } from "./tokenBalance";
 import { getTokenByTokenKey } from "./tokens";
@@ -16,6 +16,6 @@ export const RenderTokenBalance: React.FC<RenderTokenBalanceProps> = ({ tokenBal
     balance={tokenBalance.balanceAsBigNumberHexString}
     ticker={t.ticker}
     decimals={t.decimals}
-    chainName={getChainName(t.chainId)}
+    chainName={getSupportedChainName(t.chainId)}
   />;
 }

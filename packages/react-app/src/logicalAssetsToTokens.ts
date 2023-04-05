@@ -1,4 +1,4 @@
-import { NativeCurrency, Token } from "@usedapp/core";
+import { NativeCurrency, Token } from "./Token";
 import { logicalAssetsByTicker, LogicalAssetTicker } from "./logicalAssets";
 import { tokensByTicker } from "./tokens";
 

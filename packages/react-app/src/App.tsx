@@ -5,20 +5,6 @@ import { CheckoutEditor } from "./CheckoutEditor";
 import { ContentWrapper } from "./ContentWrapper";
 import { serializeToModifiedBase64 } from "./serialize";
 
-// import { useConnectedWalletAddressContext } from "./connectedWalletContextProvider";
-
-// Old imports:
-// import { abis, addresses } from "@3cities/contracts";
-// import { Contract } from "@ethersproject/contracts";
-// import { formatEther } from '@ethersproject/units';
-// import { shortenAddress, useCall, useEtherBalance, useEthers, useLookupAddress, useTokenBalance } from "@usedapp/core";
-// import React, { useEffect, useState } from "react";
-// import { Body, Container, Header } from "./components";
-// import useAddressOrENS from "./hooks/useAddressOrENS";
-// import { nativeCurrencies, tokens } from "./usedappCurrencies";
-// import TokenBalance from "./TokenBalance";
-// import { useConnectedWalletAddressContext } from "./connectedWalletContextProvider";
-
 // const Leaf: React.FC = () => {
 //   const ac = useConnectedWalletAddressContext();
 //   // console.log("Leaf render", ac);
@@ -93,27 +79,6 @@ import { serializeToModifiedBase64 } from "./serialize";
 // }
 
 function App() {
-  // const maybeAddressOrENS = useAddressOrENS();
-  // const firstNativeCurrencyBalance = useEtherBalance(maybeAddressOrENS, { chainId: nativeCurrencies[0].chainId });
-  // const firstTokenBalance = useTokenBalance(tokens[0].address, maybeAddressOrENS, { chainId: tokens[0].chainId });
-  // console.log('addr', maybeAddressOrENS, 'firstTokenBalance', firstTokenBalance);
-  // // eslint-disable-next-line react-hooks/exhaustive-deps
-  // const ftb = useMemo(() => firstTokenBalance, [firstTokenBalance && firstTokenBalance.toString()]);
-
-  // Read more about useDapp on https://usedapp.io/
-  // const { error: contractCallError, value: tokenBalance } =
-  //   useCall({
-  //     contract: new Contract(addresses.ceaErc20, abis.erc20),
-  //     method: "balanceOf",
-  //     args: ["0x3f8CB69d9c0ED01923F11c829BaE4D9a4CB6c82C"],
-  //   }) ?? {};
-  // console.log(contractCallError, tokenBalance);
-
-
-  // const STAKING_CONTRACT = '0x00000000219ab540356cBB839Cbe05303d7705Fa';
-  // const stakingBalance = useEtherBalance(STAKING_CONTRACT);
-  // console.log('stakingBalance', stakingBalance && formatEther(stakingBalance));
-
   const [checkout, setCheckout] = useState<Checkout | undefined>(undefined);
   const [checkoutLink, setCheckoutLink] = useState<string | undefined>(undefined);
 

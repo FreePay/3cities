@@ -216,11 +216,11 @@ export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
     zkSyncTestnet,
     polygonZkEvmTestnet,
     baseGoerli,
-    lineaTestnet,
+    lineaTestnet, // TODO re-enable lineaTestnet. rn, its rpc endpoint has incorrect CORS settings and can't be queried.
     scrollTestnet,
     taikoTestnet,
     // ********* END TEST networks *********
-  ].filter((c: Chain) => !isTestShorterListOfChains || c.id === scrollTestnet.id)
+  ].filter((c: Chain) => !isTestShorterListOfChains || c.id === arbitrumGoerli.id)
   );
   const c0 = cs[0];
   if (c0 === undefined) throw new Error(`chainsSupportedBy3cities: set of supported chains is empty`);
