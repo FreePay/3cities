@@ -1,14 +1,13 @@
-import { useEthers } from "@usedapp/core";
 import React, { useEffect, useState } from "react";
 import CurrencyInput from 'react-currency-input-field';
 import { useImmer } from 'use-immer';
+import { useAccount } from "wagmi";
 import { ReceiverProposedPayment } from "./agreements";
+import { allSupportedChainIds, getSupportedChainName } from "./chains";
 import { Checkout } from './checkout';
-import { getChainName } from "./getChainName";
 import { LogicalAssetTicker, parseLogicalAssetAmount } from "./logicalAssets";
 import { StrategyPreferences } from "./StrategyPreferences";
 import { allTokenTickers } from "./tokens";
-import { allChainIds } from "./usedappConfig";
 
 // Here we implement a synthetic router to build a Checkout in a
 // series of small UI steps. These steps are currently hardcoded to
@@ -112,7 +111,7 @@ export const CheckoutStep2: React.FC<{ setResult: (r: CheckoutStep2Result) => vo
         On these chains:
       </h3>
       <div className="flex flex-wrap gap-2.5">
-        {allChainIds.map(cid => <div key={cid}><button className="font-medium px-3.5 py-2 border rounded-md inline-flex justify-start hover:border-gray-300 focus:border-white focus:bg-gradient-to-br focus:from-violet-500 focus:to-blue-500 focus:text-white" onClick={toggleChainId.bind(null, cid)}>{sp.chainIdExclusions !== undefined && sp.chainIdExclusions.indexOf(cid) > -1 && 'no '}{getChainName(cid)}</button></div>)}
+        {allSupportedChainIds.map(cid => <div key={cid}><button className="font-medium px-3.5 py-2 border rounded-md inline-flex justify-start hover:border-gray-300 focus:border-white focus:bg-gradient-to-br focus:from-violet-500 focus:to-blue-500 focus:text-white" onClick={toggleChainId.bind(null, cid)}>{sp.chainIdExclusions !== undefined && sp.chainIdExclusions.indexOf(cid) > -1 && 'no '}{getSupportedChainName(cid)}</button></div>)}
       </div>
     </div>
     <div>
@@ -128,12 +127,12 @@ type CheckoutStep3Result = string // ie. Payment.toAddress
 
 export const CheckoutStep3: React.FC<{ setResult: (r: CheckoutStep3Result) => void }> = ({ setResult }) => {
   // TODO delegate to AddressPicker reusable component that lets you type in an address, ENS, or connect wallet to provide one
-  const { account } = useEthers();
-  const [address, setAddress] = useState<string>(typeof account === 'string' ? account : '');
+  const { address: connectedWalletAddress } = useAccount();
+  const [address, setAddress] = useState<string>(typeof connectedWalletAddress === 'string' ? connectedWalletAddress : '');
 
   useEffect(() => {
-    if (address.length < 1 && typeof account === 'string') setAddress(account);
-  }, [account, address, setAddress])
+    if (address.length < 1 && typeof connectedWalletAddress === 'string') setAddress(connectedWalletAddress);
+  }, [connectedWalletAddress, address, setAddress])
 
 
   return <form className="flex w-full flex-col items-center gap-5">
