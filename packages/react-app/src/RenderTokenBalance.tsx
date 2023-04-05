@@ -1,7 +1,7 @@
 import React from "react";
 import { getSupportedChainName } from "./chains";
 import { RenderRawTokenBalance } from "./RenderRawTokenBalance";
-import { TokenBalance } from "./tokenBalance";
+import { TokenBalance } from "./TokenBalance";
 import { getTokenByTokenKey } from "./tokens";
 
 type RenderTokenBalanceProps = {

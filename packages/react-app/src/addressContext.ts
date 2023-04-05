@@ -1,5 +1,5 @@
 import { BigNumber } from "@ethersproject/bignumber";
-import { TokenBalance } from "./tokenBalance";
+import { TokenBalance } from "./TokenBalance";
 import { TokenKey } from "./tokens";
 
 export type AddressContext = Readonly<{
