@@ -1,11 +1,11 @@
 import { BigNumber } from "@ethersproject/bignumber";
-import { NativeCurrency, Token } from "@usedapp/core";
+import { NativeCurrency, Token } from "./Token";
 import { AddressContext, canAfford } from "./addressContext";
 import { Agreement, isPayment, isReceiverProposedPayment, ProposedAgreement } from "./agreements";
 import { convertLogicalAssetUnits } from "./logicalAssets";
 import { getNativeCurrenciesAndTokensForLogicalAssetTicker } from "./logicalAssetsToTokens";
-import { getTokenKey } from "./tokens";
 import { StrategyPreferences } from "./StrategyPreferences";
+import { allTokenKeys, getTokenKey } from "./tokens";
 import { TokenTransfer } from "./tokenTransfer";
 
 // TODO consider replacing "Strategy" with "PaymentMethod" in every context
@@ -17,6 +17,21 @@ function isTokenPermittedByStrategyPreferences(prefs: StrategyPreferences, token
   if (prefs.tokenTickerExclusions && prefs.tokenTickerExclusions.indexOf(token.ticker) > -1) return false; // WARNING ~O(N^2) when used in a list of tokens, if data size grows, in future we may want to convert tokenTickerExclusions to a map { [ticker: string]: true }
   if (prefs.chainIdExclusions && prefs.chainIdExclusions.indexOf(token.chainId) > -1) return false; // WARNING ~O(N^2) when used in a list of tokens, if data size grows, in future we may want to convert chainIdExclusions to a map { [chainId: number]: true }
   return true;
+}
+
+// isTokenSupported returns true iff the passed token is supported. An
+// unsupported token may be due to eg. an unsupported chain, or eg. a
+// supported chain but an unsupported token on that chain. There may
+// be multiple root causes as to why a token ends up being
+// unsupported. One root cause may be that a Checkout was serialized
+// with a Token that was on a supported chain, but now it's been
+// deserialized in a context where that chain is no longer supported
+// (eg. Token constructed in production but deserialized in test).
+// Another root cause may be that the Token may have been maliciously
+// constructed by an attacker to try to get a user to send an
+// unsupported token.
+function isTokenSupported(token: NativeCurrency | Token): boolean {
+  return allTokenKeys.indexOf(getTokenKey(token)) > -1;
 }
 
 // Strategy represents one plan (ie. strategic alternative) that is
@@ -52,16 +67,19 @@ export function getProposedStrategiesForProposedAgreement(prefs: StrategyPrefere
   const pss: ProposedStrategy[] = [];
   if (isReceiverProposedPayment(pa)) {
     const ts = getNativeCurrenciesAndTokensForLogicalAssetTicker(pa.logicalAssetTicker);
-    pss.push(...ts.filter(isTokenPermittedByStrategyPreferences.bind(null, prefs)).map(token => {
-      return {
-        proposedAgreement: pa,
-        receiverProposedTokenTransfer: {
-          toAddress: pa.toAddress,
-          token,
-          amountAsBigNumberHexString: convertLogicalAssetUnits(BigNumber.from(pa.amountAsBigNumberHexString), token.decimals).toHexString(),
-        },
-      };
-    }));
+    pss.push(...ts
+      .filter(isTokenSupported)
+      .filter(isTokenPermittedByStrategyPreferences.bind(null, prefs))
+      .map(token => {
+        return {
+          proposedAgreement: pa,
+          receiverProposedTokenTransfer: {
+            toAddress: pa.toAddress,
+            token,
+            amountAsBigNumberHexString: convertLogicalAssetUnits(BigNumber.from(pa.amountAsBigNumberHexString), token.decimals).toHexString(),
+          },
+        };
+      }));
   }
   // TODO support generation of strategies based on exchange rates, eg. if payment is for $5 USD then we should support a strategy of paying $5 in ETH and vice versa
   // console.log("getProposedStrategiesForProposedAgreement prefs=", prefs, "pa=", pa, "r=", pss);
@@ -71,11 +89,13 @@ export function getProposedStrategiesForProposedAgreement(prefs: StrategyPrefere
 // getStrategiesForAgreement computes the strategies for the passed
 // agreement, taking into account the passed strategy preferences and
 // address context.
+// TODO WARNING today, the set of strategies computed for an Agreement runs the algorithm below, and that's a separate algorithm than the set of proposed strategies computed for a ProposedAgreement in getProposedStrategiesForProposedAgreement --> perhaps instead, there should be a single strategy generator shared by both functions --> next step is to think about and write down the tradeoffs/examples here... are there situations where an Agreement and ProposedAgreement should generate very different strategies, or can they usually/always share a strategy generation algorithm?
 export function getStrategiesForAgreement(prefs: StrategyPreferences, a: Agreement, ac: AddressContext): Strategy[] {
   const ss: Strategy[] = [];
   if (isPayment(a)) {
     const ts = getNativeCurrenciesAndTokensForLogicalAssetTicker(a.logicalAssetTicker);
     ss.push(...ts
+      .filter(isTokenSupported)
       .filter(isTokenPermittedByStrategyPreferences.bind(null, prefs))
       .map(token => {
         return {
