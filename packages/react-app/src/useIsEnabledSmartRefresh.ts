@@ -17,7 +17,7 @@ export function useIsEnabledSmartRefresh() {
   useEffect(() => { // long periodic timer to trigger disable
     const interval = setInterval(() => {
       setIsForceDisable(true);
-    }, 10_000);
+    }, 20_000); // TODO I'd prefer the data refresh rate to be quicker than 20 seconds, but right now we make O(tokens * chains) requests, whereas after we switch to the bulk useContractReads API, it'll be O(chains), and then the refresh latency could decrease
     return () => clearInterval(interval);
   }, [setIsForceDisable]);
 
