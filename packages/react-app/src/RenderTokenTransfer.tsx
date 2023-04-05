@@ -1,30 +1,31 @@
 import { formatUnits } from "@ethersproject/units";
 import React from "react";
+import { getSupportedChainName } from "./chains";
 import { formatFloat } from "./formatFloat";
-import { getChainName } from "./getChainName";
-import { ProposedStrategy, Strategy } from "./strategies";
+import { ReceiverProposedTokenTransfer } from "./strategies";
 import { getDecimalsToRenderForTokenTicker } from "./tokens";
+import { TokenTransfer } from "./tokenTransfer";
 
-type RenderStrategyProps = {
-  s: Strategy;
+type RenderTokenTransferProps = {
+  tt: TokenTransfer;
 }
 
-// RenderStrategy is a referentially transparent component to render
+// RenderTokenTransfer is a referentially transparent component to render
 // the passed strategy.
-export const RenderStrategy: React.FC<RenderStrategyProps> = ({ s }) => {
-  const t = s.tokenTransfer.token;
-  return <span>Pay {formatFloat(formatUnits(s.tokenTransfer.amountAsBigNumberHexString, t.decimals), getDecimalsToRenderForTokenTicker(t.ticker))} {t.ticker} on {getChainName(t.chainId)
+export const RenderTokenTransfer: React.FC<RenderTokenTransferProps> = ({ tt }) => {
+  const t = tt.token;
+  return <span>Pay {formatFloat(formatUnits(tt.amountAsBigNumberHexString, t.decimals), getDecimalsToRenderForTokenTicker(t.ticker))} {t.ticker} on {getSupportedChainName(t.chainId)
   }</span>
 }
 
-type RenderProposedStrategyProps = {
-  ps: ProposedStrategy;
+type RenderReceiverProposedTokenTransferProps = {
+  rptt: ReceiverProposedTokenTransfer;
 }
 
 // RenderProposedStrategy is a referentially transparent component to
 // render the passed proposed strategy.
-export const RenderProposedStrategy: React.FC<RenderProposedStrategyProps> = ({ ps }) => {
-  const t = ps.receiverProposedTokenTransfer.token;
-  return <span>Pay {formatFloat(formatUnits(ps.receiverProposedTokenTransfer.amountAsBigNumberHexString, t.decimals), getDecimalsToRenderForTokenTicker(t.ticker))} {t.ticker} on {getChainName(t.chainId)
+export const RenderReceiverProposedTokenTransfer: React.FC<RenderReceiverProposedTokenTransferProps> = ({ rptt }) => {
+  const t = rptt.token;
+  return <span>Pay {formatFloat(formatUnits(rptt.amountAsBigNumberHexString, t.decimals), getDecimalsToRenderForTokenTicker(t.ticker))} {t.ticker} on {getSupportedChainName(t.chainId)
   }</span>
 }

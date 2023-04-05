@@ -1,11 +1,12 @@
 import { BigNumber } from '@ethersproject/bignumber';
-import { NativeCurrency, Token, useEthers } from '@usedapp/core';
 import React, { useCallback, useContext, useEffect, useState } from 'react';
 import { useImmer } from 'use-immer';
+import { useAccount } from 'wagmi';
 import { AddressContext, emptyAddressContext } from './addressContext';
-import { useMemoEtherBalance } from './hooks/useMemoEtherBalance';
-import { useMemoTokenBalance } from './hooks/useMemoTokenBalance';
-import { makeObservableValue, ObservableValue, Observer } from './observer';
+import { useLiveNativeCurrencyBalance } from './hooks/useLiveNativeCurrencyBalance';
+import { useLiveTokenBalance } from './hooks/useLiveTokenBalance';
+import { makeObservableValue, ObservableValue, ObservableValueUpdater, Observer } from './observer';
+import { NativeCurrency, Token } from './Token';
 import { isDust, TokenBalance } from './tokenBalance';
 import { getTokenKey, nativeCurrencies, tokens } from './tokens';
 
@@ -18,9 +19,8 @@ type NativeCurrencyBalanceUpdaterProps = {
   updateNativeCurrencyBalance: (nc: NativeCurrency, b: BigNumber | undefined) => void; // callback we must call when native currency balance updates
 }
 const NativeCurrencyBalanceUpdater: React.FC<NativeCurrencyBalanceUpdaterProps> = ({ nonce, address, nativeCurrency, updateNativeCurrencyBalance }) => {
-  const b = useMemoEtherBalance(address, nativeCurrency.chainId);
+  const b = useLiveNativeCurrencyBalance(address, nativeCurrency.chainId);
   useEffect(() => {
-    // console.log("NativeCurrencyBalanceUpdater calling callback", nativeCurrency, b?._hex);
     updateNativeCurrencyBalance(nativeCurrency, b);
   }, [nativeCurrency, address, updateNativeCurrencyBalance, b, nonce]);
   return <></>; // nothing to render, this component only maintains state
@@ -33,7 +33,7 @@ type TokenBalanceUpdaterProps = {
   updateTokenBalance: (t: Token, b: BigNumber | undefined) => void; // callback we must call when token balance updates
 }
 const TokenBalanceUpdater: React.FC<TokenBalanceUpdaterProps> = ({ nonce, address, token, updateTokenBalance }) => {
-  const b = useMemoTokenBalance(token.address, address, token.chainId);
+  const b = useLiveTokenBalance(token.contractAddress, address, token.chainId);
   useEffect(() => {
     // console.log("TokenBalanceUpdater calling callback", token, b?._hex);
     updateTokenBalance(token, b);
@@ -42,10 +42,10 @@ const TokenBalanceUpdater: React.FC<TokenBalanceUpdaterProps> = ({ nonce, addres
 }
 
 type ConnectedWalletAddressContextUpdaterInnerProps = {
-  ov: ObservableValue<AddressContext | undefined>;
+  ovu: ObservableValueUpdater<AddressContext | undefined>;
   connectedWalletAddress: string;
 }
-const ConnectedWalletAddressContextUpdaterInner: React.FC<ConnectedWalletAddressContextUpdaterInnerProps> = ({ ov, connectedWalletAddress }) => {
+const ConnectedWalletAddressContextUpdaterInner: React.FC<ConnectedWalletAddressContextUpdaterInnerProps> = ({ ovu, connectedWalletAddress }) => {
   const [ac, setAC] = useImmer<AddressContext>(emptyAddressContext(connectedWalletAddress)); // ie. here we initialize an empty AddressContext for the currently connected wallet because no token balances have been loaded yet. The TokenBalanceUpdaters/NativeCurrencyUpdaters will be mounted below, and they will be responsible for executing callbacks to trigger updates of individual TokenBalances
 
   const [acResetNonce, setACResetNonce] = useState(0); // a nonce that's incremented every time AddressContext is reset to an empty value by the useEffect below, used to serialize the effects of resetting AddressContext to an empty value vs. updating token balances, to eliminate the race condition where fresh balance updates are lost because they are flushed before the AddressContext is reset
@@ -63,8 +63,8 @@ const ConnectedWalletAddressContextUpdaterInner: React.FC<ConnectedWalletAddress
   useEffect(() => {
     // here we actually notify observers when AddressContext has changed
     // console.log("setValueAndNotifyObservers(AddressContext)", JSON.stringify(ac));
-    ov.setValueAndNotifyObservers(ac);
-  }, [ov, ac]);
+    ovu.setValueAndNotifyObservers(ac);
+  }, [ovu, ac]);
 
   const updateNativeCurrencyOrTokenBalance = useCallback((nativeCurrencyOrToken: NativeCurrency | Token, newBalance: BigNumber | undefined) => { // updateNativeCurrencyOrTokenBalance is a single callback to be shared among all NativeCurrencyUpdaters/TokenBalanceUpdaters because each updater passes its own NativeCurrency/Token to this callback to be mapped into a tokenKey to then update AddressContext. Alternatively, we could have baked/curried the NativeCurrency/Token into the callback and created N callbacks, one per token
     // console.log("top of updateNativeCurrencyOrTokenBalance callback");
@@ -83,7 +83,7 @@ const ConnectedWalletAddressContextUpdaterInner: React.FC<ConnectedWalletAddress
           balanceAsOf: new Date().getTime(),
         };
         if (isDust(tb)) {
-          // this token's balance is zero or dust. We want AddressContet to reflect useful token balances and so we'll treat this token balance as if it doesn't exist
+          // this token's balance is zero or dust. We want AddressContext to reflect useful token balances and so we'll treat this token balance as if it doesn't exist
           // console.log("ignoring token dust", JSON.stringify(tb));
           delete draft.tokenBalances[tk]; // delete any stale token balance
         } else {
@@ -113,18 +113,19 @@ const ConnectedWalletAddressContextUpdaterInner: React.FC<ConnectedWalletAddress
 };
 
 type ConnectedWalletAddressContextUpdaterProps = {
-  ov: ObservableValue<AddressContext | undefined>;
+  ov: ObservableValue<AddressContext | undefined>; // TODO pass ObserverableValueUpdater instead of the wider ObservableValue
 }
 const ConnectedWalletAddressContextUpdater: React.FC<ConnectedWalletAddressContextUpdaterProps> = ({ ov }) => {
-  const { account } = useEthers();
-  const connectedWalletAddress: string | undefined = typeof account === 'string' ? account : undefined;
+  const { address } = useAccount();
+  // console.log('ConnectedWalletAddressContextUpdater address', address);
+  // const connectedWalletAddress: string | undefined = typeof address === 'string' ? address : undefined;
   useEffect(() => {
-    if (connectedWalletAddress === undefined) { // here we only need to setValueAndNotifyObservers if connectedWalletAddress is undefined because if it's defined, we'll construct the AddressContext and call setValueAndNotifyObservers(defined value) in ConnectedWalletAddressContextUpdaterInner, and if connectedWalletAddress has transitioned from defined to undefined, the ConnectedWalletAddressContextUpdaterInner component has been unmounted and it won't (and isn't designed to) call setValueAndNotifyObservers(undefined) to notify clients that the wallet has become disconnected, so we need to do it here
+    if (address === undefined) { // here we only need to setValueAndNotifyObservers if connectedWalletAddress is undefined because if it's defined, we'll construct the AddressContext and call setValueAndNotifyObservers(defined value) in ConnectedWalletAddressContextUpdaterInner, and if connectedWalletAddress has transitioned from defined to undefined, the ConnectedWalletAddressContextUpdaterInner component has been unmounted and it won't (and isn't designed to) call setValueAndNotifyObservers(undefined) to notify clients that the wallet has become disconnected, so we need to do it here
       // console.log("setValueAndNotifyObservers(AddressContext=undefined)");
       ov.setValueAndNotifyObservers(undefined);
     }
-  }, [ov, connectedWalletAddress]);
-  return connectedWalletAddress === undefined ? <></> : <ConnectedWalletAddressContextUpdaterInner ov={ov} connectedWalletAddress={connectedWalletAddress} />;
+  }, [ov, address]);
+  return address === undefined ? <></> : <ConnectedWalletAddressContextUpdaterInner ovu={ov} connectedWalletAddress={address} />;
 };
 
 type ConnectedWalletAddressContextObserverProviderProps = {
@@ -146,6 +147,7 @@ export function useConnectedWalletAddressContext(): AddressContext | undefined {
     if (o === undefined) return undefined;
     return o.getCurrentValue();
   });
+
   useEffect(() => {
     if (o === undefined) {
       // Observer is undefined or has become undefined. This occurs when this hook is used in a component that isn't a descendant of ConnectedWalletAddressContextObserverProvider. We must setAC(undefined) to ensure that any stale defined AddressContext does not remain

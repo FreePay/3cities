@@ -1,5 +1,7 @@
 import { LogicalAssetTicker } from "./logicalAssets";
 
+// TODO try to stop using internal fields _p _rpp as they are spammy and brittle. Instead, `ReceiverProposedPayment?.fromAddress: never`. Same with _unusedAgreement... find a better way.
+
 // Agreement is an economic agreement between multiple concrete
 // participants.
 export type Agreement = Payment | UnusedAgreement;
