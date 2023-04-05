@@ -1,4 +1,5 @@
 import { formatUnits } from "@ethersproject/units";
+import { BigNumber } from "@ethersproject/bignumber";
 import { getDecimalsToRenderForTokenTicker, getTokenByTokenKey, TokenKey } from "./tokens";
 
 // TokenBalance is a snapshot of an address's token balance on a
@@ -12,10 +13,9 @@ export type TokenBalance = Readonly<{
 }>
 
 // isZero returns true iff the passed TokenBalance has a zero balance.
-// isZero exists to wrap the definition of "zero" for
-// balanceAsBigNumberHexString.
 export function isZero(tb: TokenBalance): boolean {
-  return tb.balanceAsBigNumberHexString === "0x00";
+  const balance = BigNumber.from(tb.balanceAsBigNumberHexString);
+  return balance.isZero();
 }
 
 // isDust returns true iff the passed TokenBalance should be
