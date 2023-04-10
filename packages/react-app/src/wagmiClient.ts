@@ -3,7 +3,7 @@ import { createClient } from 'wagmi'; // NB createClient exported by wagmi seems
 import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
 import { InjectedConnector } from 'wagmi/connectors/injected';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
-// import { WalletConnectConnector } from 'wagmi/connectors/walletConnect';
+import { WalletConnectConnector } from 'wagmi/connectors/walletConnect';
 import { alchemyProvider } from 'wagmi/providers/alchemy';
 import { infuraProvider } from 'wagmi/providers/infura';
 import { publicProvider } from 'wagmi/providers/public';
@@ -14,7 +14,7 @@ import { Web3AuthConnector, Web3AuthLoginProvider } from './Web3AuthConnector';
 const alchemyApiKey: string = (() => {
   const s = process.env['REACT_APP_ALCHEMY_API_KEY'];
   if (s === undefined) {
-    console.warn("REACT_APP_ALCHEMY_API_KEY undefined");
+    console.error("REACT_APP_ALCHEMY_API_KEY undefined");
     return 'REACT_APP_ALCHEMY_API_KEY_undefined';
   } else return s;
 })();
@@ -22,7 +22,7 @@ const alchemyApiKey: string = (() => {
 const infuraApiKey: string = (() => {
   const s = process.env['REACT_APP_INFURA_API_KEY'];
   if (s === undefined) {
-    console.warn("REACT_APP_INFURA_API_KEY undefined");
+    console.error("REACT_APP_INFURA_API_KEY undefined");
     return 'REACT_APP_INFURA_API_KEY_undefined';
   } else return s;
 })();
@@ -42,19 +42,6 @@ export const wagmiClient = createClient({
   webSocketProvider,
   connectors: [
     // NB connectkit doesn't auto-detect Web3Auth connectors and doesn't display an option for Web3Auth, and so logging in with web3auth is not currently possible in connectkit's modal https://github.com/family/connectkit/tree/main/packages/connectkit/src/wallets/connectors --> instead, we implement lazy loading of a Web3AuthConnector below and this connector is expected to be activated outside of connectkit (eg. in our component built to activate it)
-    // new WalletConnectConnector({ // --> I have temporarily disabled WalletConnect because, at least with connectkit, the UX is messed up. It pops up two stacked windows, one is missing a QR code, the other seems like a full web3modal. --> I just want to be able to precisely control where the QR code is rendered, and the copy wc link to clipboard. How can I do that?
-    //   chains,
-    //   options: {
-    //     projectId: "a85a7f7f5074fd8ffe48a9805ed740f9", // TODO this is our test projectId. --> make into env var and make a production projectId (NB projectId can't be provided here when using walletconnect v1; it's needed here for v2)        
-    //     showQrModal: true,
-    //     metadata: {
-    //       name: '3cities',
-    //       description: 'TODO',
-    //       url: 'TODO',
-    //       icons: ['TODO'],
-    //     }
-    //   },
-    // }),
     new MetaMaskConnector({
       chains,
       options: {
@@ -77,6 +64,19 @@ export const wagmiClient = createClient({
             ? detectedName
             : detectedName.join(', ')
           })`,
+      },
+    }),
+    new WalletConnectConnector({
+      chains,
+      options: {
+        projectId: "a85a7f7f5074fd8ffe48a9805ed740f9", // TODO this is our test projectId. --> make into env var and make a production projectId (NB projectId can't be provided here when using walletconnect v1; it's needed here for v2)        
+        showQrModal: false,
+        metadata: {
+          name: '3cities.xyz',
+          description: '3cities is a web3 crypto payments app focused on accessibility and credible neutrality. 3cities can be used to request money, receive donations, and as a point-of-sale system for in-person payments.',
+          url: 'https://3cities.xyz',
+          icons: ['https://3cities.xyz/images/logo.jpg'],
+        }
       },
     }),
   ],
