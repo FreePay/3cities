@@ -1,5 +1,5 @@
 import { CHAIN_NAMESPACES } from "@web3auth/base";
-import { Web3AuthCore } from "@web3auth/core";
+import { Web3AuthNoModal } from "@web3auth/no-modal";
 import { OpenloginAdapter, OpenloginLoginParams } from "@web3auth/openlogin-adapter";
 import { Web3AuthConnector as UnderlyingWeb3AuthConnector } from "@web3auth/web3auth-wagmi-connector";
 import { Chain, Connector } from "wagmi";
@@ -46,7 +46,7 @@ const openloginAdapter = new OpenloginAdapter({
 });
 
 export function makeWeb3AuthConnector(chains: NonEmptyArray<Chain>, loginProvider: Web3AuthLoginProvider): Web3AuthConnector {
-  const web3AuthInstance = new Web3AuthCore({
+  const web3AuthInstance = new Web3AuthNoModal({
     clientId: "BLKwGNSCo5rhttsnvUqiQYKWb4IBnMwHjxMVHKhnfBKEMOSyNO96ho1kevg2EqJdH-6JyyoGpY7wgEMCR0NO9Yw", // TODO make env var, delete this project in dashboard since this clientId was commited to git (even though these are public IDs), and recreate a new testnet project (and later, a production project with its ID injected into github workflow)
     chainConfig: {
       chainNamespace: CHAIN_NAMESPACES.EIP155,
