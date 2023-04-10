@@ -1,14 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+// Old:
+// import React, { useCallback, useEffect, useMemo, useState } from "react";
+// import { Link } from "react-router-dom";
+// import logo from "./images/logo.jpg";
+// // import { Web3Button } from "@web3modal/react";
+// import { ConnectKitButton } from "connectkit";
+// // import { ConnectButton } from '@shopify/connect-wallet';
+// import { useConnect, useNetwork } from "wagmi";
+// import { chainsSupportedBy3cities } from "./chains";
+// import { useInput } from "./useInput";
+// import { makeAndSetWeb3AuthConnector, wagmiClient } from "./wagmiClient";
+// import { Web3AuthConnector, Web3AuthLoginProvider } from "./Web3AuthConnector";
+
+import React from "react";
 import { Link } from "react-router-dom";
 import logo from "./images/logo.jpg";
-// import { Web3Button } from "@web3modal/react";
 import { ConnectKitButton } from "connectkit";
-// import { ConnectButton } from '@shopify/connect-wallet';
-import { useConnect, useNetwork } from "wagmi";
-import { chainsSupportedBy3cities } from "./chains";
-import { useInput } from "./useInput";
-import { makeAndSetWeb3AuthConnector, wagmiClient } from "./wagmiClient";
-import { Web3AuthConnector, Web3AuthLoginProvider } from "./Web3AuthConnector";
 
 // TODO ConnectKitButton should use the email or SMS as the connected wallet label when you log in with oauth, instead of the connected address. Alternatively, we could build scaffolding around ConnectButton so that it gets hidden/swapped out for a login/logout label --> I like this architecture idea of a preprocessor/wrapped around the chosen modal so as to better control the precise UX, add our own email/SMS login option UX, while still benefiting from all of the work they've done on the modal, and being able to swap out to a different underlying connect wallet button/modal
 
@@ -73,59 +79,59 @@ import { Web3AuthConnector, Web3AuthLoginProvider } from "./Web3AuthConnector";
 //   </div >;
 // }
 
-const emailAttrs = { type: 'email', placeholder: 'Email' };
-const ConnectToWeb3AuthViaEmailButton: React.FC = () => {
-  const [isLoadingConnector, setIsLoadingConnector] = useState(false);
-  const [web3AuthConnector, setWeb3AuthConnector] = useState<Web3AuthConnector | undefined>(undefined);
-  const [triggerLogin, setTriggerLogin] = useState(false);
-  const opts = useMemo(() => {
-    return {
-      onEnterKeyPress: () => setTriggerLogin(true),
-    };
-  }, [setTriggerLogin]);
-  const [email, emailInput] = useInput('', emailAttrs, opts);
-  const { connectAsync, error, isLoading, pendingConnector } = useConnect();
-  const { chain } = useNetwork();
+// const emailAttrs = { type: 'email', placeholder: 'Email' };
+// const ConnectToWeb3AuthViaEmailButton: React.FC = () => {
+//   const [isLoadingConnector, setIsLoadingConnector] = useState(false);
+//   const [web3AuthConnector, setWeb3AuthConnector] = useState<Web3AuthConnector | undefined>(undefined);
+//   const [triggerLogin, setTriggerLogin] = useState(false);
+//   const opts = useMemo(() => {
+//     return {
+//       onEnterKeyPress: () => setTriggerLogin(true),
+//     };
+//   }, [setTriggerLogin]);
+//   const [email, emailInput] = useInput('', emailAttrs, opts);
+//   const { connectAsync, error, isLoading, pendingConnector } = useConnect();
+//   const { chain } = useNetwork();
 
-  useEffect(() => {
-    if (isLoadingConnector && web3AuthConnector !== undefined) setIsLoadingConnector(false);
-  }, [isLoadingConnector, web3AuthConnector]);
+//   useEffect(() => {
+//     if (isLoadingConnector && web3AuthConnector !== undefined) setIsLoadingConnector(false);
+//   }, [isLoadingConnector, web3AuthConnector]);
 
-  const loginWithEmail = useCallback(async () => {
-    setIsLoadingConnector(true);
-    const validatedEmail = email; // TODO where to do email validation? here?
-    const l: Web3AuthLoginProvider = {
-      loginProvider: 'email',
-      email: validatedEmail,
-    };
-    const web3AuthConnector = await makeAndSetWeb3AuthConnector(l); // TODO use React.lazy with Suspense when calling makeAndSetWeb3AuthConnector which fetches the web3Auth chunk
-    setWeb3AuthConnector(web3AuthConnector);
+//   const loginWithEmail = useCallback(async () => {
+//     setIsLoadingConnector(true);
+//     const validatedEmail = email; // TODO where to do email validation? here?
+//     const l: Web3AuthLoginProvider = {
+//       loginProvider: 'email',
+//       email: validatedEmail,
+//     };
+//     const web3AuthConnector = await makeAndSetWeb3AuthConnector(l); // TODO use React.lazy with Suspense when calling makeAndSetWeb3AuthConnector which fetches the web3Auth chunk
+//     setWeb3AuthConnector(web3AuthConnector);
 
-    await connectAsync({
-      connector: web3AuthConnector.connector,
-      chainId: chainsSupportedBy3cities[0].id, // here we pass a supported chainId (happens to be the 0th's chain's id, but that's unimportant) to avoid the case where the connector defaults to an unsupported chain, such as defaulting to chainId 1 when not in production
-    });
-    console.log("connectors2", wagmiClient.connectors);
-  }, [email, connectAsync, setIsLoadingConnector, setWeb3AuthConnector]);
-  useEffect(() => {
-    if (triggerLogin) {
-      loginWithEmail();
-      setTriggerLogin(false);
-    }
-  }, [triggerLogin, setTriggerLogin, loginWithEmail]);
+//     await connectAsync({
+//       connector: web3AuthConnector.connector,
+//       chainId: chainsSupportedBy3cities[0].id, // here we pass a supported chainId (happens to be the 0th's chain's id, but that's unimportant) to avoid the case where the connector defaults to an unsupported chain, such as defaulting to chainId 1 when not in production
+//     });
+//     console.log("connectors2", wagmiClient.connectors);
+//   }, [email, connectAsync, setIsLoadingConnector, setWeb3AuthConnector]);
+//   useEffect(() => {
+//     if (triggerLogin) {
+//       loginWithEmail();
+//       setTriggerLogin(false);
+//     }
+//   }, [triggerLogin, setTriggerLogin, loginWithEmail]);
 
-  return <div>
-    {emailInput}
-    <button onClick={() => loginWithEmail()} disabled={isLoadingConnector || (web3AuthConnector && !web3AuthConnector.connector.ready)}>
-      Email Login
-      {web3AuthConnector && !web3AuthConnector.connector.ready && ' (connector not ready)'}
-      {web3AuthConnector && isLoading && pendingConnector && pendingConnector.id === web3AuthConnector.connector.id && ' (connecting)'}
-    </button>
-    {isLoadingConnector && <div>loading connector...</div>}
-    {error && <div>{error.message}</div>}
-    {chain && <div>current chain: {chain.id} {chain.name}</div>}
-  </div>;
-}
+//   return <div>
+//     {emailInput}
+//     <button onClick={() => loginWithEmail()} disabled={isLoadingConnector || (web3AuthConnector && !web3AuthConnector.connector.ready)}>
+//       Email Login
+//       {web3AuthConnector && !web3AuthConnector.connector.ready && ' (connector not ready)'}
+//       {web3AuthConnector && isLoading && pendingConnector && pendingConnector.id === web3AuthConnector.connector.id && ' (connecting)'}
+//     </button>
+//     {isLoadingConnector && <div>loading connector...</div>}
+//     {error && <div>{error.message}</div>}
+//     {chain && <div>current chain: {chain.id} {chain.name}</div>}
+//   </div>;
+// }
 
 // const ConnectToWeb3AuthViaGoogleAsyncButton: React.FC = () => {
 //   const { connect, error, isLoading, pendingConnector } = useConnect();
@@ -169,9 +175,9 @@ export function Header() {
           </span>
         </Link>
         <div className="flex flex-1 items-center justify-end gap-8">
-          <div className="shrink">
+          {/* <div className="shrink">
             <ConnectToWeb3AuthViaEmailButton />
-          </div>
+          </div> */}
           <div className="shrink">
             <ConnectKitButton showBalance={false} showAvatar={false} onClick={(open: () => void) => open()} />
           </div>
