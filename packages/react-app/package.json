@@ -35,7 +35,7 @@
     "react-use-clipboard": "^1.0.9",
     "sonner": "^0.3.0",
     "use-immer": "^0.9.0",
-    "wagmi": "0.12.9"
+    "wagmi": "0.12.10"
   },
   "devDependencies": {
     "@testing-library/dom": "9.2.0",
