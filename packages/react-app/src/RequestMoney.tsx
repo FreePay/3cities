@@ -78,7 +78,7 @@ import { serializeToModifiedBase64 } from "./serialize";
 //   } else return <div>strategy test: unsupported agreement type</div>;
 // }
 
-function App() {
+function RequestMoney() {
   const [checkout, setCheckout] = useState<Checkout | undefined>(undefined);
   const [checkoutLink, setCheckoutLink] = useState<string | undefined>(undefined);
 
@@ -110,4 +110,4 @@ function App() {
   );
 }
 
-export default App;
+export default RequestMoney;
