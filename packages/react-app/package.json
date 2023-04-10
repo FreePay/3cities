@@ -20,7 +20,7 @@
     "@ethersproject/providers": "5.7.2",
     "@msgpack/msgpack": "3.0.0-beta2",
     "@web3auth/base": "^5.1.0",
-    "@web3auth/core": "^4.6.0",
+    "@web3auth/no-modal": "^5.1.0",
     "@web3auth/openlogin-adapter": "^5.1.1",
     "@web3auth/web3auth-wagmi-connector": "^3.0.1",
     "connectkit": "1.2.2",
