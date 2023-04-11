@@ -166,7 +166,7 @@ import { ConnectKitButton } from "connectkit";
 
 export function Header() {
   return (
-    <header className="bg-white p-5 shadow-md">
+    <header className="bg-white p-5 shadow-md min-h-[80px]">
       <div className="mx-auto flex w-full max-w-screen-lg items-center justify-between">
         <Link to="/" className="flex items-center">
           <img src={logo} className="mt-1 w-8" alt="3cities" />

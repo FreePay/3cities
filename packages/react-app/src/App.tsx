@@ -11,7 +11,6 @@ import { RequestMoney as RequestMoneyLandingPage } from "./RequestMoney";
 
 const ContextLink = () => {
   return <div>
-    <div>ContextLink</div>
     <Outlet />
   </div>;
 };
