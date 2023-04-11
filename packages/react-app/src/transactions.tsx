@@ -91,7 +91,7 @@ export type ExecuteTokenTransferButtonProps = {
   className?: string // className to unconditionally apply to the button element
   disabledClassName?: string // className to apply iff button is disabled
   enabledClassName?: string // className to apply iff button is enabled
-  loadingSpinnerClassName?: string // className applied to the loading spinner iff button is loading. The text color is used for the loading spinner's foreground color, and the svg fill color is used for the loading spinner's background color. Recommended: set text color to same color as the button label and fill color to same color as button's background color.
+  loadingSpinnerClassName?: string // className applied to the loading spinner iff button is loading. The text color is used for the loading spinner's foreground color, and the svg fill color is used for the loading spinner's background color. Recommended: set text color to same color as the disabled button label (as button is disabled during loading) and fill color to same color as button's (disabled) background color.
   errorClassName?: string // className applied to any error label
   warningClassName?: string // className applied to any warning label
   setStatus?: (status: ExecuteTokenTransferButtonStatus) => void; // callback for the client to receive updated button status. React note: if an ancestor component of ExecuteTokenTransferButton caches this updated status as state, then ExecuteTokenTransferButton will rerender redundantly each time it updates the status (because an ancestor's subtree rerenders on state change). These redundant rerenders can be avoided by storing eg. an Observer in the ancestor and using the updated status in a cousin component (including potentially caching it as state).
@@ -173,7 +173,8 @@ const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> 
     type="button"
     disabled={isButtonDisabled}
     onClick={status.execute}
-    className={computedClassName}>
+    className={computedClassName}
+  >
     {computedLabel}
     {computedWarning}
     {computedSpinner}
