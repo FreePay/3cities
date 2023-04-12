@@ -693,7 +693,15 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
           isSuccess: false,
         };
         return s;
-      } else if (needToSwitchNetwork && switchNetwork.switchNetwork === undefined) {
+      } else if (needToSwitchNetwork && (
+        switchNetwork.switchNetwork === undefined // need to switch network manually if wagmi was unable to construct a switchNetwork instance
+        || (
+          // also need to switch network manually if there was a fatal switch network error. rn, nonfatal network switch errors come in two flavors: 1) the user rejecting the network switch or 2) our manual detection of nonfatal errors in isNetworkSwitchNonFatalError
+          switchNetwork.error
+          && !(switchNetwork.error instanceof UserRejectedRequestError)
+          && !isNetworkSwitchNonFatalError(switchNetwork.error)
+        )
+      )) {
         const s: ExecuteTokenTransferStatus = {
           activeTokenTransfer: cachedTT,
           reset,
@@ -732,7 +740,7 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
           (switchNetwork.error && switchNetwork.error instanceof UserRejectedRequestError)
         ) {
           s.warning = 'UserRejectedNetworkSwitch';
-        } else if (switchNetwork.error && switchNetwork.error instanceof SwitchChainError) {
+        } else if (isNetworkSwitchNonFatalError(switchNetwork.error)) {
           s.warning = 'NetworkSwitchNonFatalError';
         }
         if (autoExecuteState === "finishedSwitchingNetworkAndShouldAutoExecute") {
@@ -803,6 +811,23 @@ function isUserRejectedTransactionSignRequestError(e: Error | undefined | null):
     || (hasOwnPropertyOfType(e, 'message', 'string') && e.message.includes('User rejected')) // Slingshot mobile wallet with walletconnect v2
   ) return true;
   else return false;
+}
+
+// isNetworkSwitchNonFatalError returns true iff the passed Error
+// represents a non-fatal error when attempting to switch the network. The
+// error passed must be sourced from `switchNetwork(...).error` or
+// behaviour is undefined.
+function isNetworkSwitchNonFatalError(e: Error | undefined | null): boolean {
+  // WARNING errors passed into this function can come from a variety of upstream sources, and they may not confirm to the TypeScript typeof Error, which is why we do extra checking to ensure properties exist before we read them.
+  if (e === undefined || e === null) return false;
+  else {
+    const switchChainErrorCause: object | undefined = e instanceof SwitchChainError && typeof e.cause === 'object' && e.cause !== null && e.cause !== undefined ? e.cause : undefined; // for some popular wallets (such as metamask browser extension), wagmi supports mapping the underlying wallet error into a typed error. Currently, all non-fatal errors we detect are SwitchChainError
+    const switchChainErrorCauseMessage: string | undefined = hasOwnPropertyOfType(switchChainErrorCause, 'message', 'string') ? switchChainErrorCause.message : undefined;
+    if (
+      (switchChainErrorCauseMessage && switchChainErrorCauseMessage.includes('already pending')) // metamask returns this if another network switch modal is already pending when the network switch is attempted
+    ) return true;
+    else return false;
+  }
 }
 
 // isTransactionFeeUnaffordableError returns an instance of
