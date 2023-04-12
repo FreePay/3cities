@@ -25,10 +25,10 @@ function ConversionHeader() {
 
 export const ConversionWrapper = () => {
   return (
-    <div className="min-h-screen flex flex-col text-neutral-700">
+    <div className="min-h-screen flex flex-col text-black">
       <ConversionHeader />
-      <div className="grow flex flex-col items-center justify-start">
-        <div className="w-full max-w-sm overflow-hidden bg-white px-5">
+      <div className="grow flex flex-col items-center justify-start bg-gray-100">
+        <div className="w-full max-w-sm overflow-hidden px-5">
           <Outlet />
         </div>
       </div>
