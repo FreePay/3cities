@@ -3,7 +3,7 @@
 // an object that has the passed property key.
 // Example usage: hasOwnProperty(v, 'foo') && /* do something with v.foo */
 export function hasOwnProperty<T, K extends PropertyKey>(value: T, propertyKey: K): value is T & Record<K, unknown> {
-  return Object.prototype.hasOwnProperty.call(value, propertyKey);
+  return typeof value === "object" && Object.prototype.hasOwnProperty.call(value, propertyKey);
 }
 
 type TypeofComparator = "string" | "number" | "bigint" | "boolean" | "symbol" | "undefined" | "object" | "function";
