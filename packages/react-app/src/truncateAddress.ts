@@ -1,6 +1,6 @@
 // from https://github.com/family/connectkit/blob/main/packages/connectkit/src/utils/index.ts
 
-const truncateRegex = /^(0x[a-zA-Z0-9]{4})[a-zA-Z0-9]+([a-zA-Z0-9]{4})$/;
+const truncateRegex = /^(0x[a-zA-Z0-9]{5})[a-zA-Z0-9]+([a-zA-Z0-9]{5})$/;
 
 // truncateEthAddress truncates the passed Ethereum address.
 export const truncateEthAddress = (address?: string, separator: string = '••••') => {
