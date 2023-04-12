@@ -242,6 +242,12 @@ export function getSupportedChainName(chainId: number): string {
   return n === undefined ? `unknown chain ${chainId}` : n.name;
 }
 
+// getChain returns the Chain for the passed chainId, or undefined if the
+// chain isn't found.
+export function getChain(chainId: number): Chain | undefined {
+return chainsSupportedBy3cities.find(n => n.id === chainId); // O(chains) and in the distance future may want to implement a lookup table of chainId -> chainName that's built statically upon module initialization
+}
+
 // Sanity tests:
 // TODO conditional compilation of these sanity tests using macros. Compile them in dev, prod-test (to be released at test.3cities.xyz), and prod-preview (a new environment and released at preview.3cities.xyz. preview is a production environment with the only difference between preview and prod being REACT_APP_ENABLE_SANITY_TESTS=true).
 if (chainsSupportedBy3cities.find(c => !(
