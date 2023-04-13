@@ -1,60 +1,94 @@
+// This no-conditional-returns eslint rule ensures that if any branch of an
+// if-statement or try/catch might return, then the whole statement always
+// returns or throws, and control flow never continues in the same
+// function. The benefit here is that if you're looking at any code, you
+// know control flow has always reached this spot and don't have to worry
+// about the function having returned early, which can be a major source of
+// bugs.
 module.exports = {
   create: function (context) {
-    // Helper functions to check if a given node returns or throws unconditionally
-    function returnsUnconditionally(node) {
+    function hasAnyReturn(node) {
       if (node.type === 'ReturnStatement') {
         return true;
+      } else if (node.type === 'BlockStatement') {
+        return node.body.some(hasAnyReturn);
+      } else if (node.type === 'IfStatement') {
+        const ifHasReturn = hasAnyReturn(node.consequent);
+        const elseHasReturn = node.alternate && hasAnyReturn(node.alternate);
+        return ifHasReturn || elseHasReturn;
+      } else if (node.type === 'TryStatement') {
+        const blockHasReturn = hasAnyReturn(node.block);
+        const handlerHasReturn = node.handler && hasAnyReturn(node.handler.body);
+        return blockHasReturn || handlerHasReturn;
+      } else {
+        return false;
       }
-      if (node.type === 'BlockStatement') {
-        return node.body.some(returnsUnconditionally);
-      }
-      if (node.type === 'IfStatement') {
-        return returnsOrThrowsUnconditionally(node);
-      }
-      return false;
     }
 
     function returnsOrThrowsUnconditionally(node) {
-      if (node.type === 'ThrowStatement') {
+      if (node.type === 'ReturnStatement' || node.type === 'ThrowStatement') {
         return true;
-      }
-      if (node.type === 'IfStatement') {
+      } else if (node.type === 'BlockStatement') {
+        return node.body.some(returnsOrThrowsUnconditionally);
+      } else if (node.type === 'IfStatement') {
         const ifReturnsOrThrows = returnsOrThrowsUnconditionally(node.consequent);
         const elseReturnsOrThrows = node.alternate && returnsOrThrowsUnconditionally(node.alternate);
         return ifReturnsOrThrows && (elseReturnsOrThrows || node.alternate === null);
-      }
-      return returnsUnconditionally(node);
+      } else if (node.type === 'TryStatement') {
+        const blockReturnsOrThrows = returnsOrThrowsUnconditionally(node.block);
+        const handlerReturnsOrThrows = node.handler && returnsOrThrowsUnconditionally(node.handler.body);
+        return blockReturnsOrThrows && handlerReturnsOrThrows;
+      } else return false;
     }
 
-    // Check for unconditional returns or throws in conditionals
-    function checkConditional(node) {
-      const hasReturnInIfBlock = returnsUnconditionally(node.consequent);
-      const hasReturnOrThrowInElseBlock = node.alternate && returnsOrThrowsUnconditionally(node.alternate);
+    function checkConditional(ifStatement) {
+      const consequentHasAnyReturn = hasAnyReturn(ifStatement.consequent);
+      const alternateExistsAndHasAnyReturn = ifStatement.alternate && hasAnyReturn(ifStatement.alternate);
 
-      // Check if all branches return or throw unconditionally
-      const allBranchesReturnOrThrow = (currentNode) =>
-        returnsOrThrowsUnconditionally(currentNode.consequent) &&
-        (!currentNode.alternate ||
-          returnsOrThrowsUnconditionally(currentNode.alternate) ||
-          (currentNode.alternate.type === 'IfStatement' &&
-            allBranchesReturnOrThrow(currentNode.alternate)));
+      const consequentReturnsOrThrowsUnconditionally = returnsOrThrowsUnconditionally(ifStatement.consequent);
+      const alternateExistsAndReturnsOrThrowsUnconditionally = ifStatement.alternate && returnsOrThrowsUnconditionally(ifStatement.alternate);
 
-      // Require an else branch when the if block returns unconditionally
-      if (hasReturnInIfBlock && !node.alternate) {
+      if (consequentHasAnyReturn && !ifStatement.alternate) {
         context.report({
-          node: node.consequent,
-          message: 'Expected an "else" branch to return or throw when the "if" block returns.',
+          node: ifStatement,
+          message: 'Expected an "else" branch to exist and unconditionally return or throw when the "if" block has any return.',
         });
-      } else if (hasReturnInIfBlock && !hasReturnOrThrowInElseBlock && !allBranchesReturnOrThrow(node)) {
+      } else if (consequentHasAnyReturn && !alternateExistsAndReturnsOrThrowsUnconditionally) {
         context.report({
-          node: node,
-          message: 'Expected all branches of the conditional to return or throw when any branch returns.',
+          node: ifStatement,
+          message: 'Expected the "else" branch to unconditionally return or throw when the "if" block has any return.',
+        });
+      } else if (alternateExistsAndHasAnyReturn && !consequentReturnsOrThrowsUnconditionally) {
+        context.report({
+          node: ifStatement,
+          message: 'Expected the "if" branch to unconditionally return or throw when the "else" block has any return.',
+        });
+      }
+    }
+
+    function checkTryCatch(tryStatement) {
+      const blockHasAnyReturn = hasAnyReturn(tryStatement.block);
+      const handlerExistsAndHasAnyReturn = tryStatement.handler && hasAnyReturn(tryStatement.handler.body);
+
+      const blockReturnsOrThrowsUnconditionally = returnsOrThrowsUnconditionally(tryStatement.block);
+      const handlerExistsAndReturnsOrThrowsUnconditionally = tryStatement.handler && returnsOrThrowsUnconditionally(tryStatement.handler.body);
+
+      if (blockHasAnyReturn && !handlerExistsAndReturnsOrThrowsUnconditionally) {
+        context.report({
+          node: tryStatement,
+          message: 'Expected the "catch" branch to unconditionally return or throw when the "try" block has any return.',
+        });
+      } else if (handlerExistsAndHasAnyReturn && !blockReturnsOrThrowsUnconditionally) {
+        context.report({
+          node: tryStatement,
+          message: 'Expected the "try" branch to unconditionally return or throw when the "catch" block has any return.',
         });
       }
     }
 
     return {
       IfStatement: checkConditional,
+      TryStatement: checkTryCatch,
     };
   },
 };
