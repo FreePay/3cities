@@ -3,7 +3,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { TransactionReceipt } from "@ethersproject/providers";
 import { ChainMismatchError } from '@wagmi/core';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { SwitchChainError, useAccount, useContractWrite, useFeeData, useNetwork, usePrepareContractWrite, UserRejectedRequestError, useSwitchNetwork, useWaitForTransaction } from 'wagmi';
+import { SwitchChainError, useAccount, useContractWrite, useNetwork, usePrepareContractWrite, UserRejectedRequestError, useSwitchNetwork, useWaitForTransaction } from 'wagmi';
 import { getSupportedChainName } from "./chains";
 import { hasOwnPropertyOfType } from "./hasOwnProperty";
 import { makeAddress } from "./makeAddress";
@@ -13,7 +13,6 @@ import { Spinner } from "./Spinner";
 import { isToken } from "./tokens";
 import { TokenTransfer, TokenTransferForNativeCurrency, TokenTransferForToken } from "./tokenTransfer";
 import { Writable } from "./Writable";
-import { parseUnits } from "@ethersproject/units";
 
 // TODO s/transactions.tsx/ExecuteTokenTransfer.tsx
 
@@ -457,56 +456,15 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
   //    confirmed: success
   //    revert: ? presumably error
 
-  const useFeeDataParams = useMemo(() => {
-    return {
-      chainId: cachedTT.token.chainId,
-    };
-  }, [cachedTT.token.chainId]);
-
-  const { data: feeData } = useFeeData(useFeeDataParams); // TODO loading state to ensure 1) prepare isn't fetched until fee data is settled, 2) UI state is loading while fee data is loading
-  if (feeData) console.log("feeData", feeData);
-
-  console.log("before prepare, activeChain=", activeChain);
-
   const prepareParams = useMemo(() => { // here we must memoize prepareParams so that a new object isn't created each render which would cause usePrepareContractWrite to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
-    // console.log('force redo prepareParams', prepareNonce);
-    const overrides = (() => {
-      const oneGweiInWei = parseUnits("1", "gwei");
-      const maxFeePerGas = (() => {
-        const maxFeePerGasTemp = feeData?.lastBaseFeePerGas?.mul(15).div(retries < 1 ? 20 : 10); // here we set maxFeePerGas 50% above the last base fee so that if the base fee is rapidly increasing, our transaction will still confirm quickly, and more importantly, because WARNING some wallets error if maxFeePerGas is below the current baseFee at the time of transaction signing, and if we omit maxFeePerGas here, the internal value filled in for maxFeePerGas will often be less than the current base fee on chains with fast block times, causing frequent errors for certain wallet+chain combinations. For example, when maxFeePerGas is less than the current base fee, web3auth gives useContractWrite(...).error ~= "{"code":-32603,"data":{"code":-32000,"message":"max fee per gas less than block base fee: address <elided>, maxFeePerGas: 418700000 baseFee: 419340000"}}", and if we're using web3auth on arbitrum, the base fee might have increased quickly since lastBaseFeePerGas was fetched, so this can lead to transactions erroring frequently with web3auth+arbitrum. In short, we solve this by setting maxFeePerGas higher than is typically necessary so that transactions never frequently fail, regardless of wallet+chain combination. TODO consider setting maxFeePerGas based on chain: it could potentially be omitted when the chain has slow blocktimes and set aggressively for chains with fast blocktimes.
-        if (maxFeePerGasTemp) {
-          // here we ensure that maxFeePerGas is not less than our defined minimum. We chose a minimum of (1 gwei/1_000) because it's the smallest observed gas price in production, which was 0.001 gwei on optimism, from a brief survey we did. WARNING ensuring maxFeePerGas is at least this minimum is necessary to avoid a write error on some chains where the returned lastBaseFeePerGas is actually less than the minimum maxFeePerGas accepted by the chain, such as on lineaTestnet whose lastBaseFeePerGas was observed as 12 wei and then returned write.error ~= {"value":{"code":-32603,"data":{"code":-32000,"message":"transaction underpriced"}}}
-          const minimumMaxFeePerGas = oneGweiInWei.div(1_000);
-          if (maxFeePerGasTemp.lt(minimumMaxFeePerGas)) return minimumMaxFeePerGas;
-          else return maxFeePerGasTemp;
-        } else return undefined;
-      })();
-      const maxPriorityFeePerGas = (() => {
-        // WARNING if we leave maxPriorityFeePerGas undefined, wagmi+wallet will fill it in internally, and that typically works fine. However, it's illegal for maxFeePerGas to be less than maxPriorityFeePerGas, and on certain chains such as arbitrum, maxFeePerGas can be extremely low, and unfortunately, the default value populated inside wagmi+wallet for maxPriorityFeePerGas doesn't check to see if maxFeePerGas is less than that default, so here we ensure that if maxPriorityFeePerGas is defined then maxFeePerGas >= maxPriorityFeePerGas:
-        if (maxFeePerGas) {
-          const maxPriorityFeePerGasTemp = oneGweiInWei;
-          if (maxFeePerGas.lt(maxPriorityFeePerGasTemp)) return maxFeePerGas;
-          else return maxPriorityFeePerGasTemp;
-        } else return undefined;
-      })();
-      return {
-        ...(maxFeePerGas && { maxFeePerGas }),
-        ...(maxPriorityFeePerGas && { maxPriorityFeePerGas }),
-        // gasLimit: 0 --> WARNING we mustn't set gasLimit because certain networks use a different scale of amounts of gas than the L1. For example, arb1 uses ~2.6 million gas to transfer an erc20. --> in general, it's not possible to statically set the correct gas limit in a multichain context. Instead, we need to rely on automatic gas limit setting internally in wagmi+wallets. Note that for some networks, usePrepareContractWrite will let you override gas limit and the override will be returned as prepare.data.request.gasLimit. But for other networks, like arb1, wagmi somehow knows that the gas units are on a different scale, and even if you override gasLimit, wagmi will strip it out and return prepare.data.request.gasLimit==undefined.
-      };
-    })();
-
-    console.log("overrides", overrides);
-
     return {
       chainId: cachedTT.token.chainId,
       address: makeAddress(cachedTT.token.contractAddress), // TODO HACK permanent solution for makeAddress
       abi: abis.erc20,
       functionName: 'transfer',
       args: [cachedTT.toAddress, BigNumber.from(cachedTT.amountAsBigNumberHexString).toString()],
-      overrides,
     };
-  }, [cachedTT, feeData?.lastBaseFeePerGas]);
+  }, [cachedTT]);
   const prepare = usePrepareContractWrite(prepareParams);
 
   const transactionFeeUnaffordableErrorFromPrepare: TransactionFeeUnaffordableError | undefined = useMemo(() => tryMakeTransactionFeeUnaffordableError(prepare.error), [prepare.error]);
