@@ -8,7 +8,7 @@
 // import { useConnect, useNetwork } from "wagmi";
 // import { chainsSupportedBy3cities } from "./chains";
 // import { useInput } from "./useInput";
-// import { makeAndSetWeb3AuthConnector, wagmiClient } from "./wagmiClient";
+// import { makeAndSetWeb3AuthConnector } from "./wagmiClient";
 // import { Web3AuthConnector, Web3AuthLoginProvider } from "./Web3AuthConnector";
 
 import React from "react";
@@ -16,9 +16,31 @@ import { Link } from "react-router-dom";
 import logo from "./images/logo.jpg";
 import { ConnectKitButton } from "connectkit";
 
+/*
+  TODO ship web3auth integration
+    tasks:
+      1. add embedded email/google/etc logins to connectkit's modal
+        design options
+          A) if connectkit ships the feature I asked for, use that https://github.com/family/connectkit/discussions/194
+          B) use our fork of connectkit:
+            i. implement the feature I requested by adding ConnectKitProvider args and editing src/components/ConnectModal/index.tsx to use these new args to make new "pages" in the modal
+            ii. use the new feature to build an embedded login form. This will likely involve moving the web3auth code here in Header.tsx to a new permanent home.
+                current thought on modal visual design:
+                  [Email Address]      <submit>
+                  -----------------------------
+                  [google] [facebook] [option3]
+      2. re-enable tryReconnectToWeb3Auth by uncommenting its code so that automatic reconnection works again.
+      3. in our ConnectWalletButtonCustom, note that isConnecting is broken due to bugs in connectkit, but we want our connect button to show 'Connecting' while web3auth login is in process, so we should add a manual variable in our web3auth machinery to hardcode a direct connection from ConnectWalletButtonCustom and web3auth connecting or auto-reconnecting.
+      4. move the web3auth-specific stuff in wagmiClient.ts to its own file
+      5. production security
+        i. double-check the whitelisted origin security where if I open 3cities in a different ipfs gateway, I should be unable to sign web3auth transactions because they don't originate from https://3cities.xyz --> this is an important security mechanism to prevent copies of our codebas from stealing customer funds since web3auth auto-confirms transactions
+        ii. add 2FA to my web3auth account
+      6. that should be it! Our web3auth integration is live
+*/
+
 // TODO ConnectKitButton should use the email or SMS as the connected wallet label when you log in with oauth, instead of the connected address. Alternatively, we could build scaffolding around ConnectButton so that it gets hidden/swapped out for a login/logout label --> I like this architecture idea of a preprocessor/wrapped around the chosen modal so as to better control the precise UX, add our own email/SMS login option UX, while still benefiting from all of the work they've done on the modal, and being able to swap out to a different underlying connect wallet button/modal
 
-// const ConnectToWeb3AuthViaEmailButton: React.FC = () => {
+// const ConnectToWeb3AuthViaEmailButtonOld: React.FC = () => {
 //   const { connect, error, isLoading, pendingConnector } = useConnect();
 //   const { chain } = useNetwork();
 //   return <div>
@@ -79,8 +101,10 @@ import { ConnectKitButton } from "connectkit";
 //   </div >;
 // }
 
+// ************************************************************
+// BEGIN -- best email impl of web3auth integration(google impl below)
 // const emailAttrs = { type: 'email', placeholder: 'Email' };
-// const ConnectToWeb3AuthViaEmailButton: React.FC = () => {
+// export const ConnectToWeb3AuthViaEmailButton: React.FC = () => {
 //   const [isLoadingConnector, setIsLoadingConnector] = useState(false);
 //   const [web3AuthConnector, setWeb3AuthConnector] = useState<Web3AuthConnector | undefined>(undefined);
 //   const [triggerLogin, setTriggerLogin] = useState(false);
@@ -89,7 +113,7 @@ import { ConnectKitButton } from "connectkit";
 //       onEnterKeyPress: () => setTriggerLogin(true),
 //     };
 //   }, [setTriggerLogin]);
-//   const [email, emailInput] = useInput('', emailAttrs, opts);
+//   const [email, emailInput] = useInput('ryanberckmans@gmail.com', emailAttrs, opts);
 //   const { connectAsync, error, isLoading, pendingConnector } = useConnect();
 //   const { chain } = useNetwork();
 
@@ -111,7 +135,6 @@ import { ConnectKitButton } from "connectkit";
 //       connector: web3AuthConnector.connector,
 //       chainId: chainsSupportedBy3cities[0].id, // here we pass a supported chainId (happens to be the 0th's chain's id, but that's unimportant) to avoid the case where the connector defaults to an unsupported chain, such as defaulting to chainId 1 when not in production
 //     });
-//     console.log("connectors2", wagmiClient.connectors);
 //   }, [email, connectAsync, setIsLoadingConnector, setWeb3AuthConnector]);
 //   useEffect(() => {
 //     if (triggerLogin) {
@@ -132,6 +155,8 @@ import { ConnectKitButton } from "connectkit";
 //     {chain && <div>current chain: {chain.id} {chain.name}</div>}
 //   </div>;
 // }
+// END -- best email impl of web3auth integration (google impl below)
+// ************************************************************
 
 // const ConnectToWeb3AuthViaGoogleAsyncButton: React.FC = () => {
 //   const { connect, error, isLoading, pendingConnector } = useConnect();
@@ -164,7 +189,7 @@ import { ConnectKitButton } from "connectkit";
 //   </div>;
 // }
 
-export function Header() {
+export function HeaderOld() {
   return (
     <header className="bg-white p-5 shadow-md min-h-[80px]">
       <div className="mx-auto flex w-full max-w-screen-lg items-center justify-between">
