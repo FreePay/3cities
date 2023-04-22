@@ -1,10 +1,13 @@
-import { CHAIN_NAMESPACES } from "@web3auth/base";
+import { CHAIN_NAMESPACES, CustomChainConfig } from "@web3auth/base";
 import { Web3AuthNoModal } from "@web3auth/no-modal";
 import { OpenloginAdapter, OpenloginLoginParams } from "@web3auth/openlogin-adapter";
 import { Web3AuthConnector as UnderlyingWeb3AuthConnector } from "@web3auth/web3auth-wagmi-connector";
 import { Chain, Connector } from "wagmi";
+import { unsafeGetChainThrowIfNotFound } from "./chains";
 import { isProduction } from "./isProduction";
 import { NonEmptyArray } from "./NonEmptyArray";
+import { NativeCurrency } from "./Token";
+import { nativeCurrencies } from "./tokens";
 import { Web3AuthConnector, Web3AuthLoginProvider } from "./Web3AuthConnector";
 
 const web3AuthClientId: string = (() => {
@@ -16,8 +19,9 @@ const web3AuthClientId: string = (() => {
 })();
 
 function toOpenloginLoginParams(l: Web3AuthLoginProvider): OpenloginLoginParams {
-  const sharedParams: Pick<OpenloginLoginParams, 'sessionTime'> = {
+  const sharedParams: Pick<OpenloginLoginParams, 'sessionTime' | 'mfaLevel'> = {
     sessionTime: web3AuthSessionTime,
+    mfaLevel: 'none', // disable multifactor authentication to avoid confusing and spamming our users, who aren't storing lots of money in their web3auth addresses in 3cities. TODO re-enable mfa later if needed
   };
   switch (l.loginProvider) {
     case "email": return Object.assign({
@@ -35,7 +39,7 @@ function toOpenloginLoginParams(l: Web3AuthLoginProvider): OpenloginLoginParams 
 const web3AuthSessionTime: number = isProduction ? ( // length of time in seconds that a user will remain logged in after a successful login with web3auth
   60 * 60 * 24 * 7 // 7 days in seconds until session expiry (this is the maximum supported value; using the maximum in production reduces friction for users because they have to login less often)
 ) : (
-  60 * 30 // 30 minutes in seconds. Logging in more often outside of production helps to uncover any issues with the login flow
+  60 * 60 * 3 // 3 hours in seconds. Logging in more often outside of production helps to uncover any issues with the login flow
 );
 
 const openloginAdapter = new OpenloginAdapter({
@@ -45,23 +49,53 @@ const openloginAdapter = new OpenloginAdapter({
     uxMode: "popup",
     whiteLabel: {
       name: isProduction ? "3cities" : "[dev] 3cities",
-      logoLight: "https://web3auth.io/images/w3a-L-Favicon-1.svg", // TODO 3cities logo
-      logoDark: "https://web3auth.io/images/w3a-D-Favicon-1.svg", // TODO 3cities logo
+      logoLight: "https://3cities.xyz/logo.png",
+      logoDark: "https://3cities.xyz/logo.png", // TODO an actual dark logo
       defaultLanguage: "en",
       dark: false, // whether to enable dark mode. defaultValue: false
     },
   },
 });
 
+function makeChainConfig(chainId: number): CustomChainConfig {
+  const c = unsafeGetChainThrowIfNotFound(chainId);
+  const rpcTarget: string = (() => {
+    const r = c.rpcUrls.default;
+    if (r === undefined) throw new Error(`Chain ${chainId} has no default rpcUrls`);
+    const r0 = r.http[0];
+    if (r0 === undefined) throw new Error(`Chain ${chainId} has no http rpcUrls`);
+    return r0;
+  })()
+  const blockExplorer: string = (() => {
+    if (c.blockExplorers === undefined) throw new Error(`Chain ${chainId} has no blockExplorerUrls`);
+    const b = c.blockExplorers.default;
+    if (b === undefined) throw new Error(`Chain ${chainId} has no default block explorers`);
+    return b.url;
+  })();
+  const nativeCurrency: NativeCurrency = (() => {
+    const nc = nativeCurrencies.find(n => n.chainId === chainId);
+    if (nc === undefined) throw new Error(`Chain ${chainId} has no nativeCurrency`);
+    return nc;
+  })();
+  return {
+    chainNamespace: CHAIN_NAMESPACES.EIP155,
+    chainId: `0x${chainId.toString(16)}`,
+    rpcTarget,
+    displayName: c.name,
+    blockExplorer,
+    ticker: nativeCurrency.ticker,
+    tickerName: nativeCurrency.name,
+    decimals: nativeCurrency.decimals,
+  };
+}
+
 export function makeWeb3AuthConnector(chains: NonEmptyArray<Chain>, loginProvider: Web3AuthLoginProvider): Web3AuthConnector {
   const web3AuthInstance = new Web3AuthNoModal({
-    chainConfig: {
-      chainNamespace: CHAIN_NAMESPACES.EIP155,
-      chainId: chains[0].id.toString(), // NB if chainId is omitted, Web3AuthCore connects to mainnet (chainId 1) by default, so here, we pass the 1st chainId from chainsSupportedBy3cities to ensure that the initial chain connected to by Web3Auth is in fact a chain we support. In particular, we want to avoid connecting to mainnet when in not in production.
-    },
     clientId: web3AuthClientId,
+    chainConfig: makeChainConfig(chains[0].id),
     sessionTime: web3AuthSessionTime,
-    web3AuthNetwork: isProduction ? "mainnet" : "testnet",
+    // web3AuthNetwork: --> NB there's no need to set web3AuthNetwork as each clientId is bound to a single network, so web3auth knows if we're using testnet or mainnet based on the clientId. Note that web3auth has different production networks based on global region (north america, india, asia, etc) and in future, we could have regional builds where the injected clientId is selected based on the region.
+    web3AuthNetwork: isProduction ? "cyan" : "testnet", // NB although a web3auth clientId is bound to a single network and therefore web3auth should know if we're using testnet or cyan/mainnet/etc based on the clientId, it still seems to be required to pass web3AuthNetwork, or else transactions don't seem to confirm properly.. Note that web3auth has different production networks based on global region (north america, india, asia, etc) and in future, we could have regional builds where the injected clientId is selected based on the region.
   });
   web3AuthInstance.configureAdapter(openloginAdapter);
 
