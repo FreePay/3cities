@@ -158,4 +158,33 @@ export async function makeAndSetWeb3AuthConnector(web3AuthLoginProvider: Web3Aut
   return web3AuthConnector;
 }
 
+async function tryReconnectToWeb3Auth() {
+  // TODO re-enable tryReconnectToWeb3Auth which is currently commented out as we're not ready to ship web3auth integration
+  // const p = await getMostRecentlyUsedWeb3AuthLoginProvider();
+  // if (wagmiClient.status === 'disconnected' && p) {
+  //   const connector = await (await makeAndSetWeb3AuthConnector(p)).connector;
+  //   await connect({ connector, chainId: chainsSupportedBy3cities[0].id }); // here we pass a supported chainId (happens to be the 0th's chain's id, but that's unimportant) to avoid the case where the connector defaults to an unsupported chain, such as defaulting to chainId 1 when not in production
+  // }
+}
+
+(async () => { // poll wagmiClient to see if we're ready to try to reconnect to web3auth. We need to attempt to reconnect manually because Web3AuthConnector is loaded async so wagmiClient can't automatically reconnect.
+  let attempts = 0;
+  function maybeTry() {
+    // WARNING when wagmiClient boots, it goes through an async autoConnect process during which wagmiClient.status='connecting' or 'connected'. We mustn't attempt to reconnect to web3auth during that autoConnect process because wagmiClient doesn't support concurrent connection attempts. So, poll to see if wagmiClient is disconnected and try reconnecting to web3auth iff wagmiClient is disconnected within our window of poll attempts.
+    if (wagmiClient.status === 'disconnected') {
+      // wagmiClient has completed its autoConnect attempt, so we're ready to try and reconnect to web3auth
+      tryReconnectToWeb3Auth().catch(e => {
+        if (e instanceof UserRejectedRequestError && e.code === 4001) { // UserRejectedRequestError with a code of 4001 indicates the user is logged out of web3auth and a reconnection can never succeed, so we'll clear the cached login. Note we don't clear login unconditionally because the reconnect may have failed for an ephemeral reason, such as the user having no internet.
+          clearMostRecentlyUsedWeb3AuthLoginProvider();
+        } else console.error("error while attempting to reconnect to web3auth:", e, JSON.stringify(e), hasOwnPropertyOfType(e, 'code', 'number') && e.code);
+      });
+    } else if (attempts < 200) {
+      // wagmiClient is still in the middle of its autoConnect attempt, so we'll try again later
+      attempts++;
+      setTimeout(maybeTry, 10);
+    }
+  }
+  setTimeout(maybeTry, 10);
+})();
+
 // console.log("wagmiClient.chains", wagmiClient.chains); // WARNING wagmiClient.chains seems to be defined if and only if the wallet is currently connected. For that reason, we shouldn't rely on wagmiClient.chains to power any downstream config (eg. Web3Modal EthereumClient's chains) https://github.com/wagmi-dev/wagmi/discussions/1832
