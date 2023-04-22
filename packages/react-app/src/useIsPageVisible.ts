@@ -36,24 +36,26 @@ export const isSupported = hasDocument && Boolean(document.addEventListener);
 export const visibility = (() => {
   if (!isSupported) {
     return undefined;
-  }
-  for (const event of vendorEvents) {
-    if (event.hidden in document) {
-      return event;
+  } else {
+    let evt = undefined;
+    for (const event of vendorEvents) {
+      if (event.hidden in document) {
+        evt = event;
+        break;
+      }
     }
+    return evt;
   }
-  // otherwise it's not supported
-  return undefined;
 })();
 
 export const getHandlerArgs = () => {
-  if (!visibility) {
-    return [true, 'visible'];
+  if (!visibility) return [true, 'visible'];
+  else {
+    const { hidden, state } = visibility;
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    return [!document[hidden], document[state]];
   }
-  const { hidden, state } = visibility;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  return [!document[hidden], document[state]];
 };
 
 const isSupportedLocal = isSupported && visibility;
@@ -82,8 +84,7 @@ export const useIsPageVisible: () => boolean = () => {
       return () => {
         document.removeEventListener(visibility.event, handler);
       };
-    }
-    return;
+    } else return;
   }, []);
 
   // The below code works to determine if document is focused. I was curious by the comments in https://github.com/pgilad/react-page-visibility/issues/21 and ran an experiment to see if tracking "document is focused" might be useful to track in addition to isVisible. It didn't seem to be useful, as the focus state was dependent more on if the user was clicking in the app currently, and less around anything related to page visibility.
