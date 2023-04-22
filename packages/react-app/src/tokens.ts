@@ -142,6 +142,7 @@ const BaseGoerliETH = nativeCurrency(baseGoerli);
 const BaseGoerliDAI = token(baseGoerli, { name: 'Dai', ticker: 'DAI', contractAddress: '0x7805e80523536fb4872a1cee2c53c4f354953b96' });
 
 // linea (mainnet not yet launched) and lineaTestnet
+const lineaTestnetETH = nativeCurrency(lineaTestnet);
 const lineaTestnetUSDC = token(lineaTestnet, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x964FF70695da981027c81020B1c58d833D49A640', decimals: 6 });
 
 // scrollTestnet (goerli alpha. mainnet not yet launched)
@@ -175,6 +176,7 @@ export const nativeCurrencies: Readonly<NonEmptyArray<NativeCurrency>> = (() => 
     zkSyncTestnetETH,
     PolygonZkEvmTestnetETH,
     BaseGoerliETH,
+    lineaTestnetETH,
     ScrollTestnetETH,
     TaikoTestnetETH,
   ]).filter(isTokenOnASupportedChain); // here we must drop tokens on unsupported chains to ensure that all tokens in our registry are in fact on supported chains so that our token and chain registries are consistent with each other
@@ -325,7 +327,7 @@ export function getDecimalsToRenderForTokenTicker(ticker: string): number {
   return 2;
 }
 
-// TODO debug facility that scans all chain Ids, all token tickers, and prints out to console which tokens are missing on which chains. This would be a good one for conditional compilation using macros
+// TODO debug facility that scans all chain Ids, all token tickers, and prints out to console which tokens are missing on which chains, including native currencies (as I accidentally once omitted a native currency). This would be a good one for conditional compilation using macros.
 
 // Sanity tests:
 // TODO conditional compilation of these sanity tests using macros. Compile them in dev, prod-test (to be released at test.3cities.xyz), and prod-preview (a new environment and released at preview.3cities.xyz. preview is a production environment with the only difference between preview and prod being REACT_APP_ENABLE_SANITY_TESTS=true).
