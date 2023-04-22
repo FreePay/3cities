@@ -56,7 +56,7 @@ export const CheckoutStep1: React.FC<{ setResult: (r: CheckoutStep1Result) => vo
         <input className="w-full rounded-md border px-3.5 py-2" id="note" type="text" placeholder="(optional)" onChange={(e) => setNote(e.target.value)} value={note}></input>
       </div>
     </div>
-    <button className="w-full rounded-md bg-gradient-to-br from-violet-500 to-blue-500 px-3.5 py-2 text-sm font-medium text-white transition hover:hue-rotate-30 active:scale-95 active:hue-rotate-60 disabled:opacity-50" onClick={() => {
+    <button className="w-full rounded-md bg-gradient-to-br from-violet-500 to-blue-500 px-3.5 py-2 text-sm font-medium text-white transition sm:hover:hue-rotate-30 active:scale-95 active:hue-rotate-60 disabled:opacity-50" onClick={() => {
       if (amount !== undefined) {
         const p = {
           logicalAssetTicker: 'USD' as LogicalAssetTicker, // TODO support ETH
@@ -103,7 +103,7 @@ export const CheckoutStep2: React.FC<{ setResult: (r: CheckoutStep2Result) => vo
         Accepting these tokens:
       </h3>
       <div className="flex flex-wrap gap-2.5">
-        {allTokenTickers.map(tt => <div key={tt}><button className="font-medium px-3.5 py-2 border rounded-md inline-flex justify-start hover:border-gray-300 focus:border-white focus:bg-gradient-to-br focus:from-violet-500 focus:to-blue-500 focus:text-white" onClick={toggleTokenTicker.bind(null, tt)}>{sp.tokenTickerExclusions !== undefined && sp.tokenTickerExclusions.indexOf(tt) > -1 && 'no '}{tt}</button></div>)}
+        {allTokenTickers.map(tt => <div key={tt}><button className="font-medium px-3.5 py-2 border rounded-md inline-flex justify-start sm:hover:border-gray-300 focus:border-white focus:bg-gradient-to-br focus:from-violet-500 focus:to-blue-500 focus:text-white" onClick={toggleTokenTicker.bind(null, tt)}>{sp.tokenTickerExclusions !== undefined && sp.tokenTickerExclusions.indexOf(tt) > -1 && 'no '}{tt}</button></div>)}
       </div>
     </div>
     <div>
@@ -111,7 +111,7 @@ export const CheckoutStep2: React.FC<{ setResult: (r: CheckoutStep2Result) => vo
         On these chains:
       </h3>
       <div className="flex flex-wrap gap-2.5">
-        {allSupportedChainIds.map(cid => <div key={cid}><button className="font-medium px-3.5 py-2 border rounded-md inline-flex justify-start hover:border-gray-300 focus:border-white focus:bg-gradient-to-br focus:from-violet-500 focus:to-blue-500 focus:text-white" onClick={toggleChainId.bind(null, cid)}>{sp.chainIdExclusions !== undefined && sp.chainIdExclusions.indexOf(cid) > -1 && 'no '}{getSupportedChainName(cid)}</button></div>)}
+        {allSupportedChainIds.map(cid => <div key={cid}><button className="font-medium px-3.5 py-2 border rounded-md inline-flex justify-start sm:hover:border-gray-300 focus:border-white focus:bg-gradient-to-br focus:from-violet-500 focus:to-blue-500 focus:text-white" onClick={toggleChainId.bind(null, cid)}>{sp.chainIdExclusions !== undefined && sp.chainIdExclusions.indexOf(cid) > -1 && 'no '}{getSupportedChainName(cid)}</button></div>)}
       </div>
     </div>
     <div>
@@ -119,7 +119,7 @@ export const CheckoutStep2: React.FC<{ setResult: (r: CheckoutStep2Result) => vo
         (Click token/chain to disable)
       </h3>
     </div>
-    <button className="text-sm font-medium px-3.5 py-2 bg-gradient-to-br from-violet-500 to-blue-500 rounded-md text-white hover:hue-rotate-30 active:hue-rotate-60 transition active:scale-95 w-full" onClick={() => setResult(sp)}>Looks Good</button>
+    <button className="text-sm font-medium px-3.5 py-2 bg-gradient-to-br from-violet-500 to-blue-500 rounded-md text-white sm:hover:hue-rotate-30 active:hue-rotate-60 transition active:scale-95 w-full" onClick={() => setResult(sp)}>Looks Good</button>
   </div>;
 }
 
@@ -142,7 +142,7 @@ export const CheckoutStep3: React.FC<{ setResult: (r: CheckoutStep3Result) => vo
         <input className="w-full rounded-md border px-3.5 py-2" id="address" type="text" placeholder="0x123... or connect wallet" onChange={(e) => setAddress(e.target.value)} value={address}></input>
       </div>
     </div>
-    <button className="w-full rounded-md bg-gradient-to-br from-violet-500 to-blue-500 px-3.5 py-2 text-sm font-medium text-white transition hover:hue-rotate-30 active:scale-95 active:hue-rotate-60 disabled:opacity-50" disabled={address.length < 1} onClick={() => { if (address.length > 0) /* TODO address validation, ensure it's at least a well-formed addressed, ENS resolves, etc. */ setResult(address) }}>Done</button>
+    <button className="w-full rounded-md bg-gradient-to-br from-violet-500 to-blue-500 px-3.5 py-2 text-sm font-medium text-white transition sm:hover:hue-rotate-30 active:scale-95 active:hue-rotate-60 disabled:opacity-50" disabled={address.length < 1} onClick={() => { if (address.length > 0) /* TODO address validation, ensure it's at least a well-formed addressed, ENS resolves, etc. */ setResult(address) }}>Done</button>
   </form>;
 }
 

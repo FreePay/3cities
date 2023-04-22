@@ -20,19 +20,20 @@ export const $logIfNotProduction = createMacro(logIfNotProductionImpl);
 
 function logIfNotProductionImpl({ references, babel }) {
   const isProduction: boolean = process.env['REACT_APP_IS_PRODUCTION'] === 'true'; // WARNING this boolean definition has been copied from isProduction.ts because we're unable to import a non-macro module from inside a macro module (as the non-macro module doesn't exist yet)
-  if (isProduction) return;
-  const { types: t } = babel;
-  references.default.forEach(referencePath => {
-    if (t.isCallExpression(referencePath.parent)) {
-      referencePath.parentPath.replaceWith(
-        t.expressionStatement(
-          t.callExpression(
-            t.memberExpression(t.identifier('console'),
-            t.identifier('log')),
-            [...referencePath.parent.arguments],
+  if (!isProduction) {
+    const { types: t } = babel;
+    references.default.forEach(referencePath => {
+      if (t.isCallExpression(referencePath.parent)) {
+        referencePath.parentPath.replaceWith(
+          t.expressionStatement(
+            t.callExpression(
+              t.memberExpression(t.identifier('console'),
+                t.identifier('log')),
+              [...referencePath.parent.arguments],
+            )
           )
-        )
-      );
-    }
-  });
+        );
+      }
+    });
+  }
 }

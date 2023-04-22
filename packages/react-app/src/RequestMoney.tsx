@@ -96,11 +96,11 @@ export function RequestMoney() {
       {checkoutLink !== undefined && <div>
         <div className="flex justify-center">
           <div>
-            {navigator.share !== undefined ? <button className="text-4xl w-full rounded-md bg-gradient-to-br from-violet-500 to-blue-500 px-3.5 py-2 font-medium text-white transition hover:hue-rotate-30 active:scale-95 active:hue-rotate-60" onClick={() => {
+            {navigator.share !== undefined ? <button className="text-4xl w-full rounded-md bg-gradient-to-br from-violet-500 to-blue-500 px-3.5 py-2 font-medium text-white transition sm:hover:hue-rotate-30 active:scale-95 active:hue-rotate-60" onClick={() => {
               navigator.share({ url: checkoutLink })
             }}>
               Share Link
-            </button> : <button className="text-4xl w-full rounded-md bg-gradient-to-br from-violet-500 to-blue-500 px-3.5 py-2 font-medium text-white transition hover:hue-rotate-30 active:scale-95 active:hue-rotate-60" onClick={setCopied}>
+            </button> : <button className="text-4xl w-full rounded-md bg-gradient-to-br from-violet-500 to-blue-500 px-3.5 py-2 font-medium text-white transition sm:hover:hue-rotate-30 active:scale-95 active:hue-rotate-60" onClick={setCopied}>
               {isCopied ? 'Copied' : 'Copy Link'}
             </button>}
           </div>

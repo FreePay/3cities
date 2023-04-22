@@ -18,6 +18,11 @@ type CustomConnectWalletButtonProps = {
 // clients should instead use ConnectWalletButton, which is a styled
 // wrapper around this component.
 export const ConnectWalletButtonCustom: React.FC<CustomConnectWalletButtonProps> = ({ disconnectedLabel, hideIfDisconnected, disabled, className, disabledClassName, enabledClassName, loadingSpinnerClassName, }) => {
+  // WARNING connectkit has two bugs that are preventing our button from properly detecting if isConnecting is actually true.
+  // Bug 1. ConnectKitButton.Custom.isConnecting is currently false if the modal is closed but we're actually connecting or reconnecting because it only checks open status https://github.com/family/connectkit/issues/203
+  // Bug 2. connectkit currently causes wagmi.useAccount.isConnecting to be set to true forever after the modal has been opened once. This prevents the use of isConnecting to determine if we're actually connecting, so right now, there's no way in general to make our button show 'Connecting <loading spinner>' when we're actually loading. https://github.com/family/connectkit/pull/202#issuecomment-1515458891
+  // TODO --> when both these bugs are fixed in connectkit, ConnectKitButton.Custom.isConnecting should just work properly and these comments can be removed.
+  // TODO consider using our own address truncation here instead of ConnectKitButton.Custom.{truncatedAddress,ensName}
   return (
     <ConnectKitButton.Custom>
       {({ isConnected, isConnecting, show, truncatedAddress, ensName }) => {
@@ -25,14 +30,14 @@ export const ConnectWalletButtonCustom: React.FC<CustomConnectWalletButtonProps>
         const computedClassName = `relative ${className || ''} ${isButtonDisabled ? (disabledClassName || '') : ''} ${!isButtonDisabled ? (enabledClassName || '') : ''}`;
         const computedLabel = (() => {
           const disabledReason = typeof disabled === 'string' ? disabled : undefined;
-          const needToApproveConnectionInWallet = !isConnected && isConnecting ? 'Connecting' : undefined; // NB connectkit returns isConnecting==true when the modal is open even if isConnected==true, so here we show 'Connecting' only if we're not already connected
+          const needToApproveConnectionInWallet = !isConnected && isConnecting ? 'Connecting' : undefined; // TODO we can drop `!isConnected` after the isConnecting bugs above are resolved in connectkit because at that point, we'll want to show 'Connecting' iff isConnecting because isConnecting will actually be defined correctly.
           return <>{disabledReason || needToApproveConnectionInWallet || (isConnected ? (ensName || truncatedAddress || '(no address)') : disconnectedLabel)}</>;
         })();
         const computedSpinner =
           disabled === undefined // don't show loading spinner if button has been forcibly disabled by the client because even if it is loading internally, it won't be clickable until the client changes this
           && isConnecting // show loading spinner if button is connecting, of course
           && <Spinner
-            containerClassName="absolute top-1/2 transform -translate-y-1/2 right-4 z-10 h-6 w-6 flex items-center justify-center"
+            containerClassName="absolute top-1/2 transform -translate-y-1/2 right-2 z-10 h-6 w-6 flex items-center justify-center"
             spinnerClassName={`${loadingSpinnerClassName}`}
           />;
         return (!hideIfDisconnected || isConnected) ? <button
@@ -56,7 +61,7 @@ type ConnectWalletButtonProps = Partial<Pick<CustomConnectWalletButtonProps, 'di
 export const ConnectWalletButton: React.FC<ConnectWalletButtonProps> = (props) => <ConnectWalletButtonCustom
   disconnectedLabel='Connect Wallet'
   {...props /* NB here we spread props after passing a static disconnectedLabel so that any props.disconnectedLabel takes precedence, so that the static value is an overridable default */}
-  className="rounded-md p-3.5 font-medium bg-primary hover:bg-primary-darker focus:outline-none active:scale-95 w-full"
+  className="rounded-md p-3.5 font-medium bg-primary sm:enabled:hover:bg-primary-darker focus:outline-none active:scale-95 w-full"
   disabledClassName="text-gray-200 pointer-events-none"
   enabledClassName="text-white"
   loadingSpinnerClassName="text-gray-200 fill-primary"
