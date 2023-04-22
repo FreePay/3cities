@@ -16,6 +16,8 @@ import { Writable } from "./Writable";
 
 // TODO s/transactions.tsx/ExecuteTokenTransfer.tsx
 
+// TODO broken insufficient fee detection with metamask+ledger --> with ryanb.eth connected in dev, I have 0 ETH in arb goerli, but the insufficient fee funds detection isn't working. I can pop-up the write but metamask won't let me approve it. prepare is succeeding, write is in progress and pops up transaction confirmation, but then metamask pop-up says insufficient ETH to pay gas --> is this a bug in wagmi.usePrepareContractWrite?
+
 // ExecuteTokenTransferButtonStatus represents a memoryless snapshot of the
 // internal status of an ExecuteTokenTransferButton.
 // ExecuteTokenTransferButton constructs these statuses internally as state
@@ -119,7 +121,10 @@ type ExecuteTokenTransferButtonUIProps = Pick<ExecuteTokenTransferButtonProps, '
 };
 
 const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> = ({ tt, autoReset, loadForeverOnTransactionFeeUnaffordableError, label, successLabel, disabled, className, disabledClassName, enabledClassName, errorClassName, warningClassName, loadingSpinnerClassName, observer, }) => {
+  const { connector: activeConnector } = useAccount();
   const status: ExecuteTokenTransferStatus = useObservedValue(observer);
+
+  const connectedWalletAutoSigns: boolean = activeConnector ? activeConnector.id.includes("web3auth") : false; // true iff the connected wallet does not ask the user to sign the transaction and instead signs it on their behalf.
 
   useEffect(() => {
     if (status.suggestAutoExecute) status.execute();
@@ -141,8 +146,13 @@ const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> 
     })();
     const needToDismissOtherNetworkSwitch = status.warning === 'NetworkSwitchNonFatalError' ? 'Finish other network switch and retry' : undefined;
     const needToSwitchNetworkManuallyMsg = status.needToSwitchNetworkManually ? <span className={warningClassName || ''}>Switch wallet network to {getSupportedChainName(tt.token.chainId)} ({tt.token.chainId})</span> : undefined;
-    const needToSignInWallet = status.isLoading && status.loadingStatus === 'SigningTransaction' ? 'Confirm in Wallet' : undefined;
-    return <>{disabledReason || computedError || needToDismissOtherNetworkSwitch || needToSwitchNetworkManuallyMsg || needToSignInWallet || (status.isSuccess ? successLabel : label)}</>;
+    const needToSignInWallet = status.isLoading && status.loadingStatus === 'SigningTransaction' && !connectedWalletAutoSigns ? 'Confirm in Wallet' : undefined;
+    const payingInProgress = status.isLoading && (
+      status.loadingStatus === 'ConfirmingTransaction'
+      || (status.loadingStatus === 'SigningTransaction' && connectedWalletAutoSigns)
+    ) ? 'Paying...' : undefined;
+    const success = status.isSuccess ? successLabel : undefined;
+    return <>{disabledReason || computedError || needToDismissOtherNetworkSwitch || needToSwitchNetworkManuallyMsg || needToSignInWallet || payingInProgress || success || label}</>;
   })();
   const computedSpinner =
     disabled === undefined // don't show loading spinner if button has been forcibly disabled by the client because even if it is loading internally, it won't be clickable until the client changes this
@@ -432,8 +442,11 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
   const [cachedTT, setCachedTT] = useState<ExecuteTokenTransferForTokenProps['tt']>(props.tt); // wagmi's prepare/write/wait hooks aren't particularly resilient to automatic changes in the transfer details. Instead, we cache props.tt to lock in the transfer instance. Clients that wish to change the value of tt can call status.reset() to force a recache to the latest value of props.tt.
   const [isSuccess, setIsSuccess] = useState(false); // wait.isSuccess can sometimes reset itself back to idle (such as on a network switch), so to prevent a Success status from clearing itself, we cache success status as state so that after the user has successfully paid, the transfer never clears its success status unless reset.
   const [userSignedTransaction, setUserSignedTransaction] = useState(false); // userSignedTransaction is set to true iff the user has signed the transaction. Note that userSignedTransaction is set to true immediately after successful signing, before the transaction is confirmed, and is never cleared back to false unless the client calls reset(). The sole purpose of userSignedTransaction is to be surfaced to the client to eg. help the client decide whether or not they want to call reset(). NB write.isSuccess can sometimes reset itself back to idle (such as on a network switch), so to prevent loss of information, we cache userSignedTransaction as state.
-  const [autoExecuteState, setAutoExecuteState] = useState<'none' | 'clickedExecuteAndStartedSwitchingNetwork' | 'finishedSwitchingNetworkAndShouldAutoExecute'>("none"); // autoExecuteState is a small state machine used to control whether or not execution of prompting the user to sign the transaction will happen automatically. We want to auto-execute if and only if the user already called status.execute() once (eg. user clicked button once) AND this click caused a network switch to be triggered AND that network switch was successful. This avoids requiring the user to click the button more than once when a network add and/or switch is required.
+  const [autoExecuteState, setAutoExecuteState] = useState<'none' | 'clickedExecuteAndStartedSwitchingNetwork' | 'finishedSwitchingNetworkAndShouldAutoExecute' | 'autoRetry'>("none"); // autoExecuteState is a small state machine used to control whether or not execution of prompting the user to sign the transaction will happen automatically. We want to auto-execute if the user already called status.execute() once (eg. user clicked button once) AND this click caused a network switch to be triggered AND that network switch was successful. This avoids requiring the user to click the button more than once when a network add and/or switch is required. We also want to auto-execute if the transfer has determined it should be automatically retried.
   const [transactionReceipt, setTransactionReceipt] = useState<TransactionReceipt | undefined>(undefined); // `wait` can sometimes can reset itself (such as on network switch), so we cache `wait.data: TransactionReceipt` into transactionReceipt so that after the user has successfully paid, the transfer always has a copy of its receipt.
+  const [retries, setRetries] = useState(0); // number of retries, where a retry is attempted when an error occurs that isRetryableError (and would otherwise be a fatal error if it weren't retrayble). This retry count is used to prevent an infinite number of retries. WARNING `retries` is the only state that isn't automatically cleared across resets as it tracks the number of resets in service of automatic retries. Instead, `retries` is cleared only if the client calls status.reset(), so that the retry count is properly reset if the tokenTransfer changes.
+  const [willAutoRetry, setWillAutoRetry] = useState(false); // true iff the transfer should update its autoExecuteState to automatically retry on a reset, instead of normally setting autoExecuteState="none"
+  const isMaxRetriesExceeded: boolean = retries > 1;
 
   // Information on wagmi's transaction hooks:
   //
@@ -467,6 +480,14 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
   }, [cachedTT]);
   const prepare = usePrepareContractWrite(prepareParams);
 
+  const prepareError = prepare.error; // use a local variable so that the refetch useEffect's dependency is only on prepare.error and not the entire prepare object
+  const prepareRefetch = prepare.refetch; // use a local variable so that the refetch useEffect's dependency is only on the prepare.refetch function and not the entire prepare object
+  useEffect(() => {
+    if (isEphemeralPrepareError(prepareError)) {
+      prepareRefetch(); // NB refetches are run back-to-back with no backoff or maximum refetch limit. In every case I tested, it took only a single refetch to clear the ephemeral error.
+    }
+  }, [prepareError, prepareRefetch]);
+
   const transactionFeeUnaffordableErrorFromPrepare: TransactionFeeUnaffordableError | undefined = useMemo(() => tryMakeTransactionFeeUnaffordableError(prepare.error), [prepare.error]);
 
   const onWriteSuccess = useCallback<() => void>(() => {
@@ -486,6 +507,7 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
   const transactionFeeUnaffordableErrorFromWrite: TransactionFeeUnaffordableError | undefined = useMemo(() => tryMakeTransactionFeeUnaffordableError(write.error), [write.error]);
 
   const reset = useCallback<() => void>(() => {
+    setRetries(0); // see note on setRetries definition. `retries` must be reset here instead of in the canonical location where all othere state is reset.
     setDoReset(true);
   }, [setDoReset]);
 
@@ -530,24 +552,41 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
 
   const switchNetwork = useSwitchNetwork(switchNetworkArgs);
 
+  const shouldAutoRetry: boolean = (() => {
+    const isErrorRetryable: boolean = isRetryableError(prepare.error) || isRetryableError(write.error) || isRetryableError(wait.error) || isRetryableError(switchNetwork.error); // an error is said to be "retryable" (instead of fatal) if we want to automatically reset the button and automatically retry again
+    return isErrorRetryable && !isMaxRetriesExceeded;
+  })();
+
+  useEffect(() => {
+    if (shouldAutoRetry && !willAutoRetry) {
+      setWillAutoRetry(true);
+      setRetries(n => n + 1);
+      setDoReset(true)
+    }
+  }, [setWillAutoRetry, setRetries, willAutoRetry, shouldAutoRetry]);
+
+  const autoRetryInProgress: boolean = shouldAutoRetry || willAutoRetry;
+
   const [executeCalledAtLeastOnce, setExecuteCalledAtLeastOnce] = useState(false);
 
   const wr = write.reset; // use a local variable so that the reset useEffect's dependency is only on the write.reset function and not the entire write object
   const swr = switchNetwork.reset; // use a local variable so that the reset useEffect's dependency is only on the switchNetwork.reset function and not the entire switchNetwork object
   useEffect(() => {
     if (doReset) {
-      // WARNING here we must update all state to initial values; if state is added/changed, we must also reset it here
+      // WARNING here we must update all state to initial values; if state is added/changed, we must also reset it here.
+      // WARNING however, here we do not clear retries (ie. we dont call setRetries) as retries is persisted across resets.
       setCachedTT(props.tt);
       setIsSuccess(false);
       setUserSignedTransaction(false);
-      setAutoExecuteState("none");
+      setAutoExecuteState(willAutoRetry && executeCalledAtLeastOnce && !isSuccess ? "autoRetry" : "none"); // here, we will auto-execute due to autoRetry iff we've just reset due to an auto retry and also the user clicked the button at least once since the previous retry and also we check !isSuccess as an extra sanity to help ensure we don't auto-execute a double-spend. WARNING the latter clause of not auto-executing unless the user clicked the button at least once is crucial because there certain usePrepareContractWrite(...).errors are retryable, and so if we were to auto-execute without the condition of user having clicked button, we would be sending a transaction the user didn't actually request (eg. button loads -> prepare emits retryable error -> reset -> autoRetry -> auto-execute -> now we've executed without the user ever having clicked the button, which is particularly bad for wallets like web3auth that auto-approve any suggestion transactions, so we'd be sending money without the user ever having approved it!)
+      setWillAutoRetry(false);
       setTransactionReceipt(undefined);
       wr();
       swr();
       setExecuteCalledAtLeastOnce(false);
       setDoReset(false);
     }
-  }, [props.tt, setCachedTT, setIsSuccess, setUserSignedTransaction, setAutoExecuteState, setTransactionReceipt, wr, swr, setExecuteCalledAtLeastOnce, setDoReset, doReset]);
+  }, [props.tt, setCachedTT, setIsSuccess, isSuccess, setUserSignedTransaction, setAutoExecuteState, setTransactionReceipt, wr, swr, setExecuteCalledAtLeastOnce, executeCalledAtLeastOnce, setDoReset, doReset, willAutoRetry, setWillAutoRetry]);
 
   const needToSwitchNetwork: boolean =
     (Boolean(prepare.error) && prepare.error instanceof ChainMismatchError) // ie. wagmi's API is that prepare.error is an instanceof ChainMisMatchError if and only if the wallet's active network differs from the chainId passed to prepare.
@@ -582,7 +621,7 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
   //   isIdle: prepare.isIdle,
   // }, "\nwrite", {
   //   status: write.status,
-  //   error: write.error,
+  //   error: JSON.stringify(write.error),
   //   isLoading: write.isLoading,
   //   write: write.write,
   //   data: write.data,
@@ -598,7 +637,7 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
   //   status: switchNetwork.status,
   //   switchNetwork: switchNetwork.switchNetwork,
   //   error: switchNetwork.error,
-  // });
+  // }, "\nretries:", retries, "willAutoRetry", willAutoRetry, "shouldAutoRetry", shouldAutoRetry);
 
   const isEverythingIdle: boolean = prepare.isIdle && write.isIdle && wait.isIdle && (switchNetwork.isIdle || switchNetwork.switchNetwork === undefined); // NB wagmi seems to return all hooks idle and not loading on first render/component mount. Ie. prepare.isLoading is false on the initial render (and write.isLoading and wait.isLoading are also false), so we'll use this flag to detect if everything is idle, and if so, we'll assign the Loading Init status.
 
@@ -635,11 +674,13 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
           isSuccess: false,
         };
         return s;
-      } else if (
-        (prepare.error && !(prepare.error instanceof ChainMismatchError))
-        || (write.error && !userRejectedTransactionSignRequest)
+      } else if (!autoRetryInProgress && (
+        (prepare.error
+          && !(prepare.error instanceof ChainMismatchError)
+          && !isEphemeralPrepareError(prepare.error)
+        ) || (write.error && !userRejectedTransactionSignRequest)
         || wait.error
-      ) {
+      )) {
         const errorToIncludeInStatus: Error = (() => {
           if (transactionFeeUnaffordableError) return transactionFeeUnaffordableError; // WARNING here we must prioritize transactionFeeUnaffordableError which is derived from prepare or write errors. If we prioritized write/prepare errors, then we would be losing from the status the information that the user can't afford the transaction fee.
           else if (wait.error) return wait.error; // similarly, here we prioritize a wait error over write/prepare errors, so that if the user has signed a transaction, we are reporting any error on that confirmation and don't lose information eg. to a new prepare error due to a new network switch.
@@ -668,11 +709,15 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
         || wait.isLoading
         || switchNetwork.isLoading
         || isEverythingIdle // NB see note on isEverythingIdle definition 
+        || autoRetryInProgress
+        || isEphemeralPrepareError(prepare.error)
       ) {
         const loadingStatus: NonNullable<ExecuteTokenTransferStatus['loadingStatus']> = (() => {
           if (prepare.isLoading
             || !isConnected
             || isEverythingIdle // NB see note on isEverythingIdle definition 
+            || autoRetryInProgress
+            || isEphemeralPrepareError(prepare.error)
           ) return 'Init';
           else if (switchNetwork.isLoading) return 'SwitchingNetwork';
           else if (write.isLoading) return 'SigningTransaction';
@@ -743,7 +788,10 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
         } else if (isNetworkSwitchNonFatalError(switchNetwork.error)) {
           s.warning = 'NetworkSwitchNonFatalError';
         }
-        if (autoExecuteState === "finishedSwitchingNetworkAndShouldAutoExecute") {
+        if (
+          autoExecuteState === "finishedSwitchingNetworkAndShouldAutoExecute"
+          || autoExecuteState === "autoRetry"
+        ) {
           s.suggestAutoExecute = true;
         }
         return s;
@@ -766,7 +814,7 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
       }
     })();
     setStatus(nextStatus); // design note: in general, nextStatus may be identical to the current status cached by clients. This is because there's a loss of information between this useEffect's dependencies when computing nextStatus. For example, if switchNetwork becomes defined, we will compute nextStatus, but both the current and next status may have nothing to do with switchNetwork being defined or not. In fact, this is exactly what usually happens when this component initializes: switchNetwork.switchNetwork is initially undefined, and it becomes defined shortly after mounting, which triggers computation of nextStatus, but both the current status and nextStatus are "Loading - Init", so we know we're usually sending a redundant nextStatus to the client. If we wanted to fix this, a good way to do so may be to do a deep comparison of ObservableValue.getCurrentValue vs. nextStatus in ExecuteTokenTransferButton, and skip calling setValueAndNotifyObservers if the current and next statuses are equal. A good deep comparison library is fast-deep-equal, it is both fast and relatively small (13kb), but that's still an extra 13kb of bundle size. But currently, we think it's better to shave 13kb off the bundle size vs. avoiding a few unnecessary rerenders that React handles instantly and without any UI jank/disruptions because the shadow DOM diff interprets the redundant status update as a no-op, so that's why right now, nextStatus may be identical to the current status cached by clients.
-  }, [setStatus, isConnected, cachedTT, prepare.error, write.error, wait.error, switchNetwork.error, prepare.isLoading, write.isLoading, wait.isLoading, switchNetwork.isLoading, isEverythingIdle, needToSwitchNetwork, switchNetwork.switchNetwork, execute, reset, transactionReceipt, isSuccess, userSignedTransaction, write.write, autoExecuteState, userRejectedTransactionSignRequest, transactionFeeUnaffordableError, executeCalledAtLeastOnce]);
+  }, [setStatus, isConnected, cachedTT, prepare.error, write.error, wait.error, switchNetwork.error, prepare.isLoading, write.isLoading, wait.isLoading, switchNetwork.isLoading, isEverythingIdle, needToSwitchNetwork, switchNetwork.switchNetwork, execute, reset, transactionReceipt, isSuccess, userSignedTransaction, write.write, autoExecuteState, userRejectedTransactionSignRequest, transactionFeeUnaffordableError, executeCalledAtLeastOnce, autoRetryInProgress]);
 
   return null;
 }
@@ -830,6 +878,36 @@ function isNetworkSwitchNonFatalError(e: Error | undefined | null): boolean {
   }
 }
 
+// isRetryableError returns true iff the passed Error represents an
+// error that indicates the entire transaction should be automatically
+// retried (ie. by reseting the transfer).
+function isRetryableError(e: Error | undefined | null): boolean {
+  // WARNING errors passed into this function can come from a variety of upstream sources, and they may not confirm to the TypeScript typeof Error, which is why we do extra checking to ensure properties exist before we read them.
+  if (e === undefined || e === null) return false;
+  else {
+    const errString: string = `${JSON.stringify(e)} ${hasOwnPropertyOfType(e, 'message', 'string') ? e.message : ''}`; // search the error as a string instead of digging into structured properties because the errString method is simpler and perhaps more robust in that if the error's data structure changes but the message doesn't change, searching the errString still works but structured properties would fail. WARNING JSON.stringify doesn't always include all error properties, so we include certain properties manually.
+    if (errString.includes('max fee per gas less than block base fee')) return true; // web3auth+arbitrum and metamask+all chains return this error if the signed transaction's maxFeePerGas is less than the current block's base fee. This can occur if the chain's base fee has risen rapidly since the transaction was signed and the maxFeePerGas (automatically set internally in wagmi+wallet) becomes less than the new base fee. For example, arbitrum's fast block times can enable the base fee to sometimes rise very rapidly.
+    else if (errString.includes('fee cap less than block base fee')) return true; // web3auth+goerli returns this error if the signed transaction's maxFeePerGas is less than the current block's base fee. This can occur if the chain's base fee has risen rapidly since the transaction was signed and the maxFeePerGas (automatically set internally in wagmi+wallet) becomes less than the new base fee.
+    else if (errString.includes('intrinsic gas too low')) return true; // metamask+arbitrum can return this error if the signed transaction's maxFeePerGas (??) is less than the current block's base fee. This can occur if the chain's base fee has risen rapidly since the transaction was signed and the maxFeePerGas (automatically set internally in wagmi+wallet) becomes less than the new base fee.
+    else return false;
+  }
+}
+
+// isEphemeralPrepareError returns true iff the passed Error indicates
+// useContractPrepareWrite failed for ephemeral reasons and should be
+// retried by way of refetched. Not to be confused with
+// isRetryableError. The error passed must be sourced from
+// `usePrepareContractWrite(...).error` or behaviour is undefined.
+function isEphemeralPrepareError(e: Error | undefined | null): boolean {
+  // WARNING errors passed into this function can come from a variety of upstream sources, and they may not confirm to the TypeScript typeof Error, which is why we do extra checking to ensure properties exist before we read them.
+  if (e === undefined || e === null) return false;
+  else {
+    const errString: string = `${JSON.stringify(e)} ${hasOwnPropertyOfType(e, 'message', 'string') ? e.message : ''}`;  // search the error as a string instead of digging into structured properties because the errString method is simpler and perhaps more robust in that if the error's data structure changes but the message doesn't change, searching the errString still works but structured properties would fail. WARNING JSON.stringify doesn't always include all error properties, so we include certain properties manually.
+    if (errString.includes('Chain') && errString.includes('not configured for connector') && errString.includes('web3auth')) return true; // web3auth returns this when switching chains because there's a race condition inside web3auth where connector.switchChain returns before the chain has actually been successfully switched.
+    else return false;
+  }
+}
+
 // isTransactionFeeUnaffordableError returns an instance of
 // TransactionFeeUnaffordableError iff the passed Error represents the user
 // being unable to afford to pay the transaction fee for a particular token
@@ -847,6 +925,7 @@ function tryMakeTransactionFeeUnaffordableError(e: Error | undefined | null): Tr
   else if (
     (hasOwnPropertyOfType(e, 'stack', 'string') && e.stack.includes("insufficient funds for gas")) // MetaMask browser extension returns this as usePrepareContractWrite(...).error
     || (hasOwnPropertyOfType(e, 'message', 'string') && e.message.includes('Failed to sign transaction')) // Coinbase Wallet on mobile with 3c on desktop (using Coinbase's version of walletconnect) returns this as useContractWrite(...).error. WARNING this error is overly general and may catch other kinds of Coinbase transaction signing errors. For example, currently, signing an affordable transaction on a network that's not directy supported by Coinbase also fails with this error  (eg. Pay 10 USDC on Arbitrum Goerli with sufficient ETH to pay the fee also fails with this error)
+    || (hasOwnPropertyOfType(e, 'data', 'object') && hasOwnPropertyOfType(e.data, 'message', 'string') && e.data.message.includes('insufficient funds')) // web3auth openloginadapter returns this as useContactWrite(...).error. Example raw error: `"{\"code\":-32603,\"data\":{\"code\":-32000,\"message\":\"INTERNAL_ERROR: insufficient funds\"}}"`
   ) return new TransactionFeeUnaffordableError("User can't afford to pay the transaction fee", e);
   else return undefined;
 }
@@ -862,3 +941,15 @@ export class TransactionFeeUnaffordableError extends Error {
     if (cause !== undefined) this.cause = cause;
   }
 }
+
+// ****************************************************************
+// BEGIN - list of other wallet-specific or chain-specific errors that we've
+// seen but haven't implemented into code:
+
+// gasLimit set below estimated gas
+//   web3auth on goerli returns "{\"code\":-32603,\"data\":{\"code\":-32000,\"message\":\"INTERNAL_ERROR: IntrinsicGas\"}}" as useContractWrite(...).error
+//   web3auth on arbitrumGoerli returns {"code":-32603,"data":{"code":-32000,"message":"intrinsic gas too low"}} as useContractWrite(...).error
+
+// END - list of other wallet-specific or chain-specific errors that we've
+// seen but haven't implemented into code.
+// ****************************************************************
