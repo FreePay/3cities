@@ -249,6 +249,14 @@ export function getChain(chainId: number | undefined): Chain | undefined {
   else return chainsSupportedBy3cities.find(n => n.id === chainId); // O(chains) and in the distance future may want to implement a lookup table of chainId -> chainName that's built statically upon module initialization
 }
 
+// unsafeGetChainThrowIfNotFound returns the Chain for the passed chainId,
+// throwing if the chainId isn't found.
+export function unsafeGetChainThrowIfNotFound(chainId: number): Chain {
+  const c = getChain(chainId);
+  if (c === undefined) throw new Error(`chain ${chainId} not found`);
+  return c;
+}
+
 // Sanity tests:
 // TODO conditional compilation of these sanity tests using macros. Compile them in dev, prod-test (to be released at test.3cities.xyz), and prod-preview (a new environment and released at preview.3cities.xyz. preview is a production environment with the only difference between preview and prod being REACT_APP_ENABLE_SANITY_TESTS=true).
 if (chainsSupportedBy3cities.find(c => !(
