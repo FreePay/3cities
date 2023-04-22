@@ -8,7 +8,7 @@ const isTestShorterListOfChains = false; // WARNING test flag to be manually tog
 // ***************************************************************
 
 export const taikoTestnet: Readonly<Chain> = Object.freeze<Chain>({
-  id: 167004,
+  id: 167004, // TODO this testnet was shut down
   name: "Taiko A2",
   network: "taikoA2",
   nativeCurrency: {
