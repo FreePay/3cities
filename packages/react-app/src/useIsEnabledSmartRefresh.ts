@@ -28,10 +28,9 @@ export function useIsEnabledSmartRefresh() {
         setIsForceDisable(false);
       }, 500);
       return () => {
-        if (timeout) clearTimeout(timeout)
+        if (timeout) clearTimeout(timeout);
       };
-    }
-    return;
+    } else return;
   }, [isForceDisable, setIsForceDisable]);
 
   const isPageVisible = useIsPageVisible();

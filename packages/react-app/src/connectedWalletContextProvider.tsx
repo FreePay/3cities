@@ -144,13 +144,16 @@ export function useConnectedWalletAddressContext(): AddressContext | undefined {
   const o: Observer<AddressContext | undefined> | undefined = useContext(ConnectedWalletAddressContextObserverContext);
   // here we inline the approximate contents of observer.ts's useObservedValue hook. We inline because we need to include an additional check for if `o === undefined` which occurs if this hook is used in a component that isn't a descendant of ConnectedWalletAddressContextObserverProvider
   const [ac, setAC] = useState<AddressContext | undefined>(() => {
-    if (o === undefined) return undefined;
-    return o.getCurrentValue();
+    if (o === undefined) {
+      console.error("useConnectedWalletAddressContext called in a component that isn't a descendant of ConnectedWalletAddressContextObserverProvider");
+      return undefined;
+    } else return o.getCurrentValue();
   });
 
   useEffect(() => {
     if (o === undefined) {
       // Observer is undefined or has become undefined. This occurs when this hook is used in a component that isn't a descendant of ConnectedWalletAddressContextObserverProvider. We must setAC(undefined) to ensure that any stale defined AddressContext does not remain
+      console.error("useConnectedWalletAddressContext called in a component that isn't a descendant of ConnectedWalletAddressContextObserverProvider");
       setAC(undefined);
       return;
     } else {

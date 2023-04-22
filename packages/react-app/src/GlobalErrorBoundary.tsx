@@ -1,10 +1,12 @@
 import React from "react";
 import { isRouteErrorResponse, Link, useRouteError } from "react-router-dom";
+import useClipboard from "react-use-clipboard";
+import { useAccount } from "wagmi";
 import "./index.css";
 
 const styleOuterDiv: React.CSSProperties = {
   position: 'absolute',
-  top: '38.2%',
+  top: '18.2%',
   left: '50%',
   transform: 'translate(-50%, -50%)',
   textAlign: 'center',

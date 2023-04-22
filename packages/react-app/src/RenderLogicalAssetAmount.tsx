@@ -11,7 +11,11 @@ type RenderLogicalAssetAmountProps = {
 
 // RenderLogicalAssetAmount is a referentially transparent component
 // to render the passed logical asset balance.
-export const RenderLogicalAssetAmount: React.FC<RenderLogicalAssetAmountProps> = ({ logicalAssetTicker, amountAsBigNumberHexString, showAllZeroesAfterDecimal }) => {
+export const RenderLogicalAssetAmount: React.FC<RenderLogicalAssetAmountProps> = (props) => {
+  return <span>{renderLogicalAssetAmount(props)}</span>;
+}
+
+export function renderLogicalAssetAmount({ logicalAssetTicker, amountAsBigNumberHexString, showAllZeroesAfterDecimal }: RenderLogicalAssetAmountProps): string {
   const prefix: string = (() => {
     switch (logicalAssetTicker) {
       case 'ETH': return '';
@@ -32,5 +36,5 @@ export const RenderLogicalAssetAmount: React.FC<RenderLogicalAssetAmountProps> =
 
   const formatFloatOpts: FormatFloatOpts | undefined = showAllZeroesAfterDecimal ? { showAllZeroesAfterDecimal: true } : undefined;
   const formattedFloat = formatFloat(formatUnits(amountAsBigNumberHexString, logicalAssetDecimals), getDecimalsToRenderForLogicalAssetTicker(logicalAssetTicker), formatFloatOpts);
-  return <span>{prefix}{formattedFloat}{suffix}</span>;
+  return `${prefix}${formattedFloat}${suffix}`;
 }

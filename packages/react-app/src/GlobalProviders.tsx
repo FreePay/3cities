@@ -22,7 +22,7 @@ export const GlobalProviders = () => {
     {/* <ConnectWalletProvider chains={chainsSupportedBy3cities}>  TODO connect-wallet support blocked by runtime error https://github.com/Shopify/blockchain-components/issues/16 */}
     <ConnectKitProvider options={connectKitOptions}>
       <ConnectedWalletAddressContextObserverProvider>
-        <Toaster /> {/* NB here we put the toaster inside the wagmi, connectkit, and addressContext providers so that the toast clients can have access to these services */}
+      <Toaster richColors /> {/* NB here we put the toaster inside the wagmi, connectkit, and addressContext providers so that the toast clients can have access to these services */}
         <Outlet />
       </ConnectedWalletAddressContextObserverProvider>
     </ConnectKitProvider>

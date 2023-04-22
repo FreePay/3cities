@@ -216,11 +216,11 @@ export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
     zkSyncTestnet,
     polygonZkEvmTestnet,
     baseGoerli,
-    lineaTestnet, // TODO re-enable lineaTestnet. rn, its rpc endpoint has incorrect CORS settings and can't be queried.
+    lineaTestnet,
     scrollTestnet,
-    taikoTestnet,
+    // taikoTestnet,
     // ********* END TEST networks *********
-  ].filter((c: Chain) => !isTestShorterListOfChains || c.id === arbitrumGoerli.id)
+  ].filter((c: Chain) => !isTestShorterListOfChains || c.id === scrollTestnet.id)
   );
   const c0 = cs[0];
   if (c0 === undefined) throw new Error(`chainsSupportedBy3cities: set of supported chains is empty`);
@@ -244,8 +244,9 @@ export function getSupportedChainName(chainId: number): string {
 
 // getChain returns the Chain for the passed chainId, or undefined if the
 // chain isn't found.
-export function getChain(chainId: number): Chain | undefined {
-return chainsSupportedBy3cities.find(n => n.id === chainId); // O(chains) and in the distance future may want to implement a lookup table of chainId -> chainName that's built statically upon module initialization
+export function getChain(chainId: number | undefined): Chain | undefined {
+  if (chainId === undefined) return undefined;
+  else return chainsSupportedBy3cities.find(n => n.id === chainId); // O(chains) and in the distance future may want to implement a lookup table of chainId -> chainName that's built statically upon module initialization
 }
 
 // Sanity tests:

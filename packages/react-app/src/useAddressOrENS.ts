@@ -8,20 +8,20 @@ import { truncateENSAddress, truncateEthAddress } from "./truncateAddress";
 // the address itself if no primary ENS name is set, and truncates the
 // returned ENS name or address if the passed truncated option is set.
 export function useAddressOrENS(address: string, opts?: {
-  truncated?: true;
+  truncated?: boolean;
   maxENSNameLength?: number;
 }): string;
 export function useAddressOrENS(address: undefined, opts?: {
-  truncated?: true;
+  truncated?: boolean;
   maxENSNameLength?: number;
 }): undefined;
 export function useAddressOrENS(address: string | undefined, opts?: {
-  truncated?: true;
+  truncated?: boolean;
   maxENSNameLength?: number;
 }): string | undefined;
 export function useAddressOrENS(address: string | undefined, opts?: {
-  truncated?: true; // iff set, the returned ENS name or address will be truncated
-  maxENSNameLength?: number; // iff truncated is set, the returned ENS name will be truncated to this length. Defaults to 14, which is how long a truncated address is.
+  truncated?: boolean; // iff true, the returned ENS name or address will be truncated
+  maxENSNameLength?: number; // iff truncated is true, the returned ENS name will be truncated to this length. Defaults to 14, which is how long a truncated address is.
 }): string | undefined {
   const args = useMemo(() => {
     return {
@@ -34,9 +34,9 @@ export function useAddressOrENS(address: string | undefined, opts?: {
   if (address === undefined) return undefined;
   else if (typeof ensName === 'string') {
     if (opts?.truncated) return truncateENSAddress(ensName, opts.maxENSNameLength ?? 14);
-    return ensName;
+    else return ensName;
   } else {
     if (opts?.truncated) return truncateEthAddress(address);
-    return address;
+    else return address;
   }
 }
