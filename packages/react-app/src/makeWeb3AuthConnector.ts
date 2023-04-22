@@ -7,6 +7,14 @@ import { isProduction } from "./isProduction";
 import { NonEmptyArray } from "./NonEmptyArray";
 import { Web3AuthConnector, Web3AuthLoginProvider } from "./Web3AuthConnector";
 
+const web3AuthClientId: string = (() => {
+  const s = process.env['REACT_APP_WEB3AUTH_CLIENT_ID'];
+  if (s === undefined) {
+    console.error("REACT_APP_WEB3AUTH_CLIENT_ID undefined");
+    return 'REACT_APP_WEB3AUTH_CLIENT_ID_undefined';
+  } else return s;
+})();
+
 function toOpenloginLoginParams(l: Web3AuthLoginProvider): OpenloginLoginParams {
   const sharedParams: Pick<OpenloginLoginParams, 'sessionTime'> = {
     sessionTime: web3AuthSessionTime,
@@ -47,11 +55,11 @@ const openloginAdapter = new OpenloginAdapter({
 
 export function makeWeb3AuthConnector(chains: NonEmptyArray<Chain>, loginProvider: Web3AuthLoginProvider): Web3AuthConnector {
   const web3AuthInstance = new Web3AuthNoModal({
-    clientId: "BLKwGNSCo5rhttsnvUqiQYKWb4IBnMwHjxMVHKhnfBKEMOSyNO96ho1kevg2EqJdH-6JyyoGpY7wgEMCR0NO9Yw", // TODO make env var, delete this project in dashboard since this clientId was commited to git (even though these are public IDs), and recreate a new testnet project (and later, a production project with its ID injected into github workflow)
     chainConfig: {
       chainNamespace: CHAIN_NAMESPACES.EIP155,
       chainId: chains[0].id.toString(), // NB if chainId is omitted, Web3AuthCore connects to mainnet (chainId 1) by default, so here, we pass the 1st chainId from chainsSupportedBy3cities to ensure that the initial chain connected to by Web3Auth is in fact a chain we support. In particular, we want to avoid connecting to mainnet when in not in production.
     },
+    clientId: web3AuthClientId,
     sessionTime: web3AuthSessionTime,
     web3AuthNetwork: isProduction ? "mainnet" : "testnet",
   });

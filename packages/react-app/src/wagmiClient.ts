@@ -1,5 +1,5 @@
 import { configureChains, disconnect, getAccount } from '@wagmi/core';
-import { createClient } from 'wagmi'; // NB createClient exported by wagmi seems to include a built-in queryClient and is a different type than createClient exported by @wagmi/core; this createClient from 'wagmi' is recommended for a react app, to prevent us from having to construct our own queryClient
+import { createClient, UserRejectedRequestError } from 'wagmi'; // NB createClient exported by wagmi seems to include a built-in queryClient and is a different type than createClient exported by @wagmi/core; this createClient from 'wagmi' is recommended for a react app, to prevent us from having to construct our own queryClient
 import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
 import { InjectedConnector } from 'wagmi/connectors/injected';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
@@ -8,8 +8,11 @@ import { alchemyProvider } from 'wagmi/providers/alchemy';
 import { infuraProvider } from 'wagmi/providers/infura';
 import { publicProvider } from 'wagmi/providers/public';
 import { chainsSupportedBy3cities } from './chains';
-import { makeWeb3AuthConnectorAsync } from './makeWeb3AuthConnectorAsync';
+import { hasOwnPropertyOfType } from './hasOwnProperty';
+import { clearMostRecentlyUsedWeb3AuthLoginProvider, makeWeb3AuthConnectorAsync } from './makeWeb3AuthConnectorAsync';
 import { Web3AuthConnector, Web3AuthLoginProvider } from './Web3AuthConnector';
+
+// TODO move the web3auth async/load/set/reconnect stuff into makeWeb3AuthConnectorAsync.ts and maybe rename that file to something that explains "here's the code that glues async web3auth to wagmiClient in a lifecycle"
 
 const alchemyApiKey: string = (() => {
   const s = process.env['REACT_APP_ALCHEMY_API_KEY'];
@@ -24,6 +27,14 @@ const infuraApiKey: string = (() => {
   if (s === undefined) {
     console.error("REACT_APP_INFURA_API_KEY undefined");
     return 'REACT_APP_INFURA_API_KEY_undefined';
+  } else return s;
+})();
+
+const walletConnectProjectId: string = (() => {
+  const s = process.env['REACT_APP_WALLETCONNECT_PROJECT_ID'];
+  if (s === undefined) {
+    console.error("REACT_APP_WALLETCONNECT_PROJECT_ID undefined");
+    return 'REACT_APP_WALLETCONNECT_PROJECT_ID_undefined';
   } else return s;
 })();
 
@@ -69,13 +80,13 @@ export const wagmiClient = createClient({
     new WalletConnectConnector({
       chains,
       options: {
-        projectId: "a85a7f7f5074fd8ffe48a9805ed740f9", // TODO this is our test projectId. --> make into env var and make a production projectId (NB projectId can't be provided here when using walletconnect v1; it's needed here for v2)        
+        projectId: walletConnectProjectId,
         showQrModal: false,
         metadata: {
           name: '3cities.xyz',
           description: '3cities is a web3 crypto payments app focused on accessibility and credible neutrality. 3cities can be used to request money, receive donations, and as a point-of-sale system for in-person payments.',
           url: 'https://3cities.xyz',
-          icons: ['https://3cities.xyz/images/logo.jpg'],
+          icons: ['https://3cities.xyz/android-chrome-192x192.png'],
         }
       },
     }),
