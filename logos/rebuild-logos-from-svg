@@ -1,0 +1,11 @@
+#!/bin/bash
+magick convert -background none logo.svg -resize 16x16 favicon-16x16.png
+magick convert -background none logo.svg -resize 32x32 favicon-32x32.png
+magick convert -background none logo.svg -resize 192x192 android-chrome-192x192.png
+magick convert -background none logo.svg -resize 512x512 android-chrome-512x512.png
+magick convert -background none logo.svg -resize 180x180 apple-touch-icon.png
+magick convert -background none logo.svg -resize 256x256 logo.png
+magick convert -background none logo.svg -resize 16x16 favicon-16x16.ico
+magick convert -background none logo.svg -resize 32x32 favicon-32x32.ico
+magick convert -background none logo.svg -resize 48x48 favicon-48x48.ico
+magick convert -background none favicon-16x16.ico favicon-32x32.ico favicon-48x48.ico favicon.ico
