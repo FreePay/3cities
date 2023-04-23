@@ -48,6 +48,9 @@ export const logicalAssetsByTicker: Readonly<{ [key in LogicalAssetTicker]: Logi
 
 export const logicalAssets: Readonly<LogicalAsset[]> = Object.values(logicalAssetsByTicker);
 
+// allLogicalAssetTickers is the set of all logical asset tickers we support.
+export const allLogicalAssetTickers = Object.keys(logicalAssetsByTicker);
+
 export const logicalAssetDecimals = 6; // all logical assets have 6 decimals, ie. we model their amounts as if they were tokens with 6 decimals. For example, a logical asset amount for $5.75 is `5.75 * 10^6`. This allows us to map logical asset amounts to popular token amounts with no loss in precision because USDC and USDT have 6 decimals (requiring no widening) and ETH and DAI have 18 decimals (logical assets can be widened with no loss in precision by multiplying the logical asset amount by 10^12). However, this modeling means that logical assets can't express the full precision of ETH and DAI, eg. logical assets can't express the precision of wei or gwei
 
 // parseLogicalAssetAmount takes a string representation of a float
