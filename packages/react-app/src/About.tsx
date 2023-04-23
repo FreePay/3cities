@@ -56,10 +56,10 @@ export const About: React.FC = () => {
         <h2 className="text-2xl my-4">Products</h2>
         <ul className="list-disc list-inside">
           <li className="mb-2">
-            <Link to="/request-money" className="text-primary hover:text-primary-darker">
-              Payment Links
+            <Link to="/request-money" className="text-primary sm:hover:text-primary-darker">
+              Send a Payment Link
             </Link>
-            : Request money using 3cities by choosing a currency amount. Our default tokens and chains work for most users, but can be customized easily. Share the private payment link and they can pay with any wallet.
+            : Request money from anyone by sending them a link. They can pay with any wallet. The link is private unless publicly posted. Our default tokens and chains work for most users, but can be customized easily.
           </li>
           <li className="mb-2">
             Donations: Accept crypto donations <span className="text-secondary">(coming soon)</span>
