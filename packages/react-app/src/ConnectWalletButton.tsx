@@ -2,6 +2,8 @@ import { ConnectKitButton } from "connectkit";
 import React from "react";
 import { Spinner } from "./Spinner";
 
+// TODO after we ship web3auth, when wallet is connected, the button label should show login-method-specific detail: address if you connected wallet, email if email/google, etc.
+
 type CustomConnectWalletButtonProps = {
   disconnectedLabel: string; // label to put on the button when the user's wallet is disconnected, eg. "Connect Wallet".
   hideIfDisconnected?: true; // iff set, hide the button if the user's wallet is disconnected. This can be useful eg. to reduce the call-to-action clutter if there is already another connect wallet button onscreen.
