@@ -1,9 +1,65 @@
 import React from "react";
+import { Link } from "react-router-dom";
 import { About } from "./About";
+import payDemoImage from "./images/pay-demo.png";
+import { Wordmark } from "./Wordmark";
 
 export const Home: React.FC = () => {
+  const payDemoElement = <div>
+    <div className="relative py-12 flex justify-center">
+      <span className="absolute top-3 left-1/2 transform -translate-x-1/2">What they see:</span>
+      <div className="border border-gray-300 rounded-md shadow-xl">
+        <img src={payDemoImage} className="max-w-[360px] rounded-md" alt="3cities payment link demo" />
+      </div>
+      <Link to="/pay?c=H4sIAOOoRGQAAwUAOw6CMPQqzk7lI5-xYIyTMUFnUuFRidA2ryXBzTi4eAE3E2WRTd0c9RTewiOY_V2hVFJDTjkC1CDM4WYkzXMErb9D0o48xw5pnPu2xxzfsXy_CKLCLkI3Zh6xYhJFTuxO6CVV7y5FpT6dkAb6qhHZevA7n46PSvIyYxXVGsyizDaA12UyfrFaNsJQHZV81tQrwCm0icFS8J60xLJsFgTkqQ0yA3w7RygAQWSgd3-IcFTTtgAAAA.." className="text-primary sm:hover:text-primary-darker font-bold absolute bottom-3 left-1/2 transform -translate-x-1/2">
+        Live Demo
+      </Link>
+    </div>
+  </div >;
   return <div>
-    <div className="sm:hidden">
+    <div className="my-8">
+      <div className="sm:hidden flex justify-center items-center my-4"><Wordmark /></div>
+      <div className="text-left max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <h2 className="text-2xl mb-4"><Link to="/request-money" className="text-primary sm:hover:text-primary-darker font-bold">
+            Request Money
+          </Link> using 3cities</h2>
+          <p className="mb-4">
+            Send a payment link to anyone. It&apos;s fast and free.
+          </p>
+          <p className="sm:mb-8">
+            <Link to="/request-money" className="text-primary sm:hover:text-primary-darker font-bold">
+              Try it now
+            </Link>
+            <span className="ml-1">(no signups or wallet needed)</span>
+          </p>
+          <div className="sm:hidden my-8">
+            {payDemoElement}
+          </div>
+          <h2 className="text-2xl mb-4">How It Works</h2>
+          <ol className="list-decimal list-inside mb-8">
+            <li className="mb-2">
+              Choose the amount
+            </li>
+            <li className="mb-2">
+              Our default tokens and chains work for most users, but can be customized easily
+            </li>
+            <li>
+              Share the private payment link and they can pay with any wallet
+            </li>
+          </ol>
+          <p>
+            <Link to="/request-money" className="text-primary sm:hover:text-primary-darker text-2xl font-bold">
+              Send a Payment Link
+            </Link>
+          </p>
+        </div>
+        <div className="hidden sm:block">
+          {payDemoElement}
+        </div>
+      </div>
+    </div>
+    <div className="sm:hidden mt-8 border-t-2">
       <About />
     </div>
   </div>;
