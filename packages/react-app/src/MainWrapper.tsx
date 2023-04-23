@@ -76,7 +76,8 @@ export const MainWrapper = () => {
     <div className="min-h-screen flex flex-col text-black">
       {/* <div className="fixed left-1/2 top-0 w-0.5 bg-red-500 h-full">this is a debug horizontally-centered vertical line to help align header/footer</div> */}
       <Header />
-      <div className="grow flex flex-col items-center justify-start bg-gray-100">
+      <div className="grow flex flex-col items-center justify-start bg-gray-100 max-sm:pb-[120px]">
+        {/* NB the pb-[120px] on this parent div ensures there is sufficient (80px would be the minimum, and we added another 40px) blank space below the outlet that's the same height as the footer, which has the effect of ensuring that the user can scroll down to view the bottom of the content, otherwise the content bottom would be hidden behind the footer. */}
         <div className="w-full overflow-hidden px-5">
           <Outlet />
         </div>
