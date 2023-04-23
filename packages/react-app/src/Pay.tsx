@@ -83,6 +83,13 @@ export const Pay: React.FC = () => {
 
   const { bestStrategy, otherStrategies, disableStrategy, selectStrategy } = useBestStrategy(strategies);
 
+  const recipientAddressBlockExplorerLink: string | undefined = (() => {
+    const c: Chain | undefined = getChain(status?.activeTokenTransfer.token.chainId);
+    const blockExplorerUrl: string | undefined = c?.blockExplorers?.default.url;
+    if (blockExplorerUrl) return `${blockExplorerUrl}/address/${rpp.toAddress}`;
+    else return undefined;
+  })();
+
   const [showFullRecipientAddress, setShowFullRecipientAddress] = useState(false);
 
   const recipientEnsName = useEnsName(rpp.toAddress);
@@ -170,7 +177,7 @@ export const Pay: React.FC = () => {
     <div className="p-4 flex items-center gap-4 justify-between w-full border border-gray-300 bg-white rounded-t-md">
       <span>To:</span>
       <span className="font-bold inline-flex gap-1 place-content-between" style={{ overflowWrap: 'anywhere' }}>
-        <span>{!showFullRecipientAddress && recipientAddressOrEnsName}{showFullRecipientAddress && rpp.toAddress} {showFullRecipientAddress && recipientEnsName && `(${recipientEnsName})`}</span>
+        <span>{!showFullRecipientAddress && recipientAddressOrEnsName}{showFullRecipientAddress && rpp.toAddress} {showFullRecipientAddress && recipientEnsName && `(${recipientEnsName})`} {showFullRecipientAddress && recipientAddressBlockExplorerLink && <a href={recipientAddressBlockExplorerLink} target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker ml-1">explorer</a>}</span>
         <span className="flex place-items-center"><FaEye onClick={() => setShowFullRecipientAddress(v => !v)} className="w-4 sm:hover:text-gray-500 sm:hover:cursor-pointer" /></span>
       </span>
     </div>
