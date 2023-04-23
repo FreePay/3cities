@@ -3,8 +3,36 @@
 
 <head>
   <meta charset="utf-8" />
-  <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-  <link rel="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
+  <link rel="icon" type="image/x-icon" href="%PUBLIC_URL%/favicon.ico" media="(prefers-color-scheme: light)">
+  <link rel="icon" type="image/x-icon" href="%PUBLIC_URL%/favicon-dark.ico" media="(prefers-color-scheme: dark)">
+
+  <link rel="apple-touch-icon" id="apple-touch-icon" href="%PUBLIC_URL%/apple-touch-icon.png" />
+  <script>
+    // This script provides support to pick the light mode or dark mode
+    // version of apple touch icon based on the user's preference
+    // because this isn't supported natively without JavaScript.
+    (function () {
+      const darkModeMediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const appleTouchIcon = document.getElementById('apple-touch-icon');
+
+      function updateAppleTouchIcon(mediaQuery) {
+        const iconPath = mediaQuery.matches ? '%PUBLIC_URL%/apple-touch-icon-dark.png' : '%PUBLIC_URL%/apple-touch-icon.png';
+        appleTouchIcon.setAttribute('href', iconPath);
+      }
+
+      // Set the initial icon based on user's preference
+      updateAppleTouchIcon(darkModeMediaQuery);
+
+      // Update the icon if the user's preference changes
+      if (darkModeMediaQuery.addEventListener) {
+        darkModeMediaQuery.addEventListener('change', updateAppleTouchIcon);
+      } else {
+        // Fallback for older browsers
+        darkModeMediaQuery.addListener(updateAppleTouchIcon);
+      }
+    })();
+  </script>
+
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#000000" />
   <meta name="description"
