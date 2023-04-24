@@ -2,14 +2,15 @@ import React, { useCallback, useState } from "react";
 import { FaToggleOn, FaToggleOff } from "react-icons/fa";
 
 interface ToggleSwitchProps {
-  offLabel?: string;
-  onLabel?: string;
-  initialIsOn: boolean;
-  onToggle: (isOn: boolean) => void;
-  whichDirectionIsOn?: "left" | "right";
-  onClassName?: string;
-  offClassName?: string;
-  size?: string;
+  offLabel?: string; // label to show on the "off" side of the switch.
+  onLabel?: string; // label to show on the "on" side of the switch.
+  initialIsOn: boolean; // iff true, switch will be toggled on initially.
+  onToggle: (isOn: boolean) => void; // callback to receive updated isOn status when switch is toggled.
+  whichDirectionIsOn?: "left" | "right"; // whether or not the switch's "on" side is left or right. Default right.
+  className?: string; // className to apply to root element.
+  onClassName?: string; // className to apply to the non-root button when toggled on. Typically used to set the color when toggled on. Defaults to text-green-500.
+  offClassName?: string; // className to apply to the non-root button when toggled off. Typically used to set the color when toggled off. Defaults to text-red-500.
+  size?: string; // size of the toggle. Defaults to 1.5em.
 }
 
 const styleFlipHorizontally = { transform: "scaleX(-1)" };
@@ -20,6 +21,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = React.memo(({
   initialIsOn,
   onToggle,
   whichDirectionIsOn = "right",
+  className,
   onClassName = "text-green-500",
   offClassName = "text-red-500",
   size = "1.5em",
@@ -37,7 +39,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = React.memo(({
   const rightLabel = whichDirectionIsOn === "right" ? onLabel : offLabel;
 
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center gap-2 ${className || ''}`}>
       {leftLabel && <span>{leftLabel}</span>}
       <button onClick={handleToggle} className={`focus:outline-none transition-colors duration-150 active:scale-95 ${isOn ? onClassName : offClassName}`}>
         {/* NB here we apply onClassName and offClassName to the button instead of directly to FaToggleOn/FaToggleOff so that the default transition-colors is correctly applied. Otherwise, transition-colors doesn't work because it only affects changing the color on the same element, and FaToggleOn/Off are two different elements. */}
