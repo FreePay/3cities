@@ -135,13 +135,13 @@ function sortStrategiesByPriority(
   return strategies.sort((a, b) => {
     const aChainId = a.tokenTransfer.token.chainId;
     const bChainId = b.tokenTransfer.token.chainId;
-    const aPriority = chainIdPriority[aChainId] ?? Infinity;
-    const bPriority = chainIdPriority[bChainId] ?? Infinity;
+    const aPriority = chainIdPriority[aChainId] ?? Number.NEGATIVE_INFINITY;
+    const bPriority = chainIdPriority[bChainId] ?? Number.NEGATIVE_INFINITY;
     if (aPriority === bPriority) {
       const aTicker = a.tokenTransfer.token.ticker;
       const bTicker = b.tokenTransfer.token.ticker;
-      const aTickerPriority = tokenTickerPriority[aTicker] ?? Infinity;
-      const bTickerPriority = tokenTickerPriority[bTicker] ?? Infinity;
+      const aTickerPriority = tokenTickerPriority[aTicker] ?? Number.NEGATIVE_INFINITY;
+      const bTickerPriority = tokenTickerPriority[bTicker] ?? Number.NEGATIVE_INFINITY;
       return bTickerPriority - aTickerPriority;
     } else return bPriority - aPriority;
   });
@@ -156,13 +156,13 @@ function sortProposedStrategiesByPriority(
   return proposedStrategies.sort((a, b) => {
     const aChainId = a.receiverProposedTokenTransfer.token.chainId;
     const bChainId = b.receiverProposedTokenTransfer.token.chainId;
-    const aPriority = chainIdPriority[aChainId] ?? Infinity;
-    const bPriority = chainIdPriority[bChainId] ?? Infinity;
+    const aPriority = chainIdPriority[aChainId] ?? Number.NEGATIVE_INFINITY;
+    const bPriority = chainIdPriority[bChainId] ?? Number.NEGATIVE_INFINITY;
     if (aPriority === bPriority) {
       const aTicker = a.receiverProposedTokenTransfer.token.ticker;
       const bTicker = b.receiverProposedTokenTransfer.token.ticker;
-      const aTickerPriority = tokenTickerPriority[aTicker] ?? Infinity;
-      const bTickerPriority = tokenTickerPriority[bTicker] ?? Infinity;
+      const aTickerPriority = tokenTickerPriority[aTicker] ?? Number.NEGATIVE_INFINITY;
+      const bTickerPriority = tokenTickerPriority[bTicker] ?? Number.NEGATIVE_INFINITY;
       return bTickerPriority - aTickerPriority;
     } else return bPriority - aPriority;
   });
