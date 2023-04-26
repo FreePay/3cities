@@ -23,13 +23,13 @@ export const Home: React.FC = () => {
             Request Money
           </Link> using 3cities</h2>
           <p className="mb-4">
-            Send a payment link to anyone. It&apos;s fast and free.
+            Send a money request link to anyone in the world. It&apos;s fast and free.
           </p>
           <p className="sm:mb-8">
             <Link to="/request-money" className="text-primary sm:hover:text-primary-darker font-bold">
               Try it now
             </Link>
-            <span className="ml-1">(no signups or wallet needed)</span>
+            <span className="ml-1">(no sign-up needed)</span>
           </p>
           <div className="sm:hidden my-4">
             {payDemoElement}
@@ -37,13 +37,13 @@ export const Home: React.FC = () => {
           <h2 className="text-2xl mb-4">How It Works</h2>
           <ol className="list-decimal list-inside mb-8">
             <li className="mb-2">
-              Choose the amount
+              Set the US Dollar amount to request
             </li>
-            <li className="mb-2">
+            {/* <li className="mb-2">
               Our default tokens and chains work for most users, but can be customized easily
-            </li>
+            </li> */}
             <li>
-              Share the private payment link and they can pay with any wallet
+              Share the payment link and they can pay with any crypto wallet
             </li>
           </ol>
           <p>
