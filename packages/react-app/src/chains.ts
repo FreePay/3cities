@@ -27,11 +27,11 @@ export const taikoTestnet: Readonly<Chain> = Object.freeze<Chain>({
   blockExplorers: {
     etherscan: {
       name: "Taiko Explorer",
-      url: "https://l2explorer.a2.taiko.xyz",
+      url: "https://l2explorer.a2.taiko.xyz/",
     },
     default: {
       name: "Taiko Explorer",
-      url: "https://l2explorer.a2.taiko.xyz",
+      url: "https://l2explorer.a2.taiko.xyz/",
     },
   },
   testnet: true,
@@ -57,11 +57,11 @@ export const arbitrumNova: Readonly<Chain> = Object.freeze<Chain>({
   blockExplorers: {
     etherscan: {
       name: "Arbiscan",
-      url: "https://nova.arbiscan.io",
+      url: "https://nova.arbiscan.io/",
     },
     default: {
       name: "Arbiscan",
-      url: "https://nova.arbiscan.io",
+      url: "https://nova.arbiscan.io/",
     },
   },
   contracts: {
@@ -94,11 +94,11 @@ export const zkSyncTestnet: Readonly<Chain> = Object.freeze<Chain>({ // here we 
   blockExplorers: {
     etherscan: {
       name: "zkSync Explorer",
-      url: "https://goerli.explorer.zksync.io",
+      url: "https://goerli.explorer.zksync.io/",
     },
     default: {
       name: "zkSync Explorer",
-      url: "https://goerli.explorer.zksync.io",
+      url: "https://goerli.explorer.zksync.io/",
     },
   },
   // TODO add multicall3 to support batched useContractReads -- canonical multicall3 contract deployment doesn't yet exist on zkSyncTestnet 0xcA11bde05977b3631167028862bE2a173976CA11
@@ -127,11 +127,11 @@ export const zkSync: Readonly<Chain> = Object.freeze<Chain>({ // here we declare
   blockExplorers: {
     etherscan: {
       name: "zkSync Explorer",
-      url: "https://explorer.zksync.io",
+      url: "https://explorer.zksync.io/",
     },
     default: {
       name: "zkSync Explorer",
-      url: "https://explorer.zksync.io",
+      url: "https://explorer.zksync.io/",
     },
   },
   // TODO add multicall3 to support batched useContractReads -- canonical multicall3 contract deployment doesn't yet exist on zkSync 0xcA11bde05977b3631167028862bE2a173976CA11
