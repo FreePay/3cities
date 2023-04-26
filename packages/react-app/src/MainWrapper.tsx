@@ -1,10 +1,8 @@
 import React, { useCallback, useContext } from "react";
-import { FaHandHoldingUsd, FaHome, FaQrcode, FaTwitter, FaUserCircle } from "react-icons/fa";
+import { FaHandHoldingUsd, FaHome, FaTwitter, FaUserCircle } from "react-icons/fa";
 import { NavLink, NavLinkProps, Outlet, useNavigate } from "react-router-dom";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
 import { HideFooterOnMobileContext } from "./HideFooter";
-import Modal from "./Modal";
-import QRCode from "./QRCode";
 import { Wordmark } from "./Wordmark";
 
 const headerFooterFont = "text-black font-bold";
@@ -66,7 +64,6 @@ const Header: React.FC = () => {
 
 const Footer: React.FC = () => {
   const hideFooterOnMobile = useContext(HideFooterOnMobileContext);
-  const [showQrCodeModalNonce, setShowQrCodeModalNonce] = React.useState(0);
   return (
     <footer className={`fixed inset-x-0 bottom-0 sm:static bg-quaternary p-5 min-h-[80px] flex items-center ${headerFooterFont} ${hideFooterOnMobile ? 'max-sm:hidden' : ''}`}>
       <div className="mx-auto flex w-full sm:w-auto sm:gap-16 items-center justify-between">
@@ -91,15 +88,7 @@ const Footer: React.FC = () => {
         <OurNavLink to="/faq" className="hidden sm:flex flex-none w-12 flex-col items-center text-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center">
           <span className="text-sm">FAQ</span>
         </OurNavLink>
-        <div className="hidden sm:flex flex-none w-12 flex-col items-center text-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center" onClick={() => setShowQrCodeModalNonce(n => n + 1)}>
-          <FaQrcode />
-        </div>
       </div>
-      <Modal showModalNonce={showQrCodeModalNonce}>
-        <div className="w-full h-fit flex flex-col items-center justify-center gap-4">
-          <QRCode data={location.href} />
-        </div>
-      </Modal>
     </footer>
   );
 }

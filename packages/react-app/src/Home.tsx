@@ -1,9 +1,13 @@
 import React from "react";
+import { FaQrcode } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import { About } from "./About";
 import payDemoImage from "./images/pay-demo.png";
+import Modal from "./Modal";
+import QRCode from "./QRCode";
 
 export const Home: React.FC = () => {
+  const [showQrCodeModalNonce, setShowQrCodeModalNonce] = React.useState(0);
   const payDemoElement = <div>
     <div className="relative py-12 flex justify-center">
       <span className="absolute top-3 left-1/2 transform -translate-x-1/2">What they see:</span>
@@ -59,6 +63,14 @@ export const Home: React.FC = () => {
     </div>
     <div className="sm:hidden mt-8 border-t-2">
       <About />
+      <div className="mt-8 w-full flex items-center justify-center" onClick={() => setShowQrCodeModalNonce(n => n + 1)}>
+        <FaQrcode />
+      </div>
+      <Modal showModalNonce={showQrCodeModalNonce}>
+        <div className="w-full h-fit flex flex-col items-center justify-center gap-4">
+          <QRCode data={location.href} />
+        </div>
+      </Modal>
     </div>
   </div>;
 };
