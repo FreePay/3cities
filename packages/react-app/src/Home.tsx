@@ -23,22 +23,21 @@ export const Home: React.FC = () => {
     <div className="sm:my-8">
       <div className="text-left max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <h2 className="text-2xl mb-4"><Link to="/request-money" className="text-primary sm:hover:text-primary-darker font-bold">
+          <h2 className="text-2xl mb-8"><Link to="/request-money" className="text-primary sm:hover:text-primary-darker font-bold">
             Request Money
           </Link> using 3cities</h2>
-          <p className="mb-4">
-            Send a money request link to anyone in the world. It&apos;s fast and free.
+          <p className="mb-8">
+            Send a money request link to anyone in the world.
           </p>
-          <p className="sm:mb-8">
-            <Link to="/request-money" className="text-primary sm:hover:text-primary-darker font-bold">
-              Try it now
+          <p className="mb-8">
+            It&apos;s fast and free.
+          </p>
+          <p className="mb-8">
+            No sign-up required. No connect wallet required. <Link to="/request-money" className="text-primary sm:hover:text-primary-darker font-bold">
+              Try it now.
             </Link>
-            <span className="ml-1">(no sign-up needed)</span>
           </p>
-          <div className="sm:hidden my-4">
-            {payDemoElement}
-          </div>
-          <h2 className="text-2xl mb-4">How It Works</h2>
+          <h2 className="text-2xl mb-2">How It Works</h2>
           <ol className="list-decimal list-inside mb-8">
             <li className="mb-2">
               Set the US Dollar amount to request
@@ -50,11 +49,6 @@ export const Home: React.FC = () => {
               Share the payment link and they can pay with any crypto wallet
             </li>
           </ol>
-          <p>
-            <Link to="/request-money" className="text-primary sm:hover:text-primary-darker text-2xl font-bold">
-              Send a Payment Link
-            </Link>
-          </p>
         </div>
         <div className="hidden sm:block">
           {payDemoElement}
