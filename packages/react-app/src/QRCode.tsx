@@ -1,5 +1,6 @@
 import QRCodeStyling, { Options } from 'qr-code-styling';
 import React, { useEffect, useRef, useState } from 'react';
+import useWindowSize from './useWindowSize';
 
 // TODO add a download button using qr-code-styling's download API. This would let the user 1-click download the QR code.
 
@@ -9,18 +10,22 @@ interface QRCodeProps {
   data: string;
 }
 
-const width = 256;
-const height = 256;
-
 export const QRCode: React.FC<QRCodeProps> = React.memo(({ data }: QRCodeProps) => {
   const qrCodeContainerRef = useRef<HTMLDivElement | null>(null);
   const [qrCode, setQRCode] = useState<QRCodeStyling | null>(null);
+
+  const windowSize = useWindowSize();
+  const width = Math.min(Math.round(windowSize.width * 0.9), 360); // here we make the width no larger than 80% of the screen width. This ensures that a QR code with some horizontal padding (eg. inside a Modal) will still be fully visible on narrower devices.
+  const height = width;
 
   useEffect(() => {
     const opts: Options = {
       width,
       height,
       data,
+      qrOptions: {
+        errorCorrectionLevel: 'M', // here we use one level of error correction below the default of 'Q'. This results in substantially less encoded data and thus a high-resolutin QR code which makes it easier for older scanners to successfully scan it. The tradeoff is if the QR code is printed and damaged then there's less error correction to successfully scan the damaged QR code. https://www.qrcode.com/en/about/error_correction.html
+      },
       dotsOptions: {
         gradient: {
           type: "linear",
@@ -54,7 +59,7 @@ export const QRCode: React.FC<QRCodeProps> = React.memo(({ data }: QRCodeProps) 
       image: '/logo.png',
       imageOptions: {
         hideBackgroundDots: true,
-        imageSize: 0.35,
+        imageSize: 0.30,
         margin: 8,
         crossOrigin: "anonymous",
       },
@@ -74,7 +79,7 @@ export const QRCode: React.FC<QRCodeProps> = React.memo(({ data }: QRCodeProps) 
       loadQRCodeStyling();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data]);
+  }, [data, width, height]);
 
   useEffect(() => {
     if (qrCode && qrCodeContainerRef.current) {
