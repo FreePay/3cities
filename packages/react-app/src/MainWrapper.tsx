@@ -1,30 +1,51 @@
-import React from "react";
+import React, { useCallback, useContext } from "react";
 import { FaHandHoldingUsd, FaHome, FaTwitter, FaUserCircle } from "react-icons/fa";
-import { Link, Outlet } from "react-router-dom";
+import { NavLink, NavLinkProps, Outlet, useNavigate } from "react-router-dom";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
+import { HideFooterOnMobileContext } from "./HideFooter";
 import { Wordmark } from "./Wordmark";
+
+const headerFooterFont = "text-black font-bold";
+
+const OurNavLink: React.FC<NavLinkProps & {
+  className?: string
+}> = ({ children, className, ...props }) => {
+  return <NavLink {...props} className={activeRouteClassName({
+    ...(className !== undefined && { className }),
+    activeClassName: "text-rose-900", // rose-900 is a very dark shade of our tertiary color
+  })}>
+    {children}
+  </NavLink>
+
+  function activeRouteClassName({ className: classNameInner, inactiveClassName, activeClassName, pendingClassName }: { className?: string, inactiveClassName?: string, activeClassName?: string, pendingClassName?: string }): Exclude<NavLinkProps['className'], string | undefined> {
+    const fn = ({ isActive, isPending }: Parameters<Exclude<NavLinkProps['className'], string | undefined>>[0]) => {
+      return `${classNameInner ? classNameInner : ''} ${!isActive && !isPending ? inactiveClassName : ''} ${isActive ? activeClassName : ''} ${isPending ? pendingClassName : ''}`;
+    };
+    return fn;
+  }
+}
 
 const Header: React.FC = () => {
   return (
-    <header className="hidden sm:flex bg-quaternary p-5 min-h-[80px] items-center w-full">
+    <header className={`hidden sm:flex bg-quaternary p-5 min-h-[80px] items-center w-full ${headerFooterFont}`}>
       <div className="flex flex-none items-center justify-start w-48">
-        <Link to="/">
+        <OurNavLink to="/">
           <Wordmark />
-        </Link>
+        </OurNavLink>
       </div>
       <div className="flex flex-1 gap-16 items-center justify-center px-4">
-        <Link to="/" className="flex flex-col items-center text-center">
+        <OurNavLink to="/" className="flex flex-col items-center text-center">
           <FaHome />
           <span className="text-sm">Home</span>
-        </Link>
-        <Link to="/request-money" className="flex flex-col items-center text-center">
+        </OurNavLink>
+        <OurNavLink to="/request-money" className="flex flex-col items-center text-center">
           <FaHandHoldingUsd />
           <span className="text-sm">Request Money</span>
-        </Link>
-        <Link to="/me" className="flex flex-col items-center text-center w-10">
+        </OurNavLink>
+        <OurNavLink to="/me" className="flex flex-col items-center text-center w-10">
           <FaUserCircle />
           <span className="text-sm">Me</span>
-        </Link>
+        </OurNavLink>
       </div>
       <div className="flex flex-none items-center justify-end">
         <div className="max-sm:min-w-[46vw] max-sm:max-w-48 sm:w-48">
@@ -42,43 +63,54 @@ const Header: React.FC = () => {
 }
 
 const Footer: React.FC = () => {
+  const hideFooterOnMobile = useContext(HideFooterOnMobileContext);
   return (
-    <footer className="fixed inset-x-0 bottom-0 sm:static bg-quaternary p-5 min-h-[80px] flex items-center">
+    <footer className={`fixed inset-x-0 bottom-0 sm:static bg-quaternary p-5 min-h-[80px] flex items-center ${headerFooterFont} ${hideFooterOnMobile ? 'max-sm:hidden' : ''}`}>
       <div className="mx-auto flex w-full sm:w-auto sm:gap-16 items-center justify-between">
-        <Link to="/" className="sm:hidden flex flex-col items-center text-center w-10">
+        <OurNavLink to="/" className="sm:hidden flex flex-col items-center text-center w-10">
           <FaHome />
           <span className="text-sm">Home</span>
-        </Link>
-        <Link to="/request-money" className="sm:hidden flex flex-col items-center text-center">
+        </OurNavLink>
+        <OurNavLink to="/request-money" className="sm:hidden flex flex-col items-center text-center">
           <FaHandHoldingUsd />
           <span className="text-sm">Request Money</span>
-        </Link>
-        <Link to="/me" className="sm:hidden flex flex-col items-center text-center w-10">
+        </OurNavLink>
+        <OurNavLink to="/me" className="sm:hidden flex flex-col items-center text-center w-10">
           <FaUserCircle />
           <span className="text-sm">Me</span>
-        </Link>
-        <Link to="/about" className="hidden sm:flex flex-none w-12 flex-col items-center text-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center">
+        </OurNavLink>
+        <OurNavLink to="/about" className="hidden sm:flex flex-none w-12 flex-col items-center text-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center">
           <span className="text-sm">About</span>
-        </Link>
+        </OurNavLink>
         <a href="https://twitter.com/3cities_xyz" target="_blank" rel="noreferrer" className="hidden sm:flex flex-none w-12 items-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center">
           <FaTwitter />
         </a>
-        <Link to="/faq" className="hidden sm:flex flex-none w-12 flex-col items-center text-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center">
+        <OurNavLink to="/faq" className="hidden sm:flex flex-none w-12 flex-col items-center text-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center">
           <span className="text-sm">FAQ</span>
-        </Link>
+        </OurNavLink>
       </div>
     </footer>
   );
 }
 
+// MainWrapper is a wrapper for ordinary routes that are part of the
+// main app. It has a Header and Footer on desktop, and only a Footer on
+// mobile with different contents than the desktop Footer.
 export const MainWrapper = () => {
+  const hideFooterOnMobile = useContext(HideFooterOnMobileContext);
+  const includeBackButtonOnMobile = hideFooterOnMobile; // if the footer is hidden on mobile, we'll include a back button on mobile as otherwise there's no affordance to return to whence they came (because in this case mobile has neither a header or a footer)
+  const navigate = useNavigate();
+  const goBack = useCallback(() => navigate(-1), [navigate]);
   return (
     <div className="min-h-screen flex flex-col text-black">
-      {/* <div className="fixed left-1/2 top-0 w-0.5 bg-red-500 h-full">this is a debug horizontally-centered vertical line to help align header/footer</div> */}
+      {/* <div className="fixed left-1/2 top-0 w-0.5 bg-red-500 h-full">this is a horizontally-centered vertical line for debug purposes</div> */}
       <Header />
-      <div className="grow flex flex-col items-center justify-start bg-gray-100 max-sm:pb-[120px]">
+      <div className={`absolute top-6 right-5 text-sm text-quaternary-darker sm:hidden ${includeBackButtonOnMobile ? '' : 'hidden'}`} onClick={goBack}>back</div>
+      <div className="grow flex flex-col items-center justify-start bg-gray-100 pb-[120px] sm:pb-8">
         {/* NB the pb-[120px] on this parent div ensures there is sufficient (80px would be the minimum, and we added another 40px) blank space below the outlet that's the same height as the footer, which has the effect of ensuring that the user can scroll down to view the bottom of the content, otherwise the content bottom would be hidden behind the footer. */}
         <div className="w-full overflow-hidden px-5">
+          <div className="sm:hidden flex justify-center items-center my-4"><Wordmark /></div>
+          {/* NB that Outlet is nearly full width of the screen (except for the px-5 above) and its incumbent on child routes to center their content and set its max width if desired. This is in contrast to ConversionWrapper which forces nested routes into a small column in the middle of the page. MainWrapper's Outlet offers more freedom to accomodate a greater range of (ordinary/main) products. */}
           <Outlet />
         </div>
       </div>
