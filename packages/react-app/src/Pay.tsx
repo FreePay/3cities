@@ -3,12 +3,14 @@ import { FaEye } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
-import { Chain, useAccount } from "wagmi";
+import { useAccount } from "wagmi";
 import { acceptReceiverProposedPayment, isReceiverProposedPayment, ReceiverProposedPayment } from "./agreements";
+import { getBlockExplorerUrlForAddress, getBlockExplorerUrlForTransaction } from "./blockExplorerUrls";
 import { getChain, getSupportedChainName } from "./chains";
 import { Checkout } from "./checkout";
 import { useConnectedWalletAddressContext } from "./connectedWalletContextProvider";
 import { ConnectWalletButton } from "./ConnectWalletButton";
+import QRCode from "./QRCode";
 import { renderLogicalAssetAmount, RenderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
 import { RenderTokenBalance } from "./RenderTokenBalance";
 import { RenderTokenTransfer } from "./RenderTokenTransfer";
@@ -84,10 +86,7 @@ export const Pay: React.FC = () => {
   const { bestStrategy, otherStrategies, disableStrategy, selectStrategy } = useBestStrategy(strategies);
 
   const recipientAddressBlockExplorerLink: string | undefined = (() => {
-    const c: Chain | undefined = getChain(status?.activeTokenTransfer.token.chainId);
-    const blockExplorerUrl: string | undefined = c?.blockExplorers?.default.url;
-    if (blockExplorerUrl) return `${blockExplorerUrl}/address/${rpp.toAddress}`;
-    else return undefined;
+    return getBlockExplorerUrlForAddress(status?.activeTokenTransfer.token.chainId, rpp.toAddress);
   })();
 
   const [showFullRecipientAddress, setShowFullRecipientAddress] = useState(false);
@@ -246,19 +245,14 @@ export const Pay: React.FC = () => {
 
   const paymentSuccessfulBlockExplorerReceiptLink: string | undefined = (() => {
     if (!status?.isSuccess) return undefined;
-    else {
-      const c: Chain | undefined = getChain(status.activeTokenTransfer.token.chainId);
-      const blockExplorerUrl: string | undefined = c?.blockExplorers?.default.url;
-      if (blockExplorerUrl) return `${blockExplorerUrl}/tx/${status.successData.transactionHash}`;
-      else return undefined;
-    }
+    else return getBlockExplorerUrlForTransaction(status.activeTokenTransfer.token.chainId, status.successData.transactionHash);
   })();
 
   const paymentSuccessfulTextToShare: string = (() => {
     if (status?.isSuccess) {
       const computedReceipt = paymentSuccessfulBlockExplorerReceiptLink ? `Receipt: ${paymentSuccessfulBlockExplorerReceiptLink}` : `Payment transaction hash: ${status.successData.transactionHash} on ${getSupportedChainName(status.activeTokenTransfer.token.chainId)}`;
 
-      return `I paid you ${renderLogicalAssetAmount({ ...checkout.proposedAgreement, showAllZeroesAfterDecimal: true })} using https://3cities.xyz. ${computedReceipt}`;
+      return `Hey, I paid you ${renderLogicalAssetAmount({ ...checkout.proposedAgreement, showAllZeroesAfterDecimal: true })} using https://3cities.xyz. ${computedReceipt}`;
     } else return ' ';
   })();
 
@@ -266,31 +260,31 @@ export const Pay: React.FC = () => {
     successDuration: 10000, // `isCopied` will go back to `false` after 10000ms
   });
 
-  const paymentSuccessfulScreen: JSX.Element | undefined = status?.isSuccess ? <div className="grid grid-cols-1 w-full items-center py-6 gap-12">
+  const paymentSuccessfulScreen: JSX.Element | undefined = status?.isSuccess ? <div className="grid grid-cols-1 w-full items-center pt-6 gap-6">
     <button
       type="button"
       className="rounded-md p-3.5 font-medium bg-primary-lighter-2 text-white pointer-events-none w-full"
     >
       Payment Successful ✅
     </button>
+    <button
+      type="button"
+      className="rounded-md p-3.5 font-medium bg-primary text-white sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer w-full"
+      disabled={isPaymentSuccessfulShareCopied} onClick={() => {
+        const toShare = {
+          text: paymentSuccessfulTextToShare, // here we share only the human-readable paymentSuccessfulTextToShare, and exclude toShare.title/url because on android at least, toShare.title/url seem to be ignored resulting in the raw link being pasted, and since we don't yet have link previews, it's a bad experience because the link provides no context.
+        };
+        if (navigator.canShare && navigator.canShare(toShare)) {
+          navigator.share(toShare);
+        } else setIsPaymentSuccessfulShareCopied();
+      }}>
+      {isPaymentSuccessfulShareCopied ? 'Copied. Paste to them in a DM' : 'Let them know you paid'}
+    </button>
+    {paymentSuccessfulBlockExplorerReceiptLink && <div className="flex justify-center items-center">
+      <QRCode data={paymentSuccessfulBlockExplorerReceiptLink} />
+    </div>}
     <div className="grid grid-cols-1 w-full items-center gap-4">
-      <button
-        type="button"
-        className="rounded-md p-3.5 font-medium bg-primary text-white sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer w-full"
-        disabled={isPaymentSuccessfulShareCopied} onClick={() => {
-          const toShare = { 
-            title: 'Payment',
-            text: paymentSuccessfulTextToShare,
-          };
-          if (navigator.canShare && navigator.canShare(toShare)) {
-            navigator.share(toShare);
-          } else setIsPaymentSuccessfulShareCopied();
-        }}>
-        {isPaymentSuccessfulShareCopied ? 'Copied. Paste to them in a DM' : 'Let them know you paid'}
-      </button>
       <span className="text-center">3cities doesn&apos;t let them know you paid (yet)</span>
-    </div>
-    <div className="grid grid-cols-1 w-full items-center gap-4 my-12">
       <span className="text-center">Thanks for using 3cities! ❤️</span>
       <span className="text-center"><Link to="/request-money" className="text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer">Request Money</Link></span>
     </div>
