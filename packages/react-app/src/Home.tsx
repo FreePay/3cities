@@ -2,7 +2,6 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { About } from "./About";
 import payDemoImage from "./images/pay-demo.png";
-import { Wordmark } from "./Wordmark";
 
 export const Home: React.FC = () => {
   const payDemoElement = <div>
@@ -17,8 +16,7 @@ export const Home: React.FC = () => {
     </div>
   </div >;
   return <div>
-    <div className="my-8">
-      <div className="sm:hidden flex justify-center items-center my-4"><Wordmark /></div>
+    <div className="sm:my-8">
       <div className="text-left max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <h2 className="text-2xl mb-4"><Link to="/request-money" className="text-primary sm:hover:text-primary-darker font-bold">
@@ -33,7 +31,7 @@ export const Home: React.FC = () => {
             </Link>
             <span className="ml-1">(no signups or wallet needed)</span>
           </p>
-          <div className="sm:hidden my-8">
+          <div className="sm:hidden my-4">
             {payDemoElement}
           </div>
           <h2 className="text-2xl mb-4">How It Works</h2>
