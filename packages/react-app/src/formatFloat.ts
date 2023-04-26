@@ -1,7 +1,7 @@
 import { commify } from "./commify";
 
 export type FormatFloatOpts = {
-  showAllZeroesAfterDecimal?: true; // iff true, a number ending in all zeroes after the decimal point will retain the zeroes (eg. "1.00"), otherwise they are truncated by default (eg. 1.00 -> "1")
+  showAllZeroesAfterDecimal?: boolean; // iff true, a number ending in all zeroes after the decimal point will retain the zeroes (eg. "1.00"), otherwise they are truncated by default (eg. 1.00 -> "1")
 }
 
 // formatFloat formats the passed float to make it suitable to display
