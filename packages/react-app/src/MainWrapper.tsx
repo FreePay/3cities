@@ -1,8 +1,9 @@
-import React, { useCallback, useContext } from "react";
+import React, { useContext } from "react";
 import { FaHandHoldingUsd, FaHome, FaTwitter, FaUserCircle } from "react-icons/fa";
-import { NavLink, NavLinkProps, Outlet, useNavigate } from "react-router-dom";
+import { NavLink, NavLinkProps, Outlet } from "react-router-dom";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
 import { HideFooterOnMobileContext } from "./HideFooter";
+import { useGoBackWithFallback } from "./useGoBackWithFallback";
 import { Wordmark } from "./Wordmark";
 
 const headerFooterFont = "text-black font-bold";
@@ -99,8 +100,7 @@ const Footer: React.FC = () => {
 export const MainWrapper = () => {
   const hideFooterOnMobile = useContext(HideFooterOnMobileContext);
   const includeBackButtonOnMobile = hideFooterOnMobile; // if the footer is hidden on mobile, we'll include a back button on mobile as otherwise there's no affordance to return to whence they came (because in this case mobile has neither a header or a footer)
-  const navigate = useNavigate();
-  const goBack = useCallback(() => navigate(-1), [navigate]);
+  const goBack = useGoBackWithFallback('/'); // ie. go back if there's history to go back to, otherwise redirect home
   return (
     <div className="min-h-screen flex flex-col text-black">
       {/* <div className="fixed left-1/2 top-0 w-0.5 bg-red-500 h-full">this is a horizontally-centered vertical line for debug purposes</div> */}
@@ -109,7 +109,7 @@ export const MainWrapper = () => {
       <div className="grow flex flex-col items-center justify-start bg-gray-100 pb-[120px] sm:pb-8">
         {/* NB the pb-[120px] on this parent div ensures there is sufficient (80px would be the minimum, and we added another 40px) blank space below the outlet that's the same height as the footer, which has the effect of ensuring that the user can scroll down to view the bottom of the content, otherwise the content bottom would be hidden behind the footer. */}
         <div className="w-full overflow-hidden px-5">
-          <div className="sm:hidden flex justify-center items-center my-4"><Wordmark /></div>
+          <div className="sm:hidden flex justify-center items-center my-8"><Wordmark /></div>
           {/* NB that Outlet is nearly full width of the screen (except for the px-5 above) and its incumbent on child routes to center their content and set its max width if desired. This is in contrast to ConversionWrapper which forces nested routes into a small column in the middle of the page. MainWrapper's Outlet offers more freedom to accomodate a greater range of (ordinary/main) products. */}
           <Outlet />
         </div>
