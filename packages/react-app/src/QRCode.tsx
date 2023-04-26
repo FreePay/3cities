@@ -54,7 +54,7 @@ export const QRCode: React.FC<QRCodeProps> = React.memo(({ data }: QRCodeProps) 
       image: '/logo.png',
       imageOptions: {
         hideBackgroundDots: true,
-        imageSize: 0.2,
+        imageSize: 0.35,
         margin: 8,
         crossOrigin: "anonymous",
       },
