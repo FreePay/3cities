@@ -1,11 +1,14 @@
 import { BigNumber } from "@ethersproject/bignumber";
-import { NativeCurrency, Token } from "./Token";
+import { arbitrum, arbitrumGoerli, mainnet, optimism } from '@wagmi/core/chains';
 import { AddressContext, canAfford } from "./addressContext";
 import { Agreement, isPayment, isReceiverProposedPayment, ProposedAgreement } from "./agreements";
+import { arbitrumNova, chainsSupportedBy3cities, polygonZkEvm, zkSync } from "./chains";
+import { isProduction } from "./isProduction";
 import { convertLogicalAssetUnits } from "./logicalAssets";
 import { getNativeCurrenciesAndTokensForLogicalAssetTicker } from "./logicalAssetsToTokens";
 import { StrategyPreferences } from "./StrategyPreferences";
-import { allTokenKeys, getTokenKey } from "./tokens";
+import { NativeCurrency, Token } from "./Token";
+import { allTokenKeys, allTokenTickers, getTokenKey } from "./tokens";
 import { TokenTransfer } from "./tokenTransfer";
 
 // TODO consider replacing "Strategy" with "PaymentMethod" in every context
@@ -53,8 +56,8 @@ export type ReceiverProposedTokenTransfer = Omit<TokenTransfer, 'fromAddress'>
 // is that given a proposed agreement hasn't yet been accepted by the
 // counterparty(ies), the function of a proposed strategy is to say,
 // "let me help you make a decision and motivate you to accept the
-// agreement by showing you an example of the actions you could take
-// to fulfill this agreement"
+// agreement by showing you an example of the actions you could take to
+// fulfill this agreement".
 export type ProposedStrategy = {
   proposedAgreement: ProposedAgreement, // the proposed agreement which this proposed strategy may end up fulfilling fulfill if the proposal is accepted
   receiverProposedTokenTransfer: ReceiverProposedTokenTransfer, // the single proposed token transfer which, once accepted and completed, will represent the execution of this agreement. See design note on Strategy.tokenTransfer
@@ -83,7 +86,7 @@ export function getProposedStrategiesForProposedAgreement(prefs: StrategyPrefere
   }
   // TODO support generation of strategies based on exchange rates, eg. if payment is for $5 USD then we should support a strategy of paying $5 in ETH and vice versa
   // console.log("getProposedStrategiesForProposedAgreement prefs=", prefs, "pa=", pa, "r=", pss);
-  return pss;
+  return sortProposedStrategiesByPriority(staticChainIdPriority, staticTokenTickerPriority, pss);
 }
 
 // getStrategiesForAgreement computes the strategies for the passed
@@ -113,5 +116,89 @@ export function getStrategiesForAgreement(prefs: StrategyPreferences, a: Agreeme
   }
   // TODO support generation of strategies based on exchange rates, eg. if payment is for $5 USD then we should support a strategy of paying $5 in ETH and vice versa
   // console.log("getStrategiesForAgreement prefs=", prefs, "a=", a, "r=", ss);
-  return ss;
+  return sortStrategiesByPriority(staticChainIdPriority, staticTokenTickerPriority, ss);
 }
+
+type ChainIdPriority = {
+  [chainId: number]: number;
+};
+
+type TokenTickerPriority = {
+  [ticker: string]: number;
+};
+
+function sortStrategiesByPriority(
+  chainIdPriority: ChainIdPriority,
+  tokenTickerPriority: TokenTickerPriority,
+  strategies: Strategy[],
+): Strategy[] {
+  return strategies.sort((a, b) => {
+    const aChainId = a.tokenTransfer.token.chainId;
+    const bChainId = b.tokenTransfer.token.chainId;
+    const aPriority = chainIdPriority[aChainId] ?? Infinity;
+    const bPriority = chainIdPriority[bChainId] ?? Infinity;
+    if (aPriority === bPriority) {
+      const aTicker = a.tokenTransfer.token.ticker;
+      const bTicker = b.tokenTransfer.token.ticker;
+      const aTickerPriority = tokenTickerPriority[aTicker] ?? Infinity;
+      const bTickerPriority = tokenTickerPriority[bTicker] ?? Infinity;
+      return bTickerPriority - aTickerPriority;
+    } else return bPriority - aPriority;
+  });
+}
+
+// TODO unify sortStrategiesByPriority and sortProposedStrategiesByPriority instead of just copying the code?
+function sortProposedStrategiesByPriority(
+  chainIdPriority: ChainIdPriority,
+  tokenTickerPriority: TokenTickerPriority,
+  proposedStrategies: ProposedStrategy[],
+): ProposedStrategy[] {
+  return proposedStrategies.sort((a, b) => {
+    const aChainId = a.receiverProposedTokenTransfer.token.chainId;
+    const bChainId = b.receiverProposedTokenTransfer.token.chainId;
+    const aPriority = chainIdPriority[aChainId] ?? Infinity;
+    const bPriority = chainIdPriority[bChainId] ?? Infinity;
+    if (aPriority === bPriority) {
+      const aTicker = a.receiverProposedTokenTransfer.token.ticker;
+      const bTicker = b.receiverProposedTokenTransfer.token.ticker;
+      const aTickerPriority = tokenTickerPriority[aTicker] ?? Infinity;
+      const bTickerPriority = tokenTickerPriority[bTicker] ?? Infinity;
+      return bTickerPriority - aTickerPriority;
+    } else return bPriority - aPriority;
+  });
+}
+
+const staticChainIdPriority: ChainIdPriority = {
+  // Here we attempt to prioritize chains with lower fees. Of course,
+  // fee structures are always changing, and fees can differ for more
+  // complex reasons, so this is just a start.
+
+  // This is intended to be a complete set of prioritized production networks (higher priority is better):
+  [arbitrumNova.id]: 1000,
+  [arbitrum.id]: 900,
+  [optimism.id]: 800,
+  [polygonZkEvm.id]: 750,
+  [zkSync.id]: 700,
+  [mainnet.id]: 1,
+
+  // Testnet priorities below here (higher priority is better):
+  [arbitrumGoerli.id]: 100,
+};
+
+if (isProduction) chainsSupportedBy3cities.forEach(c => {
+  if (staticChainIdPriority[c.id] === undefined) console.warn("chain not assigned a strategy priority", c);
+});
+
+const staticTokenTickerPriority: TokenTickerPriority = {
+  // This is intended to be a complete set of prioritized production token tickers (higher priority is better):
+  USDC: 1000, // I put USDC as top priority because I think ppl generally prefer to use it.
+  LUSD: 900, // LUSD is the most decentralized stablecoin so I made it 2nd-highest priority.
+  USDT: 800, // USDT is quite popular overseas so I made it 3rd-highest priority.
+  DAI: 700,
+  WETH: 150, // People generally want to pay with stablecoins, so non-stables have lower priority.
+  ETH: 100,
+};
+
+if (isProduction) allTokenTickers.forEach(ticker => {
+  if (staticTokenTickerPriority[ticker] === undefined) console.warn("token ticker not assigned a strategy priority", ticker);
+});
