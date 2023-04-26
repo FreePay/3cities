@@ -64,6 +64,7 @@ export const wagmiClient = createClient({
       options: {
         appName: "3cities",
         chainId: chainsSupportedBy3cities[0].id, // this chainId is used by CoinbaseWalletSDK as some kind of fallback chainId. Here we pass the first chainId from our supported chains to ensure that whatever fallback is used in CoinbaseWalletSDK, it's actually one of our supported chains (and especially to avoid falling back to the default of mainnet when not in production)
+        headlessMode: true,
       },
     }),
     new InjectedConnector({ // NB connectkit's wallet connection modal will only show InjectedConnector in the list of available wallets if there's actually a non-metamask, non-coinbase browser wallet extension, see shouldShowInjectedConnector https://github.com/family/connectkit/blob/8ac82c816c76df9154c37347c0721219d2b88a14/packages/connectkit/src/components/Pages/Connectors/index.tsx#L115 --> I was able to get Backpack.app wallet working --> connectkit detects this InjectedConnector in the wagmi.Client and also detects the Backpack browser extension, and then surfaces the wallet option "Browser Wallet" (NB phantom doesn't show up as an InjectedConnector/Browser Wallet, nor does it show up as a fake MetaMask wallet, it simply doesn't show up)
