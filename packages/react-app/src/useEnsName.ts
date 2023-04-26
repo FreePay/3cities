@@ -5,9 +5,14 @@ import { makeAddress } from "./makeAddress";
 import { truncateENSAddress } from "./truncateAddress";
 
 // useEnsName is our higher-level wrapper around wagmi.useEnsName.
-// useEnsName returns the passed address's primary ENS name or undefined if
-// no primary ENS name is set, and truncates the returned ENS name if the
-// passed truncated option is set.
+// useEnsName returns the passed address's reverse record or undefined
+// if no reverse record is set, and truncates the returned ENS name if
+// the passed truncated option is set. WARNING ENS does not enforce the
+// accuracy of reverse records. To be sure a given name for an address
+// is correct, you must perform a forward resolution back to the
+// address. (Ie. "0x123" --> "foo.eth" [insecure reverse resolution] ->
+// resolves back to "0x123" [now foo.eth is known to be a secure reverse
+// resolution])
 export function useEnsName(address: undefined, opts?: {
   truncated?: boolean;
   maxENSNameLength?: number;

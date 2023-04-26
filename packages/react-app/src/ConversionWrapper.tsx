@@ -11,7 +11,7 @@ function ConversionHeader() {
             <ConnectWalletButtonCustom
               disconnectedLabel=""
               hideIfDisconnected={true}
-              className="rounded-md px-3.5 py-2 text-xs font-medium bg-white sm:enabled:hover:bg-gray-200 focus:outline-none active:scale-95 w-full"
+              className="rounded-md px-3.5 py-2 text-xs font-medium bg-white sm:enabled:hover:bg-gray-200 focus:outline-none enabled:active:scale-95 w-full"
               disabledClassName="text-quaternary-darker pointer-events-none"
               enabledClassName="text-quaternary"
               loadingSpinnerClassName="text-quaternary-darker fill-white"

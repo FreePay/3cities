@@ -269,23 +269,24 @@ export const Pay: React.FC = () => {
   const paymentSuccessfulScreen: JSX.Element | undefined = status?.isSuccess ? <div className="grid grid-cols-1 w-full items-center py-6 gap-12">
     <button
       type="button"
-      className="rounded-md p-3.5 font-medium bg-primary text-white pointer-events-none w-full"
+      className="rounded-md p-3.5 font-medium bg-primary-lighter-2 text-white pointer-events-none w-full"
     >
       Payment Successful ✅
     </button>
     <div className="grid grid-cols-1 w-full items-center gap-4">
       <button
         type="button"
-        className="rounded-md p-3.5 font-medium bg-secondary text-white sm:enabled:hover:bg-secondary-darker sm:enabled:hover:cursor-pointer w-full"
+        className="rounded-md p-3.5 font-medium bg-primary text-white sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer w-full"
         disabled={isPaymentSuccessfulShareCopied} onClick={() => {
-          const toShare = { text: paymentSuccessfulTextToShare };
-          if (!navigator.canShare) {
-            setIsPaymentSuccessfulShareCopied();
-          } else if (navigator.canShare(toShare)) {
+          const toShare = { 
+            title: 'Payment',
+            text: paymentSuccessfulTextToShare,
+          };
+          if (navigator.canShare && navigator.canShare(toShare)) {
             navigator.share(toShare);
-          }
+          } else setIsPaymentSuccessfulShareCopied();
         }}>
-        {isPaymentSuccessfulShareCopied ? 'Copied. Paste to them in a DM' : '➡️ Let them know you paid ⬅️'}
+        {isPaymentSuccessfulShareCopied ? 'Copied. Paste to them in a DM' : 'Let them know you paid'}
       </button>
       <span className="text-center">3cities doesn&apos;t let them know you paid (yet)</span>
     </div>

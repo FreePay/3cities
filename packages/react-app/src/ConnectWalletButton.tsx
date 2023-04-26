@@ -63,7 +63,7 @@ type ConnectWalletButtonProps = Partial<Pick<CustomConnectWalletButtonProps, 'di
 export const ConnectWalletButton: React.FC<ConnectWalletButtonProps> = (props) => <ConnectWalletButtonCustom
   disconnectedLabel='Connect Wallet'
   {...props /* NB here we spread props after passing a static disconnectedLabel so that any props.disconnectedLabel takes precedence, so that the static value is an overridable default */}
-  className="rounded-md p-3.5 font-medium bg-primary sm:enabled:hover:bg-primary-darker focus:outline-none active:scale-95 w-full"
+  className="rounded-md p-3.5 font-medium bg-primary sm:enabled:hover:bg-primary-darker focus:outline-none enabled:active:scale-95 w-full"
   disabledClassName="text-gray-200 pointer-events-none"
   enabledClassName="text-white"
   loadingSpinnerClassName="text-gray-200 fill-primary"
