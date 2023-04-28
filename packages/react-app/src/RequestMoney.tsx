@@ -119,12 +119,17 @@ export const RequestMoney: React.FC = () => {
     setShowModalNonce(0); // NB we must reset showModalNonce when checkout changes, otherwise the modal will pop up without the user clicking request once checkout is redefined.
   }, [setShowModalNonce, checkout]);
 
-  const checkoutLinkTextToShare: string = (() => {
-    if (checkout && checkoutLink) return `Hey, can you please pay me ${renderLogicalAssetAmount({ ...checkout.proposedAgreement, showAllZeroesAfterDecimal: true })} at ${checkoutLink}`;
+  const checkoutTextToShare: string = (() => {
+    if (checkout) return `Hey, can you please pay me ${renderLogicalAssetAmount({ ...checkout.proposedAgreement, showAllZeroesAfterDecimal: true })}`;
     else return ' ';
   })();
 
-  const [isCheckoutLinkCopied, setIsCheckoutLinkCopied] = useClipboard(checkoutLinkTextToShare, {
+  const checkoutLinkWithTextToShare: string = (() => {
+    if (checkoutLink) return `${checkoutTextToShare} at ${checkoutLink}`;
+    else return ' ';
+  })();
+
+  const [isCheckoutLinkCopied, setIsCheckoutLinkCopied] = useClipboard(checkoutLinkWithTextToShare, {
     successDuration: 10000, // `isCopied` will go back to `false` after 10000ms
   });
 
@@ -272,7 +277,9 @@ export const RequestMoney: React.FC = () => {
           className="rounded-md p-5 bg-primary text-white sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer w-full"
           disabled={isCheckoutLinkCopied} onClick={() => {
             const toShare = {
-              text: checkoutLinkTextToShare, // here we share only the human-readable checkoutLinkTextToShare, and exclude toShare.title/url because on android at least, toShare.title/url seem to be ignored resulting in the raw link being pasted, and since we don't yet have link previews, it's a bad experience because the link provides no context.
+              title: "Payment request",
+              text: checkoutTextToShare,
+              url: checkoutLink,
             };
             if (navigator.canShare && navigator.canShare(toShare)) {
               navigator.share(toShare);
