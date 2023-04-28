@@ -248,15 +248,27 @@ export const Pay: React.FC = () => {
     else return getBlockExplorerUrlForTransaction(status.activeTokenTransfer.token.chainId, status.successData.transactionHash);
   })();
 
-  const paymentSuccessfulTextToShare: string = (() => {
+  const paymentSuccessfulBaseText: string = (() => {
     if (status?.isSuccess) {
-      const computedReceipt = paymentSuccessfulBlockExplorerReceiptLink ? `Receipt: ${paymentSuccessfulBlockExplorerReceiptLink}` : `Payment transaction hash: ${status.successData.transactionHash} on ${getSupportedChainName(status.activeTokenTransfer.token.chainId)}`;
-
-      return `Hey, I paid you ${renderLogicalAssetAmount({ ...checkout.proposedAgreement, showAllZeroesAfterDecimal: true })} using https://3cities.xyz. ${computedReceipt}`;
+      return `Hey, I paid you ${renderLogicalAssetAmount({ ...checkout.proposedAgreement, showAllZeroesAfterDecimal: true })} using https://3cities.xyz.`;
     } else return ' ';
   })();
 
-  const [isPaymentSuccessfulShareCopied, setIsPaymentSuccessfulShareCopied] = useClipboard(paymentSuccessfulTextToShare, {
+  const paymentSuccessfulTextNoLinkToShare: string = (() => {
+    if (status?.isSuccess) {
+      const computedReceiptWithoutLink = paymentSuccessfulBlockExplorerReceiptLink ? `` : ` Payment transaction hash: ${status.successData.transactionHash} on ${getSupportedChainName(status.activeTokenTransfer.token.chainId)}`; // the idea here is that we'll include the verbose "Transaction hash ..." as a "manual non-link receipt" iff the actual payment receipt link couldn't be constructed. This provides a fallback while avoiding including the spammy "transaction hash" text in the case where link is available.
+      return `${paymentSuccessfulBaseText}${computedReceiptWithoutLink}`;
+    } else return ' ';
+  })();
+
+  const paymentSuccessfulTextWithLinkToShare: string = (() => {
+    if (status?.isSuccess) {
+      const computedReceipt = paymentSuccessfulBlockExplorerReceiptLink ? `Receipt: ${paymentSuccessfulBlockExplorerReceiptLink}` : `Payment transaction hash: ${status.successData.transactionHash} on ${getSupportedChainName(status.activeTokenTransfer.token.chainId)}`;
+      return `${paymentSuccessfulBaseText} ${computedReceipt}`;
+    } else return ' ';
+  })();
+
+  const [isPaymentSuccessfulShareCopied, setIsPaymentSuccessfulShareCopied] = useClipboard(paymentSuccessfulTextWithLinkToShare, {
     successDuration: 10000, // `isCopied` will go back to `false` after 10000ms
   });
 
@@ -272,7 +284,9 @@ export const Pay: React.FC = () => {
       className="rounded-md p-3.5 font-medium bg-primary text-white sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer w-full"
       disabled={isPaymentSuccessfulShareCopied} onClick={() => {
         const toShare = {
-          text: paymentSuccessfulTextToShare, // here we share only the human-readable paymentSuccessfulTextToShare, and exclude toShare.title/url because on android at least, toShare.title/url seem to be ignored resulting in the raw link being pasted, and since we don't yet have link previews, it's a bad experience because the link provides no context.
+          title: "Money sent",
+          text: paymentSuccessfulTextNoLinkToShare,
+          ...(paymentSuccessfulBlockExplorerReceiptLink && { url: paymentSuccessfulBlockExplorerReceiptLink }),
         };
         if (navigator.canShare && navigator.canShare(toShare)) {
           navigator.share(toShare);
