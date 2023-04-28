@@ -9,6 +9,7 @@ import { ReceiverProposedPayment } from "./agreements";
 import { allSupportedChainIds, getSupportedChainName } from "./chains";
 import { Checkout } from "./checkout";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
+import { isProduction } from "./isProduction";
 import { logicalAssetsByTicker, parseLogicalAssetAmount } from "./logicalAssets";
 import Modal from "./Modal";
 import { Narrow } from "./Narrow";
@@ -104,7 +105,7 @@ export const RequestMoney: React.FC = () => {
 
   const [checkoutLink, setCheckoutLink] = useState<string | undefined>(undefined);
   useEffect(() => {
-    setCheckoutLink(checkout && `${process.env['REACT_APP_DEVELOPMENT_INTRANET_IP'] ? (process.env['REACT_APP_DEVELOPMENT_INTRANET_IP'] + ':' + location.port) : location.origin}/#/pay?c=${serializeToModifiedBase64(checkout)}`);
+    setCheckoutLink(checkout && `${process.env['REACT_APP_DEVELOPMENT_INTRANET_IP'] ? ('http://' + process.env['REACT_APP_DEVELOPMENT_INTRANET_IP'] + ':' + location.port) : location.origin}/#/pay?c=${serializeToModifiedBase64(checkout)}`);
   }, [setCheckoutLink, checkout]);
 
   const amountInputContainerStyle = useMemo(() => {
@@ -287,6 +288,7 @@ export const RequestMoney: React.FC = () => {
           }}>
           {isCheckoutLinkCopied ? 'Copied link. Paste to them in a DM' : <span className="flex items-center justify-center text-xl gap-2">Share Link<FaShareAlt /></span>}
         </button>
+        {!isProduction && <a href={checkoutLink} target="_blank" rel="noopener noreferrer"><span className="text-xl text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer">Open Link</span></a> /* NB this is a development feature to make it easy to access the Pay UI for this request */}
       </div>
     </Modal>}
   </div>;
