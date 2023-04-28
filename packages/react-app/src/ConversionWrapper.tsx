@@ -28,7 +28,7 @@ export const ConversionWrapper = () => {
     <div className="min-h-screen flex flex-col text-black">
       <ConversionHeader />
       <div className="grow flex flex-col items-center justify-start bg-gray-100">
-        <div className="w-full max-w-sm overflow-hidden px-5">
+        <div className="w-full max-w-sm overflow-hidden px-5 pb-5">
           <Outlet />
         </div>
       </div>
