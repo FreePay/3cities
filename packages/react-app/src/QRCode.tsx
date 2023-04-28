@@ -15,7 +15,7 @@ export const QRCode: React.FC<QRCodeProps> = React.memo(({ data }: QRCodeProps) 
   const [qrCode, setQRCode] = useState<QRCodeStyling | null>(null);
 
   const windowSize = useWindowSize();
-  const width = Math.min(Math.round(windowSize.width * 0.9), 360); // here we make the width no larger than 80% of the screen width. This ensures that a QR code with some horizontal padding (eg. inside a Modal) will still be fully visible on narrower devices.
+  const width = Math.min(Math.round(windowSize.width * 0.9), 260); // here we make the width no larger than 80% of the screen width. This ensures that a QR code with some horizontal padding (eg. inside a Modal) will still be fully visible on narrower devices.
   const height = width;
 
   useEffect(() => {
