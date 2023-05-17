@@ -6,7 +6,7 @@ on:
     branches:
       - 'releases/staging'
 jobs:
-  verify-from-main-branch: # fail the build unless origin/main is ahead or equal to releases/staging. This prevents commits outside of origin/main from being deployed to staging. We use this solution because github doesn't support branch protection rules to require that releases/staging receives commits only from origin/main.
+  verify-from-main-branch: # fail the build unless releases/staging is part of origin/main history. This prevents commits outside of origin/main from being deployed to staging. We use this solution because github doesn't support branch protection rules to enforce that pushes to releases/staging must come from origin/main. So technically, any commits could be pushed to releases/staging by anybody with push access, but then the auto deployment to staging will fail here when it detects these commits aren't in origina/main history.
     runs-on: ubuntu-latest
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
@@ -45,7 +45,6 @@ jobs:
         uses: 3cities/github-tag-action@86a7b93c90a7fb79fca2911075262fb781c9136a
         with:
           pre_release_branches: releases/staging
-  # TODO deploy-to-staging-prod
   deploy-to-staging:
     needs: [tag]
     if: ${{ needs.tag.outputs.new_tag != null }}
@@ -73,8 +72,34 @@ jobs:
           projectName: 3cities-staging
           directory: build
           githubToken: ${{ secrets.GITHUB_TOKEN }}
+  deploy-to-staging-prod:
+    needs: [tag]
+    if: ${{ needs.tag.outputs.new_tag != null }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+        with:
+          ref: releases/staging
+      - uses: ./.github/actions/setup
+      - run: yarn build # ie. our staging-prod deployment is an ordinary production build
+        env:
+          REACT_APP_GIT_TAG: ${{ needs.tag.outputs.new_tag }}
+          REACT_APP_ALCHEMY_API_KEY: ${{ secrets.REACT_APP_ALCHEMY_API_KEY }}
+          REACT_APP_INFURA_API_KEY: ${{ secrets.REACT_APP_INFURA_API_KEY }}
+          REACT_APP_WEB3AUTH_CLIENT_ID: ${{ secrets.REACT_APP_WEB3AUTH_CLIENT_ID }}
+          REACT_APP_WALLETCONNECT_PROJECT_ID: ${{ secrets.REACT_APP_WALLETCONNECT_PROJECT_ID }}
+      - run: touch ./packages/react-app/build/static/fake-source.map # uncomment this to test source map detection and trigger a workflow failure
+      - run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing build" && exit 1);) # sanity check to ensure sourcemaps are disabled in deployments to avoid leaking our web src
+      - name: Update Cloudflare Pages deployment
+        uses: 3cities/pages-action@09ef98de2f7109541029b235a5dc1e40c80d0400
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: 3cities-staging-prod
+          directory: build
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
   github-prerelease:
-    needs: [deploy-to-staging]
+    needs: [deploy-to-staging, deploy-to-staging-prod]
     runs-on: ubuntu-latest
     steps:
       - name: Pre-release

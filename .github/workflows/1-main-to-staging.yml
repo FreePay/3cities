@@ -20,10 +20,6 @@ jobs:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
           ref: main
-      - name: Git config
-        run: |
-          git config user.name "3cities CI/CD"
-          git config user.email "ryanberckmans+3cities-CI-CD@users.noreply.github.com"
       - name: Git push
         # NB no force push to require linear history which is also enforced in releases/staging protected branch settings
         run: |
