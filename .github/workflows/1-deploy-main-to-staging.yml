@@ -57,9 +57,8 @@ jobs:
       # - run: touch ./packages/react-app/build/static/fake-source.map # uncomment this to test source map detection and trigger a workflow failure
       - run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing build" && exit 1);) # sanity check to ensure sourcemaps are disabled in deployments to avoid leaking our web src
       - name: Update Cloudflare Pages deployment
-        uses: 3cities/pages-action@02b70698cf014e2499e811abcf2e3ea55b2e74d9
+        uses: 3cities/pages-action@541e58eadc6adc3f4a9b5e51c1ba5436d8ba7d17
         with:
-          ref: ${{ needs.verify-build.outputs.commit_hash }}
           apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: 3cities-staging
@@ -86,9 +85,8 @@ jobs:
       # - run: touch ./packages/react-app/build/static/fake-source.map # uncomment this to test source map detection and trigger a workflow failure
       - run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing build" && exit 1);) # sanity check to ensure sourcemaps are disabled in deployments to avoid leaking our web src
       - name: Update Cloudflare Pages deployment
-        uses: 3cities/pages-action@02b70698cf014e2499e811abcf2e3ea55b2e74d9
+        uses: 3cities/pages-action@541e58eadc6adc3f4a9b5e51c1ba5436d8ba7d17
         with:
-          ref: ${{ needs.verify-build.outputs.commit_hash }}
           apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: 3cities-staging-prod
@@ -128,7 +126,7 @@ jobs:
           body: |            
             ${{ needs.tag.outputs.changelog }}
   staging-deployment-successful: # no-op job to force a workflow-level "staging-deployment-successful" github status check to be published. Github automatically makes the result of each workflow job available as a status check.
-    needs: [github-prerelease]
+    needs: [push-to-releases-deployed-to-staging, github-prerelease]
     runs-on: ubuntu-latest
     steps:
       - run: exit 0 # no-op because a job definition requires something to do, but all we want this job to do is publish a workflow-level github status check.
