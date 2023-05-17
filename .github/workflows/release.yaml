@@ -1,8 +1,7 @@
+# TODO rm
 name: production release
 on:
-  push:
-    branches:
-      - main
+   workflow_dispatch:
 jobs:
   verify-build:
     runs-on: ubuntu-latest
