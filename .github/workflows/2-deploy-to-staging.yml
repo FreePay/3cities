@@ -1,0 +1,72 @@
+# TODO actions/prod-build
+# TODO actions/prod-test-build
+name: 2 | Deploy staging
+on:
+  push:
+    branches:
+      - 'releases/staging'
+jobs:
+  verify-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222 # checkout .github/actions/verify-build
+        with:
+          ref: releases/staging
+      - uses: ./.github/actions/verify-build
+  tag:
+    needs: [verify-build] # tag only if build verification successful to avoid tagging a broken build
+    runs-on: ubuntu-latest
+    outputs:
+      new_tag: ${{ steps.github-tag-action.outputs.new_tag }}
+      changelog: ${{ steps.github-tag-action.outputs.changelog }}
+    steps:
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+        with:
+          ref: releases/staging
+      - name: Bump prerelease version and push tag
+        id: github-tag-action
+        uses: 3cities/github-tag-action@86a7b93c90a7fb79fca2911075262fb781c9136a
+        with:
+          pre_release_branches: releases/staging
+  # TODO deploy-to-staging-prod
+  deploy-to-staging:
+    needs: [tag]
+    if: ${{ needs.tag.outputs.new_tag != null }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+        with:
+          ref: releases/staging
+      - uses: ./.github/actions/setup
+      - run: yarn build:prod-test # ie. our staging deployment is a production build with test dependencies
+        env:
+          # WARNING staging uses test dependencies, so we must ensure that that the env vars below are correctly set to test values where applicable (eg. a wallet provider's API key should be the test value to avoid using mainnet wallets in staging, but rpc provider prod values should be used because the app will automatically use only testnet chains)
+          REACT_APP_GIT_TAG: ${{ needs.tag.outputs.new_tag }}
+          REACT_APP_ALCHEMY_API_KEY: ${{ secrets.REACT_APP_ALCHEMY_API_KEY }}
+          REACT_APP_INFURA_API_KEY: ${{ secrets.REACT_APP_INFURA_API_KEY }}
+          REACT_APP_WEB3AUTH_CLIENT_ID: ${{ secrets.REACT_APP_WEB3AUTH_CLIENT_ID_STAGING }}
+          REACT_APP_WALLETCONNECT_PROJECT_ID: ${{ secrets.REACT_APP_WALLETCONNECT_PROJECT_ID_STAGING }}
+      - run: touch ./packages/react-app/build/static/fake-source.map # uncomment this to test source map detection and trigger a workflow failure
+      - run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing build" && exit 1);) # sanity check to ensure sourcemaps are disabled in deployments to avoid leaking our web src
+      - name: Update Cloudflare Pages deployment
+        uses: 3cities/pages-action@09ef98de2f7109541029b235a5dc1e40c80d0400
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: 3cities-staging
+          directory: build
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+  github-prerelease:
+    needs: [deploy-to-staging]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pre-release
+        uses: 3cities/release-action@eb05307dcee34deaad054e98128088a30d7980dc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          prerelease: true
+          tag: ${{ needs.tag.outputs.new_tag }}
+          name: Pre-release ${{ needs.tag.outputs.new_tag }}
+          body: |            
+            ${{ needs.tag.outputs.changelog }}
