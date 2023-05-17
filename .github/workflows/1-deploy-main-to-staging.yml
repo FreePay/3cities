@@ -18,7 +18,7 @@ jobs:
           ref: main
       - uses: ./.github/actions/verify-build
       - id: get_commit
-        run: echo "::set-output name=hash::$(git rev-parse HEAD)"
+        run: echo "hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
   tag:
     needs: [verify-build] # tag iff build verification successful to avoid tagging a broken build
     if: ${{ needs.verify-build.outputs.verified_commit != null }}
