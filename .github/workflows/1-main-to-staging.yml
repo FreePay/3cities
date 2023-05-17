@@ -20,7 +20,8 @@ jobs:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
           ref: main
+          fetch-depth: 0 # fetch all tags/history, required for the push below to succeed as it must locally compare against releases/staging to execute the non-fast-forward push.
       - name: Git push
-        # NB no force push to require linear history which is also enforced in releases/staging protected branch settings
+        # NB we use default of fast-forward only (no force push) because we want our CI/CD pipeline to have linear history for safety. This is also enforced in releases/staging protected branch settings.
         run: |
           git push origin main:releases/staging
