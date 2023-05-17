@@ -127,3 +127,8 @@ jobs:
           name: Pre-release ${{ needs.tag.outputs.new_tag }}
           body: |            
             ${{ needs.tag.outputs.changelog }}
+  staging-deployment-successful: # no-op job to force a workflow-level "staging-deployment-successful" github status check to be published. Github automatically makes the result of each workflow job available as a status check.
+    needs: [github-prerelease]
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 0 # no-op because a job definition requires something to do, but all we want this job to do is publish a workflow-level github status check.
