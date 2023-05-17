@@ -1,6 +1,7 @@
 # TODO actions/prod-build
 # TODO actions/prod-test-build
-name: 1 | Deploy staging
+# TODO always check out the created tag for the build so we're not checking out main branch which might have been async updated
+name: 1 | Deploy main to staging
 on:
   push:
     branches:
@@ -9,13 +10,18 @@ jobs:
   verify-build:
     name: Verify build
     runs-on: ubuntu-latest
+    outputs:
+      verified_commit: ${{ steps.get_commit.outputs.hash }}
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
           ref: main
       - uses: ./.github/actions/verify-build
+      - id: get_commit
+        run: echo "::set-output name=hash::$(git rev-parse HEAD)"
   tag:
     needs: [verify-build] # tag iff build verification successful to avoid tagging a broken build
+    if: ${{ needs.verify-build.outputs.verified_commit != null }}
     name: GitHub tag
     runs-on: ubuntu-latest
     outputs:
@@ -24,12 +30,12 @@ jobs:
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
-          ref: main
+          ref: ${{ steps.verify-build.outputs.verified_commit }}
       - name: Bump prerelease version and push tag
         id: github-tag-action
         uses: 3cities/github-tag-action@86a7b93c90a7fb79fca2911075262fb781c9136a
         with:
-          pre_release_branches: main
+          pre_release_branches: ${{ steps.verify-build.outputs.verified_commit }}
   deploy-staging:
     needs: [tag]
     if: ${{ needs.tag.outputs.new_tag != null }}
@@ -38,7 +44,7 @@ jobs:
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
-          ref: main
+          ref: ${{ steps.verify-build.outputs.verified_commit }}
       - uses: ./.github/actions/setup
       - run: yarn build:prod-test # ie. our staging deployment is a production build with test dependencies
         env:
@@ -66,7 +72,7 @@ jobs:
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
-          ref: main
+          ref: ${{ steps.verify-build.outputs.verified_commit }}
       - uses: ./.github/actions/setup
       - run: yarn build # ie. our staging-prod deployment is an ordinary production build
         env:
@@ -92,18 +98,21 @@ jobs:
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
-          ref: main
+          ref: ${{ steps.verify-build.outputs.verified_commit }}
           fetch-depth: 0 # fetch all tags/history, required for the push below to succeed as it must locally compare against releases/staging to execute the non-fast-forward push.
       - name: Git push
         # NB we use default of fast-forward only (no force push) because we want our CI/CD pipeline to have linear history for safety. This is also enforced in releases/staging protected branch settings.
         run: |
-          git push origin main:releases/deployed-to-staging
+          git push origin ${{ steps.verify-build.outputs.verified_commit }}:releases/deployed-to-staging
   github-prerelease:
     needs: [deploy-staging, deploy-staging-prod]
     name: GitHub pre-release
     runs-on: ubuntu-latest
     steps:
       - name: Pre-release
+        - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+          with:
+            ref: ${{ steps.verify-build.outputs.verified_commit }}
         uses: 3cities/release-action@eb05307dcee34deaad054e98128088a30d7980dc
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
