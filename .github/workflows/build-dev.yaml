@@ -1,6 +1,6 @@
 # Auto-build the dev branch and on success, publish a workflow-level
 # "dev-branch-build" github status check.
-name: dev branch build
+name: 0 | Build dev
 on:
   push:
     branches:
