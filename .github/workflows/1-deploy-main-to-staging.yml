@@ -56,7 +56,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: 3cities-staging
-          directory: build
+          directory: packages/react-app/build
           githubToken: ${{ secrets.GITHUB_TOKEN }}
   deploy-staging-prod:
     needs: [tag]
@@ -83,7 +83,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: 3cities-staging-prod
-          directory: build
+          directory: packages/react-app/build
           githubToken: ${{ secrets.GITHUB_TOKEN }}
   push-to-releases:
     needs: [deploy-staging, deploy-staging-prod]
