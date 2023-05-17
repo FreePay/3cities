@@ -6,10 +6,27 @@ on:
     branches:
       - 'releases/staging'
 jobs:
-  verify-build:
+  verify-from-main-branch: # fail the build unless origin/main is ahead or equal to releases/staging. This prevents commits outside of origin/main from being deployed to staging. We use this solution because github doesn't support branch protection rules to require that releases/staging receives commits only from origin/main.
     runs-on: ubuntu-latest
     steps:
-      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222 # checkout .github/actions/verify-build
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+        with:
+          ref: releases/staging
+          fetch-depth: 0 # fetch all tags/history, required to compare against origin/main
+      - name: ensure main branch is ahead or equal
+        run: |
+          git fetch origin main
+          if git merge-base --is-ancestor HEAD origin/main; then
+            echo "origin/main branch is ahead or equal to releases/staging"
+          else
+            echo "origin/main branch is behind releases/staging. Failing build..."
+            exit 1
+          fi
+  verify-build:
+    needs: [verify-from-main-branch]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
           ref: releases/staging
       - uses: ./.github/actions/verify-build
