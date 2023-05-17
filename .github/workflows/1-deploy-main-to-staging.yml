@@ -11,7 +11,7 @@ jobs:
     name: Verify build
     runs-on: ubuntu-latest
     outputs:
-      verified_commit: ${{ steps.get_commit.outputs.hash }}
+      commit_hash: ${{ steps.get_commit.outputs.hash }}
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
@@ -21,7 +21,7 @@ jobs:
         run: echo "hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
   tag:
     needs: [verify-build] # tag iff build verification successful to avoid tagging a broken build
-    if: ${{ needs.verify-build.outputs.verified_commit != null }}
+    if: ${{ needs.verify-build.outputs.commit_hash != null }}
     name: GitHub tag
     runs-on: ubuntu-latest
     outputs:
@@ -30,21 +30,21 @@ jobs:
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
-          ref: ${{ steps.verify-build.outputs.verified_commit }}
+          ref: ${{ needs.verify-build.outputs.commit_hash }}
       - name: Bump prerelease version and push tag
         id: github-tag-action
         uses: 3cities/github-tag-action@86a7b93c90a7fb79fca2911075262fb781c9136a
         with:
-          pre_release_branches: ${{ steps.verify-build.outputs.verified_commit }}
+          pre_release_branches: ${{ needs.verify-build.outputs.commit_hash }}
   deploy-staging:
-    needs: [tag]
+    needs: [verify-build, tag]
     if: ${{ needs.tag.outputs.new_tag != null }}
     name: Deploy staging
     runs-on: ubuntu-latest
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
-          ref: ${{ steps.verify-build.outputs.verified_commit }}
+          ref: ${{ needs.verify-build.outputs.commit_hash }}
       - uses: ./.github/actions/setup
       - run: yarn build:prod-test # ie. our staging deployment is a production build with test dependencies
         env:
@@ -65,14 +65,14 @@ jobs:
           directory: packages/react-app/build
           githubToken: ${{ secrets.GITHUB_TOKEN }}
   deploy-staging-prod:
-    needs: [tag]
+    needs: [verify-build, tag]
     if: ${{ needs.tag.outputs.new_tag != null }}
     name: Deploy staging-prod
     runs-on: ubuntu-latest
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
-          ref: ${{ steps.verify-build.outputs.verified_commit }}
+          ref: ${{ needs.verify-build.outputs.commit_hash }}
       - uses: ./.github/actions/setup
       - run: yarn build # ie. our staging-prod deployment is an ordinary production build
         env:
@@ -91,27 +91,27 @@ jobs:
           projectName: 3cities-staging-prod
           directory: packages/react-app/build
           githubToken: ${{ secrets.GITHUB_TOKEN }}
-  push-to-releases:
-    needs: [deploy-staging, deploy-staging-prod]
+  push-to-releases-deployed-to-staging:
+    needs: [verify-build, deploy-staging, deploy-staging-prod]
     name: 'Push to releases/deployed-to-staging'
     runs-on: ubuntu-latest
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
-          ref: ${{ steps.verify-build.outputs.verified_commit }}
+          ref: ${{ needs.verify-build.outputs.commit_hash }}
           fetch-depth: 0 # fetch all tags/history, required for the push below to succeed as it must locally compare against releases/staging to execute the non-fast-forward push.
       - name: Git push
         # NB we use default of fast-forward only (no force push) because we want our CI/CD pipeline to have linear history for safety. This is also enforced in releases/staging protected branch settings.
         run: |
-          git push origin ${{ steps.verify-build.outputs.verified_commit }}:releases/deployed-to-staging
+          git push origin ${{ needs.verify-build.outputs.commit_hash }}:releases/deployed-to-staging
   github-prerelease:
-    needs: [deploy-staging, deploy-staging-prod]
+    needs: [verify-build, deploy-staging, deploy-staging-prod]
     name: GitHub pre-release
     runs-on: ubuntu-latest
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
-          ref: ${{ steps.verify-build.outputs.verified_commit }}
+          ref: ${{ needs.verify-build.outputs.commit_hash }}
           fetch-depth: 0 # fetch all tags/history, required for release-action to find new_tag.
       - name: Create GitHub pre-release
         uses: 3cities/release-action@eb05307dcee34deaad054e98128088a30d7980dc
