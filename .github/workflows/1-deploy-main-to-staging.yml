@@ -65,7 +65,7 @@ jobs:
           directory: packages/react-app/build
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           isProductionEnvironment: true # isProductionEnvironment refers to whether or not this Cloudflare Pages deployment should be considered a production deployment for this Cloudflare Pages project. If isProductionEnvironment==false, this deployment is only made avalable by Cloudflare as a custom preview URL and won't actually be deployed into our custom domain for this projectName. However, we always want our deployments to actually deploy to our custom domain for this projectName (eg. projectName=='3cities-staging' -> staging.3cities.xyz), and so we set isProductionEnvironment==true.
-          branch: production # Cloudflare Pages will mark this deployment as 'Preview' unless we pass it a branch name it considers to be a production branch.
+          branch: main # Cloudflare Pages will mark this deployment as 'Preview' unless we pass it a branch name it considers to be a production branch, and that branch is configured as "main".
   deploy-staging-prod:
     needs: [verify-build, tag]
     if: ${{ needs.tag.outputs.new_tag != null }}
@@ -94,7 +94,7 @@ jobs:
           directory: packages/react-app/build
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           isProductionEnvironment: true # isProductionEnvironment refers to whether or not this Cloudflare Pages deployment should be considered a production deployment for this Cloudflare Pages project. If isProductionEnvironment==false, this deployment is only made avalable by Cloudflare as a custom preview URL and won't actually be deployed into our custom domain for this projectName. However, we always want our deployments to actually deploy to our custom domain for this projectName (eg. projectName=='3cities-staging' -> staging.3cities.xyz), and so we set isProductionEnvironment==true.
-          branch: production # Cloudflare Pages will mark this deployment as 'Preview' unless we pass it a branch name it considers to be a production branch.
+          branch: main # Cloudflare Pages will mark this deployment as 'Preview' unless we pass it a branch name it considers to be a production branch, and that branch is configured as "main".
   push-to-releases-staging:
     needs: [verify-build, deploy-staging, deploy-staging-prod]
     name: 'Push to releases/staging'
