@@ -103,9 +103,9 @@ jobs:
       - name: Git push
         # NB we use default of fast-forward only (no force push) because we want our CI/CD pipeline to have linear history for safety. This is also enforced in releases/staging protected branch settings.
         run: |
-          git push origin ${{ needs.verify-build.outputs.commit_hash }}:releases/deployed-to-staging
+          git push origin ${{ needs.verify-build.outputs.commit_hash }}:refs/heads/releases/deployed-to-staging
   github-prerelease:
-    needs: [verify-build, deploy-staging, deploy-staging-prod]
+    needs: [verify-build, tag, deploy-staging, deploy-staging-prod]
     name: GitHub pre-release
     runs-on: ubuntu-latest
     steps:
