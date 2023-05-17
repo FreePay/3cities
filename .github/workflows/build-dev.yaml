@@ -9,7 +9,7 @@ jobs:
   verify-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: 3cities/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # check out code for actions/verify-build
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222 # check out code for actions/verify-build
       - uses: ./.github/actions/verify-build
   dev-branch-build: # no-op job to force a workflow-level "dev-branch-build" github status check to be published. Github automatically makes the result of each workflow job available as a status check, and we configured the main branch's protected branch settings to require this workflow-level "dev-branch-build" status check to pass
     needs: [verify-build]
