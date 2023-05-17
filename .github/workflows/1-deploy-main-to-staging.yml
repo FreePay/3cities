@@ -95,9 +95,9 @@ jobs:
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           isProductionEnvironment: true # isProductionEnvironment refers to whether or not this Cloudflare Pages deployment should be considered a production deployment for this Cloudflare Pages project. If isProductionEnvironment==false, this deployment is only made avalable by Cloudflare as a custom preview URL and won't actually be deployed into our custom domain for this projectName. However, we always want our deployments to actually deploy to our custom domain for this projectName (eg. projectName=='3cities-staging' -> staging.3cities.xyz), and so we set isProductionEnvironment==true.
           gitHubDeploymentRef: ${{ needs.verify-build.outputs.commit_hash }}
-  push-to-releases-deployed-to-staging:
+  push-to-releases-staging:
     needs: [verify-build, deploy-staging, deploy-staging-prod]
-    name: 'Push to releases/deployed-to-staging'
+    name: 'Push to releases/staging'
     runs-on: ubuntu-latest
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
@@ -107,7 +107,7 @@ jobs:
       - name: Git push
         # NB we use default of fast-forward only (no force push) because we want our CI/CD pipeline to have linear history for safety. This is also enforced in releases/staging protected branch settings.
         run: |
-          git push origin ${{ needs.verify-build.outputs.commit_hash }}:refs/heads/releases/deployed-to-staging
+          git push origin ${{ needs.verify-build.outputs.commit_hash }}:refs/heads/releases/staging
   github-prerelease:
     needs: [verify-build, tag, deploy-staging, deploy-staging-prod]
     name: GitHub pre-release
@@ -128,7 +128,7 @@ jobs:
           body: |            
             ${{ needs.tag.outputs.changelog }}
   staging-deployment-successful: # no-op job to force a workflow-level "staging-deployment-successful" github status check to be published. Github automatically makes the result of each workflow job available as a status check.
-    needs: [push-to-releases-deployed-to-staging, github-prerelease]
+    needs: [push-to-releases-staging, github-prerelease]
     name: Success status
     runs-on: ubuntu-latest
     steps:
