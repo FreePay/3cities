@@ -4,13 +4,16 @@ on:
     branches:
       - main
 jobs:
-  verify-build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222 # check out code for actions/verify-build
-      - uses: ./.github/actions/verify-build
+  # Here we don't first verify the build before pushing to staging. This is because although it would be technically safer and more correct to always verify the build before pushing to staging, the staging deployment workflow verifies the build and so in most cases we'd be redundantly verifying which increases the total amount of time for the build to reach production.
+  # verify-build:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222  # checkout .github/actions/verify-build
+  #       with:
+  #         ref: main
+  #     - uses: ./.github/actions/verify-build
   push-staging:
-    needs: [verify-build]
+    # needs: [verify-build]
     name: 'Push to staging branch'
     runs-on: ubuntu-latest
     steps:
