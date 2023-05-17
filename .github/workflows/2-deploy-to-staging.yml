@@ -2,9 +2,10 @@
 # TODO actions/prod-test-build
 name: 2 | Deploy staging
 on:
+  workflow_dispatch:
   push:
     branches:
-      - releases/staging
+      - 'releases/staging'
 jobs:
   verify-from-main-branch: # fail the build unless releases/staging is part of origin/main history. This prevents commits outside of origin/main from being deployed to staging. We use this solution because github doesn't support branch protection rules to enforce that pushes to releases/staging must come from origin/main. So technically, any commits could be pushed to releases/staging by anybody with push access, but then the auto deployment to staging will fail here when it detects these commits aren't in origina/main history.
     runs-on: ubuntu-latest
