@@ -65,6 +65,7 @@ jobs:
           directory: packages/react-app/build
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           isProductionEnvironment: true # isProductionEnvironment refers to whether or not this Cloudflare Pages deployment should be considered a production deployment for this Cloudflare Pages project. If isProductionEnvironment==false, this deployment is only made avalable by Cloudflare as a custom preview URL and won't actually be deployed into our custom domain for this projectName. However, we always want our deployments to actually deploy to our custom domain for this projectName (eg. projectName=='3cities-staging' -> staging.3cities.xyz), and so we set isProductionEnvironment==true.
+          gitHubDeploymentRef: ${{ needs.verify-build.outputs.commit_hash }}
   deploy-staging-prod:
     needs: [verify-build, tag]
     if: ${{ needs.tag.outputs.new_tag != null }}
@@ -93,6 +94,7 @@ jobs:
           directory: packages/react-app/build
           githubToken: ${{ secrets.GITHUB_TOKEN }}
           isProductionEnvironment: true # isProductionEnvironment refers to whether or not this Cloudflare Pages deployment should be considered a production deployment for this Cloudflare Pages project. If isProductionEnvironment==false, this deployment is only made avalable by Cloudflare as a custom preview URL and won't actually be deployed into our custom domain for this projectName. However, we always want our deployments to actually deploy to our custom domain for this projectName (eg. projectName=='3cities-staging' -> staging.3cities.xyz), and so we set isProductionEnvironment==true.
+          gitHubDeploymentRef: ${{ needs.verify-build.outputs.commit_hash }}
   push-to-releases-deployed-to-staging:
     needs: [verify-build, deploy-staging, deploy-staging-prod]
     name: 'Push to releases/deployed-to-staging'
@@ -127,6 +129,7 @@ jobs:
             ${{ needs.tag.outputs.changelog }}
   staging-deployment-successful: # no-op job to force a workflow-level "staging-deployment-successful" github status check to be published. Github automatically makes the result of each workflow job available as a status check.
     needs: [push-to-releases-deployed-to-staging, github-prerelease]
+    name: Success status
     runs-on: ubuntu-latest
     steps:
       - run: exit 0 # no-op because a job definition requires something to do, but all we want this job to do is publish a workflow-level github status check.
