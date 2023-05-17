@@ -7,6 +7,7 @@ on:
       - main
 jobs:
   verify-build:
+    name: Verify build
     runs-on: ubuntu-latest
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
@@ -15,6 +16,7 @@ jobs:
       - uses: ./.github/actions/verify-build
   tag:
     needs: [verify-build] # tag iff build verification successful to avoid tagging a broken build
+    name: GitHub tag
     runs-on: ubuntu-latest
     outputs:
       new_tag: ${{ steps.github-tag-action.outputs.new_tag }}
@@ -28,9 +30,10 @@ jobs:
         uses: 3cities/github-tag-action@86a7b93c90a7fb79fca2911075262fb781c9136a
         with:
           pre_release_branches: main
-  deploy-to-staging:
+  deploy-staging:
     needs: [tag]
     if: ${{ needs.tag.outputs.new_tag != null }}
+    name: Deploy staging
     runs-on: ubuntu-latest
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
@@ -55,9 +58,10 @@ jobs:
           projectName: 3cities-staging
           directory: build
           githubToken: ${{ secrets.GITHUB_TOKEN }}
-  deploy-to-staging-prod:
+  deploy-staging-prod:
     needs: [tag]
     if: ${{ needs.tag.outputs.new_tag != null }}
+    name: Deploy staging-prod
     runs-on: ubuntu-latest
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
@@ -82,7 +86,7 @@ jobs:
           directory: build
           githubToken: ${{ secrets.GITHUB_TOKEN }}
   push-to-releases:
-    needs: [deploy-to-staging, deploy-to-staging-prod]
+    needs: [deploy-staging, deploy-staging-prod]
     name: 'Push to releases/deployed-to-staging'
     runs-on: ubuntu-latest
     steps:
@@ -95,7 +99,8 @@ jobs:
         run: |
           git push origin main:releases/deployed-to-staging
   github-prerelease:
-    needs: [deploy-to-staging, deploy-to-staging-prod]
+    needs: [deploy-staging, deploy-staging-prod]
+    name: GitHub pre-release
     runs-on: ubuntu-latest
     steps:
       - name: Pre-release
