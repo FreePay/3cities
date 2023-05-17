@@ -1,8 +1,9 @@
 name: 1 | Push main -> staging
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+  # push:
+  #   branches:
+  #     - main
 jobs:
   # Here we don't first verify the build before pushing to staging. This is because although it would be technically safer and more correct to always verify the build before pushing to staging, the staging deployment workflow verifies the build and so in most cases we'd be redundantly verifying which increases the total amount of time for the build to reach production.
   # verify-build:
