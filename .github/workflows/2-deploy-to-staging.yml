@@ -2,7 +2,6 @@
 # TODO actions/prod-test-build
 name: 2 | Deploy staging
 on:
-  workflow_dispatch:
   push:
     branches:
       - 'releases/staging'
@@ -14,7 +13,7 @@ jobs:
         with:
           ref: releases/staging
           fetch-depth: 0 # fetch all tags/history, required to compare against origin/main
-      - name: ensure main branch is ahead or equal
+      - name: Verify main branch is ahead or equal
         run: |
           git fetch origin main
           if git merge-base --is-ancestor HEAD origin/main; then
@@ -63,7 +62,7 @@ jobs:
           REACT_APP_INFURA_API_KEY: ${{ secrets.REACT_APP_INFURA_API_KEY }}
           REACT_APP_WEB3AUTH_CLIENT_ID: ${{ secrets.REACT_APP_WEB3AUTH_CLIENT_ID_STAGING }}
           REACT_APP_WALLETCONNECT_PROJECT_ID: ${{ secrets.REACT_APP_WALLETCONNECT_PROJECT_ID_STAGING }}
-      - run: touch ./packages/react-app/build/static/fake-source.map # uncomment this to test source map detection and trigger a workflow failure
+      # - run: touch ./packages/react-app/build/static/fake-source.map # uncomment this to test source map detection and trigger a workflow failure
       - run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing build" && exit 1);) # sanity check to ensure sourcemaps are disabled in deployments to avoid leaking our web src
       - name: Update Cloudflare Pages deployment
         uses: 3cities/pages-action@09ef98de2f7109541029b235a5dc1e40c80d0400
@@ -89,7 +88,7 @@ jobs:
           REACT_APP_INFURA_API_KEY: ${{ secrets.REACT_APP_INFURA_API_KEY }}
           REACT_APP_WEB3AUTH_CLIENT_ID: ${{ secrets.REACT_APP_WEB3AUTH_CLIENT_ID }}
           REACT_APP_WALLETCONNECT_PROJECT_ID: ${{ secrets.REACT_APP_WALLETCONNECT_PROJECT_ID }}
-      - run: touch ./packages/react-app/build/static/fake-source.map # uncomment this to test source map detection and trigger a workflow failure
+      # - run: touch ./packages/react-app/build/static/fake-source.map # uncomment this to test source map detection and trigger a workflow failure
       - run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing build" && exit 1);) # sanity check to ensure sourcemaps are disabled in deployments to avoid leaking our web src
       - name: Update Cloudflare Pages deployment
         uses: 3cities/pages-action@09ef98de2f7109541029b235a5dc1e40c80d0400
