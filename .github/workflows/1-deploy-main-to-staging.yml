@@ -112,6 +112,7 @@ jobs:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
           ref: ${{ steps.verify-build.outputs.verified_commit }}
+          fetch-depth: 0 # fetch all tags/history, required for release-action to find new_tag.
       - name: Create GitHub pre-release
         uses: 3cities/release-action@eb05307dcee34deaad054e98128088a30d7980dc
         env:
