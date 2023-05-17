@@ -1,18 +1,20 @@
-# a workflow to automatically build the dev branch.
+# Auto-build the dev branch and on success, publish a workflow-level
+# "dev-branch-build" github status check.
 name: dev branch build
 on:
   push:
     branches:
       - dev
-  workflow_dispatch:
 jobs:
   verify-build:
     runs-on: ubuntu-latest
     steps:
-      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222 # check out code for actions/verify-build
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+        with:
+          ref: dev
       - uses: ./.github/actions/verify-build
-  dev-branch-build: # no-op job to force a workflow-level "dev-branch-build" github status check to be published. Github automatically makes the result of each workflow job available as a status check, and we configured the main branch's protected branch settings to require this workflow-level "dev-branch-build" status check to pass
+  dev-branch-build: # no-op job to force a workflow-level "dev-branch-build" github status check to be published. Github automatically makes the result of each workflow job available as a status check, and we configured the main branch's protected branch settings to require this workflow-level "dev-branch-build" status check to pass.
     needs: [verify-build]
     runs-on: ubuntu-latest
     steps:
-      - run: exit 0 # no-op because a job definition requires something to do, but all we want this job to do is publish a workflow-level github status check
+      - run: exit 0 # no-op because a job definition requires something to do, but all we want this job to do is publish a workflow-level github status check.

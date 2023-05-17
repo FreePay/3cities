@@ -11,6 +11,7 @@
   "scripts": {
     "lint": "yarn workspace @3cities/react-app lint",
     "build": "yarn workspace @3cities/react-app build",
+    "build:prod-test": "yarn workspace @3cities/react-app build:prod-test",
     "start": "yarn workspace @3cities/react-app start",
     "subgraph:auth": "yarn workspace @3cities/subgraph auth",
     "subgraph:codegen": "yarn workspace @3cities/subgraph codegen",

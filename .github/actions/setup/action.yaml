@@ -1,13 +1,15 @@
+# Setup a node to be ready to build. Runs in the context of a git
+# checkout that's already been done. The git branch being setup is
+# implicit based on which code has already been checked out.
 name: setup
 runs:
   using: composite
   steps:
-    - uses: 3cities/checkout@ac593985615ec2ede58e132d2e21d2b1cbd6127c # this action may be (is currently always) run in a context where the code is already checked out, but here we run actions/checkout to ensure this action is context-free and internally consistent
-    - uses: 3cities/setup-node@3dbcda8bc2eb5ec6aa3fbde01feaae3236952db8
+    - uses: 3cities/setup-node@a9893b0cfb0821c9c7b5fec28a6a2e6cdd5e20a4
       with:
         node-version-file: '.nvmrc'
         cache: yarn
-    - uses: 3cities/cache@2b5a782c6414f96354f95902141714b127692d1e
+    - uses: 3cities/cache@04f198bf0b2a39f7230a4304bf07747a0bddf146
       id: install-cache
       with:
         path: node_modules/
