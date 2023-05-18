@@ -12,15 +12,22 @@ const OurNavLink: React.FC<NavLinkProps & {
   className?: string
 }> = ({ children, className, ...props }) => {
   return <NavLink {...props} className={activeRouteClassName({
-    ...(className !== undefined && { className }),
+    ...(className !== undefined ? { className } : {}),
     activeClassName: "text-rose-900", // rose-900 is a very dark shade of our tertiary color
   })}>
     {children}
   </NavLink>
 
+  // activeRouteClassName is as follows: NavLink's className prop can be
+  // a function that takes { isActive, isPending } and returns a
+  // dynamically constructed className (string | undefined).
+  // activeRouteClassName is a convenience function to construct these
+  // functions.
   function activeRouteClassName({ className: classNameInner, inactiveClassName, activeClassName, pendingClassName }: { className?: string, inactiveClassName?: string, activeClassName?: string, pendingClassName?: string }): Exclude<NavLinkProps['className'], string | undefined> {
     const fn = ({ isActive, isPending }: Parameters<Exclude<NavLinkProps['className'], string | undefined>>[0]) => {
-      return `${classNameInner ? classNameInner : ''} ${!isActive && !isPending ? inactiveClassName : ''} ${isActive ? activeClassName : ''} ${isPending ? pendingClassName : ''}`;
+      const s = `${classNameInner ? classNameInner : ''} ${!isActive && !isPending ? (inactiveClassName || '') : ''} ${isActive ? (activeClassName || '') : ''} ${isPending ? (pendingClassName || '') : ''}`.trim();
+      if (s.length < 1) return undefined;
+      else return s;
     };
     return fn;
   }
@@ -35,13 +42,14 @@ const Header: React.FC = () => {
         </OurNavLink>
       </div>
       <div className="flex flex-1 gap-8 lg:gap-16 items-center justify-center px-4">
-        <OurNavLink to="/" className="flex flex-col items-center text-center rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10">
+        {/* NB given the current layout of three links (Home, Request Money, and Me), the width of Home and Me must be the same for Request Money to be vertically centered in the viewport. If we add more links, we'll need to revisit this. */}
+        <OurNavLink to="/" className="flex flex-col items-center text-center w-14 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10">
           <span className="text-sm">Home</span>
         </OurNavLink>
         <OurNavLink to="/request-money" className="flex flex-col items-center text-center rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10">
           <span className="text-sm">Request Money</span>
         </OurNavLink>
-        <OurNavLink to="/me" className="flex flex-col items-center text-center w-10 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10">
+        <OurNavLink to="/me" className="flex flex-col items-center text-center w-14 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10">
           <span className="text-sm">Me</span>
         </OurNavLink>
       </div>
