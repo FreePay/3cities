@@ -37,8 +37,9 @@ jobs:
           fetch-depth: 0 # necessary to fetch all tags
       - name: Get tag
         id: get_tag
-        run: echo "found tag=$(git tag --contains)"
-        run: echo "tag=$(git tag --contains)" >> $GITHUB_OUTPUT
+        run: |
+          echo "found tag=$(git tag --contains)"
+          echo "tag=$(git tag --contains)" >> $GITHUB_OUTPUT
   verify-build:
     needs: [verified-commit]
     if: ${{ needs.verified-commit.outputs.commit_hash != null }}
