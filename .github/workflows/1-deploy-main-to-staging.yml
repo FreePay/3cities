@@ -121,7 +121,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           prerelease: true
-          artifacts: '' # include no zip files of source code
+          artifacts: false # include no zip files of source code
           tag: ${{ needs.tag.outputs.new_tag }}
           name: Pre-release ${{ needs.tag.outputs.new_tag }}
           body: |            
