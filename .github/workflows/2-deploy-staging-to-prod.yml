@@ -1,13 +1,4 @@
-# 2-staging-to-prod
-# 	DONE on workflow dispatch
-# 	DONE verify releases/will-deploy-to-prod is an ancestor of origin/main --> prevents commits being pushed directly to releases/deployed-to-staging
-# 	DONE verify build using releases/will-deploy-to-prod --> verify-build.outputs.commit_hash
-# 	DONE push commits from releases/staging to releases/will-deploy-to-prod --> branch protection requires staging-deployment-successful status check to have passed and linear history
-# 	DONE fetch tag name for releases/will-deploy-to-prod --> it was previously created in staging
-# 	release
-#     push verified commit to releases/prod
-
-name: 1 | Deploy staging to prod
+name: 2 | Deploy staging to prod
 on:
    workflow_dispatch:
 jobs:
