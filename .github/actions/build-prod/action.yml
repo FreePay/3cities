@@ -38,9 +38,9 @@ runs:
         REACT_APP_WEB3AUTH_CLIENT_ID: ${{ inputs.web3AuthClientId }}
         REACT_APP_WALLETCONNECT_PROJECT_ID: ${{ inputs.walletConnectProjectId }}
     # uncomment this step to test source map detection and trigger a workflow failure:
-    - name: Test source map detection
-      run: touch ./packages/react-app/build/static/fake-source.map
-      shell: bash
+    # - name: Test source map detection
+    #   run: touch ./packages/react-app/build/static/fake-source.map
+    #   shell: bash
     - name: Ensure sourcemaps are disabled in deployments
       run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing build" && exit 1);)
       shell: bash
