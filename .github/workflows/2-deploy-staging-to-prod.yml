@@ -1,0 +1,159 @@
+# 2-staging-to-prod
+# 	DONE on workflow dispatch
+# 	DONE verify releases/will-deploy-to-prod is an ancestor of origin/main --> prevents commits being pushed directly to releases/deployed-to-staging
+# 	DONE verify build using releases/will-deploy-to-prod --> verify-build.outputs.commit_hash
+# 	DONE push commits from releases/staging to releases/will-deploy-to-prod --> branch protection requires staging-deployment-successful status check to have passed and linear history
+# 	DONE fetch tag name for releases/will-deploy-to-prod --> it was previously created in staging
+# 	release
+#     push verified commit to releases/prod
+
+name: 1 | Deploy staging to prod
+on:
+   workflow_dispatch:
+jobs:
+  verified-commit:
+    name: Verify commit from main
+    runs-on: ubuntu-latest
+    outputs:
+      commit_hash: ${{ steps.get_commit.outputs.hash }}
+    steps:
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+        with:
+          ref: releases/staging
+          fetch-depth: 0 # fetch all tags/history, required to compare against origin/main
+      - id: get_commit
+        run: echo "::set-output name=hash::$(git rev-parse HEAD)"
+      - name: Verify main branch is ahead or equal # fail the build unless the verified build commit is part of origin/main history. This prevents commits outside of main from being deployed to prod. We use this solution because github doesn't support branch protection rules to enforce that pushes to a given branch must come from origin/main. So technically, any commits could be pushed to releases/staging by anybody with push access, but then the auto deployment to prod will fail here when it detects these commits aren't in main history.
+        run: |
+          git fetch origin main
+          if git merge-base --is-ancestor HEAD origin/main; then
+            echo "origin/main branch is ahead or equal to commit being deployed ${{ steps.get_commit.outputs.hash }}"
+          else
+            echo "origin/main branch is behind commit being deployed ${{ steps.get_commit.outputs.hash }}. Failing build..."
+            exit 1
+          fi
+  fetch-tag:
+    needs: [verified-commit]
+    if: ${{ needs.verified-commit.outputs.commit_hash != null }}
+    name: Fetch GitHub tag
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.get_tag.outputs.tag }}
+    steps:
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+        with:
+          ref: ${{ needs.verified-commit.outputs.commit_hash }}
+          fetch-depth: 0 # necessary to fetch all tags
+      - name: Get tag
+        id: get_tag
+        run: echo "::set-output name=tag::$(git tag --contains)"
+  verify-build:
+    needs: [verified-commit]
+    if: ${{ needs.verified-commit.outputs.commit_hash != null }}
+    name: Verify build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+        with:
+          ref: ${{ needs.verified-commit.outputs.commit_hash }}
+      - uses: ./.github/actions/verify-build
+  push-to-releases-will-deploy-to-prod:
+    needs: [verified-commit, fetch-tag, verify-build]
+    if: ${{ needs.fetch-tag.outputs.tag != null }}
+    name: 'Push to releases/will-deploy-to-prod'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+        with:
+          ref: ${{ needs.verified-commit.outputs.commit_hash }}
+          fetch-depth: 0 # fetch all tags/history, required for the push below to succeed as it must locally compare against releases/will-deploy-to-prod to execute the non-fast-forward push.
+      - name: Git push
+        # NB we use default of fast-forward only (no force push) because we want our CI/CD pipeline to have linear history for safety. This is also enforced in releases/will-deploy-to-prod protected branch settings.
+        run: |
+          git push origin ${{ needs.verify-build.outputs.commit_hash }}:refs/heads/releases/will-deploy-to-prod
+  deploy-prod:
+    needs: [verified-commit, fetch-tag, push-to-releases-will-deploy-to-prod]
+    if: ${{ needs.fetch-tag.outputs.tag != null }}
+    name: Deploy prod
+    runs-on: ubuntu-latest
+    outputs:
+      ipfs-cid: ${{ steps.nft-storage.outputs.hash }}
+    steps:
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+        with:
+          ref: ${{ needs.verified-commit.outputs.commit_hash }}
+      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/build-prod
+        with:
+          tag: ${{ needs.fetch-tag.outputs.tag }}
+          alchemyApiKey: ${{ secrets.REACT_APP_ALCHEMY_API_KEY }}
+          infuraApiKey: ${{ secrets.REACT_APP_INFURA_API_KEY }}
+          web3authClientId: ${{ secrets.REACT_APP_WEB3AUTH_CLIENT_ID }}
+          walletconnectProjectId: ${{ secrets.REACT_APP_WALLETCONNECT_PROJECT_ID }}
+      - uses: ./.github/actions/deploy-cloudflare-pages
+        with:
+          projectName: 3cities-prod
+          apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pin to IPFS on NFT.Storage
+        id: nft-storage
+        uses: 3cities/ipfs-action@19879f7df881441a7f1ae2257b63674fa33b8f26
+        with:
+          path: ./packages/react-app/build
+          service: nft.storage
+          nftStorageApiKey: ${{ secrets.NFT_STORAGE_API_KEY }}
+  github-release:
+    needs: [verified-commit, fetch-tag, deploy-prod]
+    name: GitHub release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+        with:
+          ref: ${{ needs.verified-commit.outputs.commit_hash }}
+          fetch-depth: 0 # fetch all tags/history, required for release-action to find tag.
+      - name: Create GitHub release
+        uses: 3cities/release-action@eb05307dcee34deaad054e98128088a30d7980dc
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          allowUpdates: true # we're updating a previously-created pre-release to a release.
+          updateOnlyUnreleased: true # fail build if any pre-existing GitHub release for this tag is not a pre-release or draft. This is a sanity check to prevent two releases for the same tag.
+          tag: ${{ needs.fetch-tag.outputs.tag }}
+          name: Release ${{ needs.fetch-tag.outputs.tag }}
+          body: |
+            Go to [3cities.xyz](https://3cities.xyz) to view the latest release.
+
+            You can also access the 3cities interface directly from an IPFS gateway.
+            **BEWARE**: the 3cities interface uses [`localStorage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) to remember your settings, such as which tokens you have imported.
+            **You should always use an IPFS gateway that enforces origin separation**, or our alias to the latest release at [3cities.xyz](https://3cities.xyz).
+            Your 3cities settings are never remembered across different URLs.
+
+            IPFS hash of this release:
+            - CIDv1: `${{ needs.deploy-prod.outputs.ipfs-cid }}`
+
+            IPFS gateways:
+            - https://${{ needs.deploy-prod.outputs.ipfs-cid }}.ipfs.dweb.link/
+            - https://${{ needs.deploy-prod.outputs.ipfs-cid }}.ipfs.cf-ipfs.com/
+            - [ipfs://${{ needs.deploy-prod.outputs.ipfs-cid }}/](ipfs://${{ needs.deploy-prod.outputs.ipfs-cid }}/)
+
+            ${{ needs.tag.outputs.changelog }}
+  prod-deployment-successful: # no-op job to force a workflow-level "prod-deployment-successful" github status check to be published. Github automatically makes the result of each workflow job available as a status check.
+    needs: [github-release]
+    name: Success status
+    runs-on: ubuntu-latest
+    steps:
+      - run: exit 0 # no-op because a job definition requires something to do, but all we want this job to do is publish a workflow-level github status check.
+  push-to-releases-prod:
+    needs: [verified-commit, prod-deployment-successful]
+    name: 'Push to releases/prod'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
+        with:
+          ref: ${{ needs.verified-commit.outputs.commit_hash }}
+          fetch-depth: 0 # fetch all tags/history, required for the push below to succeed as it must locally compare against releases/prod to execute the non-fast-forward push.
+      - name: Git push
+        # NB we use default of fast-forward only (no force push) because we want our CI/CD pipeline to have linear history for safety. This is also enforced in releases/prod protected branch settings.
+        run: |
+          git push origin ${{ needs.verify-build.outputs.commit_hash }}:refs/heads/releases/prod
