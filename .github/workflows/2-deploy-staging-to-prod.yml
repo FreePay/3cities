@@ -119,7 +119,8 @@ jobs:
             Go to [3cities.xyz](https://3cities.xyz) to view the latest release.
 
             You can also access the 3cities interface directly from an IPFS gateway.
-            **BEWARE**: the 3cities interface uses [`localStorage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) to remember your settings, such as which tokens you have imported.
+
+            **BEWARE**: the 3cities interface may use [`localStorage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) to remember your settings.
             **You should always use an IPFS gateway that enforces origin separation**, or our alias to the latest release at [3cities.xyz](https://3cities.xyz).
             Your 3cities settings are never remembered across different URLs.
 
