@@ -62,6 +62,8 @@ jobs:
     if: ${{ needs.tag.outputs.new_tag != null }}
     name: Deploy staging-prod
     runs-on: ubuntu-latest
+    outputs:
+      ipfs-cid: ${{ steps.nft-storage.outputs.hash }}
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
@@ -81,6 +83,13 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           githubToken: ${{ secrets.GITHUB_TOKEN }}
+      - name: Pin to IPFS on NFT.Storage
+        id: nft-storage
+        uses: 3cities/ipfs-action@19879f7df881441a7f1ae2257b63674fa33b8f26
+        with:
+          path: ./packages/react-app/build
+          service: nft.storage
+          nftStorageApiKey: ${{ secrets.NFT_STORAGE_API_KEY }}
   push-to-releases-staging:
     needs: [verify-build, deploy-staging, deploy-staging-prod]
     name: 'Push to releases/staging'
@@ -110,8 +119,24 @@ jobs:
         with:
           prerelease: true
           tag: ${{ needs.tag.outputs.new_tag }}
-          name: Pre-release ${{ needs.tag.outputs.new_tag }}
-          body: |            
+          name: Release ${{ needs.tag.outputs.new_tag }}
+          body: |
+            Go to [3cities.xyz](https://3cities.xyz) to view the latest release.
+
+            You can also access the 3cities interface directly from an IPFS gateway.
+
+            **BEWARE**: the 3cities interface may use [`localStorage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) to remember your settings.
+            **You should always use an IPFS gateway that enforces origin separation**, or our alias to the latest release at [3cities.xyz](https://3cities.xyz).
+            Your 3cities settings are never remembered across different URLs.
+
+            IPFS hash of this release:
+            - CIDv1: `${{ needs.deploy-staging-prod.outputs.ipfs-cid }}`
+
+            IPFS gateways:
+            - https://${{ needs.deploy-staging-prod.outputs.ipfs-cid }}.ipfs.dweb.link/
+            - https://${{ needs.deploy-staging-prod.outputs.ipfs-cid }}.ipfs.cf-ipfs.com/
+            - [ipfs://${{ needs.deploy-staging-prod.outputs.ipfs-cid }}/](ipfs://${{ needs.deploy-staging-prod.outputs.ipfs-cid }}/)
+
             ${{ needs.tag.outputs.changelog }}
   staging-deployment-successful: # no-op job to force a workflow-level "staging-deployment-successful" github status check to be published. Github automatically makes the result of each workflow job available as a status check.
     needs: [push-to-releases-staging, github-prerelease]

@@ -69,8 +69,6 @@ jobs:
     if: ${{ needs.fetch-tag.outputs.tag != null }}
     name: Deploy prod
     runs-on: ubuntu-latest
-    outputs:
-      ipfs-cid: ${{ steps.nft-storage.outputs.hash }}
     steps:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
@@ -90,13 +88,6 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           githubToken: ${{ secrets.GITHUB_TOKEN }}
-      - name: Pin to IPFS on NFT.Storage
-        id: nft-storage
-        uses: 3cities/ipfs-action@19879f7df881441a7f1ae2257b63674fa33b8f26
-        with:
-          path: ./packages/react-app/build
-          service: nft.storage
-          nftStorageApiKey: ${{ secrets.NFT_STORAGE_API_KEY }}
   github-release:
     needs: [verified-commit, fetch-tag, deploy-prod]
     name: GitHub release
@@ -111,28 +102,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          allowUpdates: true # we're updating a previously-created pre-release to a release.
-          updateOnlyUnreleased: true # fail build if any pre-existing GitHub release for this tag is not a pre-release or draft. This is a sanity check to prevent two releases for the same tag.
           tag: ${{ needs.fetch-tag.outputs.tag }}
-          name: Release ${{ needs.fetch-tag.outputs.tag }}
-          body: |
-            Go to [3cities.xyz](https://3cities.xyz) to view the latest release.
-
-            You can also access the 3cities interface directly from an IPFS gateway.
-
-            **BEWARE**: the 3cities interface may use [`localStorage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage) to remember your settings.
-            **You should always use an IPFS gateway that enforces origin separation**, or our alias to the latest release at [3cities.xyz](https://3cities.xyz).
-            Your 3cities settings are never remembered across different URLs.
-
-            IPFS hash of this release:
-            - CIDv1: `${{ needs.deploy-prod.outputs.ipfs-cid }}`
-
-            IPFS gateways:
-            - https://${{ needs.deploy-prod.outputs.ipfs-cid }}.ipfs.dweb.link/
-            - https://${{ needs.deploy-prod.outputs.ipfs-cid }}.ipfs.cf-ipfs.com/
-            - [ipfs://${{ needs.deploy-prod.outputs.ipfs-cid }}/](ipfs://${{ needs.deploy-prod.outputs.ipfs-cid }}/)
-
-            ${{ needs.tag.outputs.changelog }}
+          allowUpdates: true # we're updating a previously-created pre-release to a release.
+          omitNameDuringUpdate: true # preserve the pre-release name.
+          omitBodyDuringUpdate: true # preserve the pre-release body.
+          updateOnlyUnreleased: true # fail build if any pre-existing GitHub release for this tag is not a pre-release or draft. This is a sanity check to prevent two releases for the same tag.
   prod-deployment-successful: # no-op job to force a workflow-level "prod-deployment-successful" github status check to be published. Github automatically makes the result of each workflow job available as a status check.
     needs: [github-release]
     name: Success status
