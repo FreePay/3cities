@@ -82,6 +82,7 @@ jobs:
           infuraApiKey: ${{ secrets.REACT_APP_INFURA_API_KEY }}
           web3authClientId: ${{ secrets.REACT_APP_WEB3AUTH_CLIENT_ID }}
           walletconnectProjectId: ${{ secrets.REACT_APP_WALLETCONNECT_PROJECT_ID }}
+          isMainnet: true
       - uses: ./.github/actions/deploy-cloudflare-pages
         with:
           projectName: 3cities-prod
