@@ -4,15 +4,24 @@ inputs:
   projectName:
     description: 'Cloudflare Pages Project Name'
     required: true
+  apiToken:
+    description: 'Cloudflare Pages API Token'
+    required: true
+  accountId:
+    description: 'Cloudflare Account ID'
+    required: true
+  githubToken:
+    description: 'GitHub Token'
+    required: true
 runs:
   using: 'composite'
   steps:
     - name: Run Cloudflare Pages Deployment
       uses: 3cities/pages-action@fec3b22b824c5f29546e2d28cf3027db72d050ec
       with:
-        apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
-        accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        apiToken: ${{ inputs.apiToken }}
+        accountId: ${{ inputs.accountId }}
         projectName: ${{ inputs.projectName }}
         directory: packages/react-app/build
-        githubToken: ${{ secrets.GITHUB_TOKEN }}
+        githubToken: ${{ inputs.githubToken }}
         branch: main # Cloudflare Pages will mark this deployment as 'preview' if the contextual commit isn't a branch name considered by the cloudflare pages project settings to be a production branch. In cloudflare pages, preview deployments aren't actually deployed to the configured custom domain, and so preview deployments don't actually "deploy". We'll force this deployment to be considered a production (and not preview) deployment by setting a branch name that cloudflare considers to be a production branch. That production branch is configured as "main" in the cloudflare project settings.

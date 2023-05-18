@@ -1,22 +1,46 @@
-name: Build prod mainnet
-description: Run a production build in the context of a checked out codebase and node that's already been fully setup and verified and is ready to immediately run the build. This action owns the definition of a production build with mainnet dependencies.
+name: Build production
+description: Run a production build in the context of a checked out codebase and node that's already been fully setup and verified and is ready to immediately run the build. This action owns the definition of a production build with mainnet or testnet dependencies.
 inputs:
   tag:
     description: 'Git tag to be used'
     required: true
+  alchemyApiKey:
+    description: 'Alchemy API Key. You can use the same one regardless if isMainnet is true or false because the same API key supports both mainnet and testnet chains.'
+    required: true
+  infuraApiKey:
+    description: 'Infura API Key. You can use the same one regardless if isMainnet is true or false because the same API key supports both mainnet and testnet chains.'
+    required: true
+  web3AuthClientId:
+    description: 'Web3Auth Client ID. WARNING be sure to pass a testnet web3AuthClientId if isMainnet is false, otherwise you will be using mainnet wallets in a testnet build.'
+    required: true
+  walletConnectProjectId:
+    description: 'WalletConnect Project ID. WARNING be sure to pass a testnet walletConnectProjectId if isMainnet is false.'
+    required: true
+  isMainnet:
+    description: 'If true, the production build will use mainnet dependencies, otherwise testnet dependencies.'
+    required: true
+    type: boolean
 runs:
   using: composite
   steps:
-    - run: yarn build
+    - name: Run yarn build
+      run: |
+        if ${{ inputs.isMainnet }}; then
+          yarn build
+        else
+          yarn build:prod-test
+        fi
       shell: bash # NB when using a composite action type, it's necessary to set the shell (not sure why, and docs don't say), whereas you can use `run: yarn build` in a workflow without specifying the shell https://stackoverflow.com/a/71042698
       env:
         REACT_APP_GIT_TAG: ${{ inputs.tag }}
-        REACT_APP_ALCHEMY_API_KEY: ${{ secrets.REACT_APP_ALCHEMY_API_KEY }}
-        REACT_APP_INFURA_API_KEY: ${{ secrets.REACT_APP_INFURA_API_KEY }}
-        REACT_APP_WEB3AUTH_CLIENT_ID: ${{ secrets.REACT_APP_WEB3AUTH_CLIENT_ID }}
-        REACT_APP_WALLETCONNECT_PROJECT_ID: ${{ secrets.REACT_APP_WALLETCONNECT_PROJECT_ID }}
+        REACT_APP_ALCHEMY_API_KEY: ${{ inputs.alchemyApiKey }}
+        REACT_APP_INFURA_API_KEY: ${{ inputs.infuraApiKey }}
+        REACT_APP_WEB3AUTH_CLIENT_ID: ${{ inputs.web3AuthClientId }}
+        REACT_APP_WALLETCONNECT_PROJECT_ID: ${{ inputs.walletConnectProjectId }}
     # uncomment this step to test source map detection and trigger a workflow failure:
-    - run: touch ./packages/react-app/build/static/fake-source.map
+    - name: Test source map detection
+      run: touch ./packages/react-app/build/static/fake-source.map
       shell: bash
-    - run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing build" && exit 1);) # sanity check to ensure sourcemaps are disabled in deployments to avoid leaking our web src
+    - name: Ensure sourcemaps are disabled in deployments
+      run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing build" && exit 1);)
       shell: bash
