@@ -62,7 +62,7 @@ jobs:
       - name: Git push
         # NB we use default of fast-forward only (no force push) because we want our CI/CD pipeline to have linear history for safety. This is also enforced in releases/will-deploy-to-prod protected branch settings.
         run: |
-          git push origin ${{ needs.verify-build.outputs.commit_hash }}:refs/heads/releases/will-deploy-to-prod
+          git push origin ${{ needs.verified-commit.outputs.commit_hash }}:refs/heads/releases/will-deploy-to-prod
   deploy-prod:
     needs: [verified-commit, fetch-tag, push-to-releases-will-deploy-to-prod]
     if: ${{ needs.fetch-tag.outputs.tag != null }}
@@ -148,4 +148,4 @@ jobs:
       - name: Git push
         # NB we use default of fast-forward only (no force push) because we want our CI/CD pipeline to have linear history for safety. This is also enforced in releases/prod protected branch settings.
         run: |
-          git push origin ${{ needs.verify-build.outputs.commit_hash }}:refs/heads/releases/prod
+          git push origin ${{ needs.verified-commit.outputs.commit_hash }}:refs/heads/releases/prod
