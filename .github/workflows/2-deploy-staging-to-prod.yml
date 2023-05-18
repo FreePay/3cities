@@ -13,7 +13,7 @@ jobs:
           ref: releases/staging
           fetch-depth: 0 # fetch all tags/history, required to compare against origin/main
       - id: get_commit
-        run: echo "::set-output name=hash::$(git rev-parse HEAD)"
+        run: echo "hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
       - name: Verify main branch is ahead or equal # fail the build unless the verified build commit is part of origin/main history. This prevents commits outside of main from being deployed to prod. We use this solution because github doesn't support branch protection rules to enforce that pushes to a given branch must come from origin/main. So technically, any commits could be pushed to releases/staging by anybody with push access, but then the auto deployment to prod will fail here when it detects these commits aren't in main history.
         run: |
           git fetch origin main
@@ -37,7 +37,8 @@ jobs:
           fetch-depth: 0 # necessary to fetch all tags
       - name: Get tag
         id: get_tag
-        run: echo "::set-output name=tag::$(git tag --contains)"
+        run: echo "found tag=$(git tag --contains)"
+        run: echo "tag=$(git tag --contains)" >> $GITHUB_OUTPUT
   verify-build:
     needs: [verified-commit]
     if: ${{ needs.verified-commit.outputs.commit_hash != null }}
