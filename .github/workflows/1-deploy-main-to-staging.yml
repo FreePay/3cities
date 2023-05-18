@@ -1,6 +1,3 @@
-# TODO actions/prod-build
-# TODO actions/prod-test-build
-# TODO always check out the created tag for the build so we're not checking out main branch which might have been async updated
 name: 1 | Deploy main to staging
 on:
   push:
@@ -46,25 +43,12 @@ jobs:
         with:
           ref: ${{ needs.verify-build.outputs.commit_hash }}
       - uses: ./.github/actions/setup
-      - run: yarn build:prod-test # ie. our staging deployment is a production build with test dependencies
-        env:
-          # WARNING staging uses test dependencies, so we must ensure that that the env vars below are correctly set to test values where applicable (eg. a wallet provider's API key should be the test value to avoid using mainnet wallets in staging, but rpc provider prod values should be used because the app will automatically use only testnet chains)
-          REACT_APP_GIT_TAG: ${{ needs.tag.outputs.new_tag }}
-          REACT_APP_ALCHEMY_API_KEY: ${{ secrets.REACT_APP_ALCHEMY_API_KEY }}
-          REACT_APP_INFURA_API_KEY: ${{ secrets.REACT_APP_INFURA_API_KEY }}
-          REACT_APP_WEB3AUTH_CLIENT_ID: ${{ secrets.REACT_APP_WEB3AUTH_CLIENT_ID_STAGING }}
-          REACT_APP_WALLETCONNECT_PROJECT_ID: ${{ secrets.REACT_APP_WALLETCONNECT_PROJECT_ID_STAGING }}
-      # - run: touch ./packages/react-app/build/static/fake-source.map # uncomment this to test source map detection and trigger a workflow failure
-      - run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing build" && exit 1);) # sanity check to ensure sourcemaps are disabled in deployments to avoid leaking our web src
-      - name: Update Cloudflare Pages deployment
-        uses: 3cities/pages-action@fec3b22b824c5f29546e2d28cf3027db72d050ec
+      - uses: ./.github/actions/build-prod-test
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          tag: ${{ needs.tag.outputs.new_tag }}
+      - uses: ./.github/actions/deploy-cloudflare-pages
+        with:
           projectName: 3cities-staging
-          directory: packages/react-app/build
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
-          branch: main # Cloudflare Pages will mark this deployment as 'Preview' because we're building from a HEAD commit unless we pass it a branch name it considers to be a production branch, and that branch is configured as "main".
   deploy-staging-prod:
     needs: [verify-build, tag]
     if: ${{ needs.tag.outputs.new_tag != null }}
@@ -75,24 +59,12 @@ jobs:
         with:
           ref: ${{ needs.verify-build.outputs.commit_hash }}
       - uses: ./.github/actions/setup
-      - run: yarn build # ie. our staging-prod deployment is an ordinary production build
-        env:
-          REACT_APP_GIT_TAG: ${{ needs.tag.outputs.new_tag }}
-          REACT_APP_ALCHEMY_API_KEY: ${{ secrets.REACT_APP_ALCHEMY_API_KEY }}
-          REACT_APP_INFURA_API_KEY: ${{ secrets.REACT_APP_INFURA_API_KEY }}
-          REACT_APP_WEB3AUTH_CLIENT_ID: ${{ secrets.REACT_APP_WEB3AUTH_CLIENT_ID }}
-          REACT_APP_WALLETCONNECT_PROJECT_ID: ${{ secrets.REACT_APP_WALLETCONNECT_PROJECT_ID }}
-      # - run: touch ./packages/react-app/build/static/fake-source.map # uncomment this to test source map detection and trigger a workflow failure
-      - run: (find ./packages/react-app/build | grep "map$" || exit 0 && (echo "unexpectedly found a source map in the build directory, failing build" && exit 1);) # sanity check to ensure sourcemaps are disabled in deployments to avoid leaking our web src
-      - name: Update Cloudflare Pages deployment
-        uses: 3cities/pages-action@fec3b22b824c5f29546e2d28cf3027db72d050ec
+      - uses: ./.github/actions/build-prod
         with:
-          apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          tag: ${{ needs.tag.outputs.new_tag }}
+      - uses: ./.github/actions/deploy-cloudflare-pages
+        with:
           projectName: 3cities-staging-prod
-          directory: packages/react-app/build
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
-          branch: main # Cloudflare Pages will mark this deployment as 'Preview' because we're building from a HEAD commit unless we pass it a branch name it considers to be a production branch, and that branch is configured as "main".
   push-to-releases-staging:
     needs: [verify-build, deploy-staging, deploy-staging-prod]
     name: 'Push to releases/staging'
@@ -121,7 +93,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           prerelease: true
-          artifacts: false # include no zip files of source code
           tag: ${{ needs.tag.outputs.new_tag }}
           name: Pre-release ${{ needs.tag.outputs.new_tag }}
           body: |            
