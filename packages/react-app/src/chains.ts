@@ -1,4 +1,4 @@
-import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, polygonZkEvmTestnet, scrollTestnet } from '@wagmi/core/chains';
+import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvmTestnet, scrollTestnet } from '@wagmi/core/chains';
 import { Chain } from 'wagmi';
 import { isProduction } from './isProduction';
 import { NonEmptyArray } from './NonEmptyArray';
@@ -139,7 +139,7 @@ export const zkSync: Readonly<Chain> = Object.freeze<Chain>({ // here we declare
 
 export const polygonZkEvm: Readonly<Chain> = Object.freeze<Chain>({ // wagmi doesn't yet support polygonZkEvm
   id: 1101,
-  name: "polygon zkEVM",
+  name: "Polygon zkEVM",
   network: "polygon-zkevm",
   nativeCurrency: {
     name: "Ether",
@@ -207,6 +207,7 @@ export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
     arbitrumNova,
     zkSync,
     polygonZkEvm,
+    polygon,
     // ********* END PRODUCTION networks *********
   ] : [
     // ********* BEGIN TEST networks *********
@@ -216,9 +217,10 @@ export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
     zkSyncTestnet,
     polygonZkEvmTestnet,
     baseGoerli,
-    lineaTestnet,
+    // lineaTestnet, // TODO lineaTestnet's rpc CORS setting currently doesn't allow requests from http://localhost:3000. This produces spammy linea errors in dev. I have disabled lineaTestnet for now until they fix this, even though it should work fine in staging.
     scrollTestnet,
     // taikoTestnet,
+    polygonMumbai,
     // ********* END TEST networks *********
   ].filter((c: Chain) => !isTestShorterListOfChains || c.id === scrollTestnet.id)
   );

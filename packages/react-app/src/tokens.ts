@@ -1,4 +1,4 @@
-import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, polygonZkEvmTestnet, scrollTestnet } from '@wagmi/core/chains';
+import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvmTestnet, scrollTestnet } from '@wagmi/core/chains';
 import { Chain } from 'wagmi';
 import { allSupportedChainIds, arbitrumNova, lineaTestnet, polygonZkEvm, taikoTestnet, zkSync, zkSyncTestnet } from "./chains";
 import { isProduction } from "./isProduction";
@@ -155,6 +155,21 @@ const TaikoTestnetETH = nativeCurrency(taikoTestnet);
 const TaikoTestnetUSDC = token(taikoTestnet, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0xCea5BFE9542eDf828Ebc2ed054CA688f0224796f' }); // NB this is actually the HORSE token on taiko A2 https://explorer.a2.taiko.xyz/token/0xCea5BFE9542eDf828Ebc2ed054CA688f0224796f/token-transfers
 const TaikoTestnetDAI = token(taikoTestnet, { name: 'Dai', ticker: 'DAI', contractAddress: '0x6048e5ca54c021D39Cd33b63A44980132bcFA66d' }); // NB this is actually the BLL (Bull) token on taiko A2 https://explorer.a2.taiko.xyz/token/0x6048e5ca54c021D39Cd33b63A44980132bcFA66d/token-transfers
 
+// polygon and polygonMumbai
+// https://github.com/maticnetwork/polygon-token-list
+const polygonMATIC = nativeCurrency(polygon, { name: 'Matic', ticker: 'MATIC' });
+const polygonMumbaiMATIC = nativeCurrency(polygonMumbai, { name: 'Matic', ticker: 'MATIC' });
+const polygonETH = token(polygon, { name: 'Ether', ticker: 'ETH', contractAddress: '0x7ceb23fd6bc0add59e62ac25578270cff1b9f619' }); // remember, ETH is an erc20 on polygon
+const polygonMumbaiETH = token(polygonMumbai, { name: 'Ether', ticker: 'ETH', contractAddress: '0xA6FA4fB5f76172d178d61B04b0ecd319C5d1C0aa' }); // remember, ETH is an erc20 on polygon
+const polygonDAI = token(polygon, { name: 'Dai', ticker: 'DAI', contractAddress: '0x8f3cf7ad23cd3cadbd9735aff958023239c6a063' });
+const polygonMumbaiDAI = token(polygonMumbai, { name: 'Dai', ticker: 'DAI', contractAddress: '0xfe4F5145f6e09952a5ba9e956ED0C25e3Fa4c7F1' }); // this isn't actually DAI, it's a generic ERC20
+const polygonUSDC = token(polygon, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174', decimals: 6 });
+// const polygonMumbaiUSDC = token(polygonMumbai, { name: 'USD Coin', ticker: 'USDC', contractAddress: '', decimals: 6 });
+const polygonUSDT = token(polygon, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f', decimals: 6 });
+// const polygonMumbaiUSDT = token(polygonMumbai, { name: 'Tether USD', ticker: 'USDT', contractAddress: '', decimals: 6 });
+const polygonLUSD = token(polygon, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x23001f892c0C82b79303EDC9B9033cD190BB21c7' });
+// const polygonMumbaiLUSD = token(polygonMumbai, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '' });
+
 function isTokenOnASupportedChain(token: NativeCurrency | Token): boolean {
   return allSupportedChainIds.indexOf(token.chainId) > -1;
 }
@@ -169,6 +184,7 @@ export const nativeCurrencies: Readonly<NonEmptyArray<NativeCurrency>> = (() => 
     ArbitrumNovaETH,
     zkSyncETH,
     PolygonZkEvmETH,
+    polygonMATIC,
   ] : [
     GoerliETH,
     OptimismGoerliETH,
@@ -179,6 +195,7 @@ export const nativeCurrencies: Readonly<NonEmptyArray<NativeCurrency>> = (() => 
     lineaTestnetETH,
     ScrollTestnetETH,
     TaikoTestnetETH,
+    polygonMumbaiMATIC,
   ]).filter(isTokenOnASupportedChain); // here we must drop tokens on unsupported chains to ensure that all tokens in our registry are in fact on supported chains so that our token and chain registries are consistent with each other
   const t0 = ts[0];
   if (t0 === undefined) throw new Error(`nativeCurrencies: set of supported nativeCurrencies is empty`);
@@ -192,29 +209,35 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     WETH,
     OptimismWETH,
     ArbitrumWETH,
+    polygonETH,
     DAI,
     OptimismDAI,
     ArbitrumDAI,
     ArbitrumNovaDAI,
     PolygonZkEvmDAI,
+    polygonDAI,
     USDC,
     OptimismUSDC,
     ArbitrumUSDC,
     ArbitrumNovaUSDC,
     zkSyncUSDC,
     PolygonZkEvmUSDC,
+    polygonUSDC,
     USDT,
     OptimismUSDT,
     ArbitrumUSDT,
+    polygonUSDT,
     LUSD,
     OptimismLUSD,
     ArbitrumLUSD,
     PolygonZkEvmLUSD,
+    polygonLUSD,
   ] : [
     GoerliWETH,
     OptimismGoerliWETH,
     ArbitrumGoerliWETH,
     PolygonZkEvmTestnetWETH,
+    polygonMumbaiETH,
     GoerliDAI,
     OptimismGoerliDAI,
     ArbitrumGoerliDAI,
@@ -222,6 +245,7 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     ScrollTestnetDAI,
     TaikoTestnetDAI,
     BaseGoerliDAI,
+    polygonMumbaiDAI,
     GoerliUSDC,
     OptimismGoerliUSDC,
     ArbitrumGoerliUSDC,

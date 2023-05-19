@@ -1,5 +1,5 @@
 import { BigNumber } from "@ethersproject/bignumber";
-import { arbitrum, arbitrumGoerli, mainnet, optimism } from '@wagmi/core/chains';
+import { arbitrum, arbitrumGoerli, mainnet, optimism, polygon } from '@wagmi/core/chains';
 import { AddressContext, canAfford } from "./addressContext";
 import { Agreement, isPayment, isReceiverProposedPayment, ProposedAgreement } from "./agreements";
 import { arbitrumNova, chainsSupportedBy3cities, polygonZkEvm, zkSync } from "./chains";
@@ -179,6 +179,7 @@ const staticChainIdPriority: ChainIdPriority = {
   [optimism.id]: 800,
   [polygonZkEvm.id]: 750,
   [zkSync.id]: 700,
+  [polygon.id]: 500,
   [mainnet.id]: 1,
 
   // Testnet priorities below here (higher priority is better):
@@ -197,6 +198,7 @@ const staticTokenTickerPriority: TokenTickerPriority = {
   DAI: 700,
   WETH: 150, // People generally want to pay with stablecoins, so non-stables have lower priority.
   ETH: 100,
+  MATIC: 50,
 };
 
 if (isProduction) allTokenTickers.forEach(ticker => {
