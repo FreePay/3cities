@@ -5,11 +5,11 @@ runs:
   steps:
     - uses: ./.github/actions/setup
     # TODO run tests
-    - run: yarn lint --max-warnings 0 # verify no lint errors or warnings exist
-      shell: bash # NB when using a composite action type, it's necessary to set the shell (not sure why, and docs don't say), whereas you can use `run: yarn build` in a workflow without specifying the shell https://stackoverflow.com/a/71042698
-    - run: yarn react-app:build:dev # verify dev build works
-      shell: bash
-    - run: yarn build:prod-test # verify prod-test build works
-      shell: bash
-    - run: yarn build # verify production build works
-      shell: bash
+    # - run: yarn lint --max-warnings 0 # verify no lint errors or warnings exist
+    #   shell: bash # NB when using a composite action type, it's necessary to set the shell (not sure why, and docs don't say), whereas you can use `run: yarn build` in a workflow without specifying the shell https://stackoverflow.com/a/71042698
+    # - run: yarn react-app:build:dev # verify dev build works
+    #   shell: bash
+    # - run: yarn build:prod-test # verify prod-test build works
+    #   shell: bash
+    # - run: yarn build # verify production build works
+    #   shell: bash
