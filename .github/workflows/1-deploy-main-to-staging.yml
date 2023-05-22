@@ -13,7 +13,7 @@ jobs:
       - uses: 3cities/checkout@f095bcc56b7c2baf48f3ac70d6d6782f4f553222
         with:
           ref: main
-      - uses: ./.github/actions/verify-build
+      #- uses: ./.github/actions/verify-build # disable build verification to speed up the build as it's redundant because build verification is  already completed by the dev branch build which must pass before merging into main per our GitHub protected branch settings.
       - id: get_commit
         run: echo "hash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
   tag:
