@@ -6,6 +6,7 @@ import { Toaster } from 'sonner';
 import { WagmiConfig } from "wagmi";
 import { ConnectedWalletAddressContextObserverProvider } from "./connectedWalletContextProvider";
 import "./index.css";
+import { UseDemoAccount } from "./UseDemoAccount";
 import { wagmiClient } from "./wagmiClient";
 
 const connectKitOptions: ConnectKitOptions = {
@@ -22,14 +23,16 @@ export const GlobalProviders = () => {
     <ScrollRestoration /> {/* https://reactrouter.com/en/main/components/scroll-restoration */}
     <WagmiConfig client={wagmiClient}>
       {/* <ConnectWalletProvider chains={chainsSupportedBy3cities}>  TODO connect-wallet support blocked by runtime error https://github.com/Shopify/blockchain-components/issues/16 */}
-      <ConnectKitProvider options={connectKitOptions}>
-        <ConnectedWalletAddressContextObserverProvider>
-          <Toaster richColors /> {/* NB here we put the toaster inside the wagmi, connectkit, and addressContext providers so that the toast clients can have access to these services */}
-          <Outlet />
-        </ConnectedWalletAddressContextObserverProvider>
-      </ConnectKitProvider>
-      {/* </ConnectWalletProvider> */}
-      {/* <Web3ModalInstance /> */ /* TODO we can't use web3modal right now because of bugs in WalletConnectConnector which should become resolved after these libs finish the current transition to walletconnect v2. See notes on WalletConnectConnector in wagmi config. */}
+      <UseDemoAccount>
+        <ConnectKitProvider options={connectKitOptions}>
+          <ConnectedWalletAddressContextObserverProvider>
+            <Toaster richColors /> {/* NB here we put the toaster inside the wagmi, connectkit, and addressContext providers so that the toast clients can have access to these services */}
+            <Outlet />
+          </ConnectedWalletAddressContextObserverProvider>
+        </ConnectKitProvider>
+        {/* </ConnectWalletProvider> */}
+        {/* <Web3ModalInstance /> */ /* TODO we can't use web3modal right now because of bugs in WalletConnectConnector which should become resolved after these libs finish the current transition to walletconnect v2. See notes on WalletConnectConnector in wagmi config. */}
+      </UseDemoAccount>
     </WagmiConfig>
   </div>;
 };

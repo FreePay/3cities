@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaEye } from "react-icons/fa";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
@@ -29,11 +29,10 @@ import { useEnsName } from "./useEnsName";
 // ? TODO QR code to share payment receipt
 
 export const Pay: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const { isConnected, address } = useAccount();
   const [checkout] = useState<Checkout | undefined>(() => {
-    const hack = location.hash.substring(location.hash.indexOf('?') + 1); // WARNING HACK TODO here we hardcode queryparam parsing when instead we shoudl receive the parsed checkout from ContextLink
-    const q = new URLSearchParams(hack);
-    const s = q.get("c");
+    const s = searchParams.get("c"); // TODO receive checkout from ContextLink instead of parsing it directly from searchparams
     if (s !== null) try {
       return deserializeFromModifiedBase64(s);
     } catch (e) {
