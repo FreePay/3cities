@@ -589,7 +589,7 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
   }, [props.tt, setCachedTT, setIsSuccess, isSuccess, setUserSignedTransaction, setAutoExecuteState, setTransactionReceipt, wr, swr, setExecuteCalledAtLeastOnce, executeCalledAtLeastOnce, setDoReset, doReset, willAutoRetry, setWillAutoRetry]);
 
   const needToSwitchNetwork: boolean =
-    (Boolean(prepare.error) && prepare.error instanceof ChainMismatchError) // ie. wagmi's API is that prepare.error is an instanceof ChainMisMatchError if and only if the wallet's active network differs from the chainId passed to prepare.
+    isChainMismatchError(prepare.error) // ie. wagmi's API is that prepare.error is a chain mismatch error if and only if the wallet's active network differs from the chainId passed to prepare.
     || (activeChain?.id !== undefined && activeChain.id !== cachedTT.token.chainId) // in certain cases, the active chain may not be the token's chain while wagmi's prepare.error is null. For example, this can happen if props.tt.token.chainId is recached after a successful prepare without reseting write. NB wagmi's hooks aren't particularly resilient to changes in props.tt, so we currently don't support automatic changes to props.tt (by way of caching its first value into cachedTT), so rn, we don't expect this conditional branch to ever be true because prepare.error should be ChainMismatchError unless activeChain==token.chainId, but we kept the conditional branch code anyway because it's knowlege and probably more correct.
 
   const sw = switchNetwork.switchNetwork; // allow useMemo hook dep to be on switchNetwork.switchNetwork instead of switchNetwork;
@@ -676,7 +676,7 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
         return s;
       } else if (!autoRetryInProgress && (
         (prepare.error
-          && !(prepare.error instanceof ChainMismatchError)
+          && !isChainMismatchError(prepare.error)
           && !isEphemeralPrepareError(prepare.error)
         ) || (write.error && !userRejectedTransactionSignRequest)
         || wait.error
@@ -907,6 +907,25 @@ function isEphemeralPrepareError(e: Error | undefined | null): boolean {
     else return false;
   }
 }
+
+// isChainMismatchError returns true iff the passed Error indicates that
+// usePrepareContractWrite failed because the connected account's active
+// network did not match the transaction's chainId passed to prepare.
+// The error passed must be sourced from
+// `usePrepareContractWrite(...).error` or behaviour is undefined.
+function isChainMismatchError(e: Error | undefined | null): boolean {
+  // WARNING errors passed into this function can come from a variety of upstream sources, and they may not confirm to the TypeScript typeof Error, which is why we do extra checking to ensure properties exist before we read them.
+  if (e === undefined || e === null) return false;
+  else {
+    if (
+      // eslint-disable-next-line rulesdir/no-instanceof-ChainMismatchError
+      (e instanceof ChainMismatchError) // canonically and usually, a chain mismatch error is correctly an instanceof ChainMismatchError.
+      || (hasOwnPropertyOfType(e, 'name', 'string') && e.name === 'ChainMismatchError') // however, sometimes a chain mismatch error can be an object that isn't an instanceof ChainMisMatchErorr and instead has a name property with the value 'ChainMismatchError'. TODO file this bug in wagmi --> a reproduction might be found using our UseDemoAccount mock addresses.
+    ) return true;
+    else return false;
+  }
+}
+
 
 // isTransactionFeeUnaffordableError returns an instance of
 // TransactionFeeUnaffordableError iff the passed Error represents the user

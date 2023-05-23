@@ -41,6 +41,9 @@ module.exports = {
         "build/",
     ],
     "rules": {
+        "rulesdir/no-instanceof-ChainMismatchError": [
+            "warn",
+        ],
         "rulesdir/no-conditional-returns": [
             "warn",
         ],
