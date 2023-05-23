@@ -80,10 +80,9 @@ export const Pay: React.FC = () => {
       <button className="bg-primary sm:hover:bg-primary-darker sm:hover:cursor-pointer text-white font-bold py-2 px-4 rounded" onClick={doReset}>Retry</button>
       <button className="bg-primary sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer text-white font-bold py-2 px-4 rounded" disabled={isErrorCopied} onClick={setCopied}>{isErrorCopied ? 'Copied. Please DM to @3cities_xyz' : 'Copy Error'}</button>
     </div>
-    <span className="text-sm text-center">Sorry about this 😱</span>
-    <span className="text-sm text-center">Before retrying, please <span className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker" onClick={setCopied}>copy error</span><br />and paste in a DM to <a href="https://twitter.com/3cities_xyz" target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker">@3cities_xyz</a></span>
-    <span className="text-sm text-center">For your privacy, <span className="font-bold">sender and receiver crypto addresses have been removed from the copied error</span>.</span>
-    <span className="text-sm text-center">3cities has no tracking of any kind. Please submit the error for us to improve!</span>
+    <span className="text-sm text-center">Sorry 😱</span>
+    <span className="text-sm text-center">Please <span className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker" onClick={setCopied}>copy error</span> and<br />paste in a DM to <a href="https://twitter.com/3cities_xyz" target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker">@3cities_xyz</a></span>
+    <span className="text-sm text-center">Please submit the error for us to improve!</span>
   </div> : undefined;
 
   const strategies = useMemo<Strategy[] | undefined>(() => {

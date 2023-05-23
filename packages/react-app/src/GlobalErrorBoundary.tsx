@@ -58,11 +58,10 @@ export const GlobalErrorBoundary = () => {
       </div>
       <span style={styleSpan}>{errorExplanation}</span>
     </div>
-    <div className="absolute bottom-[20%] left-1/2 transform -translate-x-1/2 w-[61.8vw] max-w-[400px] grid grid-cols-1 gap-4">
+    <div className="absolute bottom-[30%] left-1/2 transform -translate-x-1/2 w-[61.8vw] max-w-[400px] grid grid-cols-1 gap-4">
       <button className="bg-primary sm:enabled:hover:bg-primary-darker text-white font-bold py-2 px-4 rounded w-full" disabled={isErrorCopied} onClick={setCopied}>{isErrorCopied ? 'Copied. Please DM to @3cities_xyz' : 'Copy Error'}</button>
-      <span className="text-sm text-center">Sorry about this 😱</span>
+      <span className="text-sm text-center">Sorry 😱</span>
       <span className="text-sm text-center">Please <span className="font-bold text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer" onClick={setCopied}>copy error</span> and paste in a DM to <a href="https://twitter.com/3cities_xyz" target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer">@3cities_xyz</a></span>
-      <span className="text-sm text-center">3cities has no tracking of any kind. Please submit the error for us to improve!</span>
       <span className="text-sm text-center">⚠️ Privacy warning: <span className="font-bold">the copied error includes the current page link and any payment details</span>.</span>
     </div>
     <div className="absolute bottom-[5%] left-1/2 transform -translate-x-1/2">
