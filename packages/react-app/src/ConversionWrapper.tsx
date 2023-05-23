@@ -1,10 +1,15 @@
-import React from "react";
+import { isAddress } from "@ethersproject/address";
+import React, { useContext } from "react";
 import { Outlet } from "react-router-dom";
+import { ActiveDemoAccountContext } from "./ActiveDemoAccountContext";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
+import { truncateEthAddressVeryShort } from "./truncateAddress";
 
 function ConversionHeader() {
+  const activeDemoAccount: string | undefined = useContext(ActiveDemoAccountContext);
   return (
-    <header className="bg-quaternary p-5 min-h-[80px] flex items-center">
+    <header className="relative bg-quaternary p-5 min-h-[80px] flex items-center">
+      {activeDemoAccount && <div className="absolute bottom-0.5 right-4 z-1 text-tertiary-darker-2 text-sm">demo impersonating {isAddress(activeDemoAccount) ? truncateEthAddressVeryShort(activeDemoAccount) : activeDemoAccount} </div>}
       <div className="mx-auto flex w-full max-w-screen-lg items-center justify-between">
         <div className="flex flex-1 items-center justify-end gap-8">
           <div className="max-sm:min-w-[46vw] max-sm:max-w-48 sm:w-48">

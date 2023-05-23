@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { isAddress } from "@ethersproject/address";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { FaEye } from "react-icons/fa";
 import { Link, useSearchParams } from "react-router-dom";
 import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
+import { ActiveDemoAccountContext } from "./ActiveDemoAccountContext";
 import { acceptReceiverProposedPayment, isReceiverProposedPayment, ReceiverProposedPayment } from "./agreements";
 import { getBlockExplorerUrlForAddress, getBlockExplorerUrlForTransaction } from "./blockExplorerUrls";
 import { getChain, getSupportedChainName } from "./chains";
@@ -18,6 +20,7 @@ import { deserializeFromModifiedBase64 } from "./serialize";
 import { getProposedStrategiesForProposedAgreement, getStrategiesForAgreement, Strategy } from "./strategies";
 import { getTokenKey } from "./tokens";
 import { ExecuteTokenTransferButton, ExecuteTokenTransferButtonStatus, TransactionFeeUnaffordableError } from "./transactions";
+import { truncateEthAddressVeryShort } from "./truncateAddress";
 import { useAddressOrENS } from "./useAddressOrENS";
 import { useBestStrategy } from "./useBestStrategy";
 import { useEnsName } from "./useEnsName";
@@ -48,6 +51,12 @@ export const Pay: React.FC = () => {
   const ac = useConnectedWalletAddressContext();
 
   const [status, setStatus] = useState<ExecuteTokenTransferButtonStatus | undefined>(undefined);
+
+  const activeDemoAccount: string | undefined = useContext(ActiveDemoAccountContext);
+
+  useEffect(() => { // if activeDemoAccount is defined, then we're in demo mode, the demo account has no provider, and the Pay Now button can't work and will error on usePrepareContractWrite, so below, we disable the Pay Now button, and here we clear any status that might have been set by the button, especially because certain features default to running based on status.activeTokenTransfer, which isn't being updated if the status is undefined.
+    if (status && activeDemoAccount) setStatus(undefined);
+  }, [status, activeDemoAccount]);
 
   const doReset = useCallback(() => {
     status?.reset();
@@ -85,7 +94,7 @@ export const Pay: React.FC = () => {
   const { bestStrategy, otherStrategies, disableStrategy, selectStrategy } = useBestStrategy(strategies);
 
   const recipientAddressBlockExplorerLink: string | undefined = (() => {
-    return getBlockExplorerUrlForAddress(status?.activeTokenTransfer.token.chainId, rpp.toAddress);
+    return getBlockExplorerUrlForAddress((status?.activeTokenTransfer || bestStrategy?.tokenTransfer)?.token.chainId, rpp.toAddress);
   })();
 
   const [showFullRecipientAddress, setShowFullRecipientAddress] = useState(false);
@@ -154,7 +163,7 @@ export const Pay: React.FC = () => {
         >
           Connected wallet has no payment options
         </button>;
-        else return <><ExecuteTokenTransferButton
+        else return <div className="relative"><ExecuteTokenTransferButton
           tt={bestStrategy.tokenTransfer}
           autoReset={true}
           loadForeverOnTransactionFeeUnaffordableError={true}
@@ -167,9 +176,15 @@ export const Pay: React.FC = () => {
           warningClassName="text-black"
           loadingSpinnerClassName="text-gray-200 fill-primary"
           setStatus={setStatus}
+          {...(activeDemoAccount !== undefined && { disabled: true })}
         />
+          {!retryButton && activeDemoAccount && (
+            <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-tertiary-darker-2 text-sm whitespace-nowrap text-center">
+              disabled:<br/>demo is read-only
+            </span>
+          )}
           {retryButton}
-        </>
+        </div>
       })()}
     </div>
     <div className="p-4 flex items-center gap-4 justify-between w-full border border-gray-300 bg-white rounded-t-md">
@@ -192,10 +207,13 @@ export const Pay: React.FC = () => {
         <RenderTokenTransfer tt={status?.activeTokenTransfer || bestStrategy.tokenTransfer} opts={{ hideAmount: true }} />
         {canSelectNewStrategy && otherStrategies && otherStrategies.length > 0 && <span className="text-xs"><button
           onClick={() => setSelectingPaymentMethod(true)}
-          className="flex-0 rounded-md px-2 py-0.5 mx-2 bg-gray-200 sm:hover:bg-gray-300 focus:outline-none active:scale-95"
+          className="relative flex-0 rounded-md px-2 py-0.5 mx-2 bg-gray-200 sm:hover:bg-gray-300 focus:outline-none active:scale-95"
           type="button"
         >
           change
+          {activeDemoAccount && <span className="absolute bottom-[-1.4em] left-1/2 transform -translate-x-1/2 text-tertiary-darker-2 text-sm font-bold whitespace-nowrap">
+            click ⬆️
+          </span>}
         </button>({otherStrategies.length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment methods)</span>}
       </div>
     </div>}
@@ -303,12 +321,18 @@ export const Pay: React.FC = () => {
     </div>
   </div> : undefined;
 
+  const activeDemoAccountRendered = activeDemoAccount && isAddress(activeDemoAccount) ? truncateEthAddressVeryShort(activeDemoAccount) : activeDemoAccount;
+  const demoExplanation = activeDemoAccount && <div className="grid grid-cols-1 w-full items-center p-2 gap-4">
+    <span className="text-left text-tertiary-darker-2">Demo notice: 3cities is impersonating {activeDemoAccountRendered} as a demo. When paying, 3cities live searches supported chains to find payment methods and plugs the best payment method into a 1-Click &quot; Pay Now&quot; button. All data are auto-updated (no need to refresh page). Try changing the payment method or connecting your own wallet.</span>
+  </div>;
+
   return (
     <div className="grid grid-cols-1">
       {paymentScreen}
       {acceptedTokensAndChainsBox}
       {selectPaymentMethodScreen}
       {paymentSuccessfulScreen}
+      {demoExplanation}
     </div>
   );
 } 
