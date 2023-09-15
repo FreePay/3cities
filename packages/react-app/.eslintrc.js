@@ -25,6 +25,7 @@ module.exports = {
         },
         "ecmaVersion": "latest",
         "sourceType": "module",
+        "project": path.resolve(__dirname, './tsconfig.json'),
     },
     "plugins": [
         "react",
