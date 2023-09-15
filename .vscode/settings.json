@@ -1,4 +1,4 @@
 {
-  "eslint.packageManager": "yarn",
-  "npm.packageManager": "yarn"
+  "npm.packageManager": "yarn",
+  "github.copilot.inlineSuggest.enable": true,
 }
