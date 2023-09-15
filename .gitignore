@@ -29,3 +29,6 @@ packages/subgraph/src/types/
 
 # chain credentials for testing
 3cities-test-private-key
+
+# vscode - don't track settings because the Disable Copilot completions extension works by continuously flipping a flag in this file and it causes confusing and spammy git diffs.
+.vscode/settings.json
