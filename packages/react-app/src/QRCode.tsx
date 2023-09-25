@@ -1,10 +1,34 @@
 import QRCodeStyling, { Options } from 'qr-code-styling';
 import React, { useEffect, useRef, useState } from 'react';
+import { Spinner } from './Spinner';
 import useWindowSize from './useWindowSize';
 
 // TODO add a download button using qr-code-styling's download API. This would let the user 1-click download the QR code.
 
 // TODO add a share button using qr-code-styling's raw image API. This would let the user share the QR code as an image using the webshare api (eg. navigator.canShare).
+
+let qrCodeStylingLibPromise: Promise<typeof QRCodeStyling> | undefined = undefined;
+async function getQRCodeStylingLib(): Promise<typeof QRCodeStyling> {
+  if (qrCodeStylingLibPromise === undefined) {
+    qrCodeStylingLibPromise = import('qr-code-styling').then(lib => lib.default); // this lazy load of qr-code-styling results in ~14kB bundle savings. NB the eagerly-imported QRCodeStyling is used only as a type, and so is correctly tree-shaked out of the main bundle --> to double-check this, we can add "import QRCodeStylingLib from 'qr-code-styling';" at the top and comment out the lazy load --> main bundle size increases by 14.3kB
+  }
+  return qrCodeStylingLibPromise;
+} // @eslint-no-use-below[qrCodeStylingLibPromise]
+getQRCodeStylingLib(); // immediately begin lazily loading the qr-code-styling dependency so that, during QR code generation below, it's already available and the user doesn't have to wait for the lazy load
+
+const qrCodeImageUrl = '/logo.png';
+async function loadQrCodeImage(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.src = qrCodeImageUrl;
+    img.onload = () => resolve();
+    img.onerror = (error) => {
+      console.log("failed to load qr code image", error);
+      reject(error);
+    };
+  });
+}
+loadQrCodeImage(); // immediately begin lazily loading the logo image so that, during QR code generation below, it's already available and the user doesn't have to wait for the lazy load
 
 interface QRCodeProps {
   data: string;
@@ -19,12 +43,13 @@ export const QRCode: React.FC<QRCodeProps> = React.memo(({ data }: QRCodeProps) 
   const height = width;
 
   useEffect(() => {
+    let isMounted = true;
     const opts: Options = {
       width,
       height,
       data,
       qrOptions: {
-        errorCorrectionLevel: 'M', // here we use one level of error correction below the default of 'Q'. This results in substantially less encoded data and thus a high-resolutin QR code which makes it easier for older scanners to successfully scan it. The tradeoff is if the QR code is printed and damaged then there's less error correction to successfully scan the damaged QR code. https://www.qrcode.com/en/about/error_correction.html
+        errorCorrectionLevel: 'M', // here we use one level of error correction below the default of 'Q'. This results in substantially less encoded data and thus a high-resolutin QR code which makes it easier for older scanners to successfully scan it. The tradeoff is if the QR code is printed and damaged then there's less error correction to successfully scan the damaged QR code. https://www.qrcode.com/en/about/error_correction.html --> TODO when our links are shorter we may consider incrementing errorCorrectionLevel back up to 'Q'
       },
       dotsOptions: {
         gradient: {
@@ -56,7 +81,7 @@ export const QRCode: React.FC<QRCodeProps> = React.memo(({ data }: QRCodeProps) 
       backgroundOptions: {
         color: "transparent",
       },
-      image: '/logo.png',
+      image: qrCodeImageUrl,
       imageOptions: {
         hideBackgroundDots: true,
         imageSize: 0.30,
@@ -72,14 +97,20 @@ export const QRCode: React.FC<QRCodeProps> = React.memo(({ data }: QRCodeProps) 
     };
     if (qrCode) qrCode.update(opts);
     else {
-      const loadQRCodeStyling = async () => {
-        const { default: QRCodeStylingLib } = await import('qr-code-styling'); // NB I verified that this lazy load of QRCodeStylingLib (which is the same value as the eagerly-imported QRCodeStyling does result in 13kb bundle savings. It seems like the eagerly-imported QRCodeStyling, which is used only as a type, is correctly tree-shaked out of the main bundle.)
-        setQRCode(new QRCodeStylingLib(opts));
-      };
-      loadQRCodeStyling();
+      (async () => {
+        const QRCodeStylingLib = await getQRCodeStylingLib();
+        // await sleep(5000); // this sleep code can be used to test UX for QR codes that load slowly for any reason
+        if (isMounted) setQRCode(new QRCodeStylingLib(opts));
+        // function sleep(ms: number) {
+        //   return new Promise(resolve => setTimeout(resolve, ms));
+        // }
+      })();
+    }
+    return () => {
+      isMounted = false;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, width, height]);
+  }, [setQRCode, data, width, height]);
 
   useEffect(() => {
     if (qrCode && qrCodeContainerRef.current) {
@@ -90,7 +121,9 @@ export const QRCode: React.FC<QRCodeProps> = React.memo(({ data }: QRCodeProps) 
   return <div className="flex items-center justify-center" style={{ width, height }}>
     {qrCode ?
       <div ref={qrCodeContainerRef}></div>
-      : <div className="bg-gray-200 rounded-md animate-pulse w-full h-full"></div>
+      : <div className="flex items-center justify-center bg-gray-200 rounded-md w-full h-full">
+        <Spinner containerClassName="h-1/4 w-1/4" spinnerClassName="text-gray-400" speed="slow" />
+      </div>
     }
   </div>;
 });
