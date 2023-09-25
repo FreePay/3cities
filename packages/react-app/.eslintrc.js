@@ -48,6 +48,9 @@ module.exports = {
         "rulesdir/no-conditional-returns": [
             "warn",
         ],
+        "rulesdir/no-use-below": [
+            "error",
+        ],
         "@typescript-eslint/no-empty-function": "off",
         "@typescript-eslint/no-inferrable-types": "off",
         "react-hooks/exhaustive-deps": [
