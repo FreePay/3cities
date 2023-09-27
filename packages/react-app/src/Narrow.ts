@@ -1,8 +1,7 @@
 
 // Narrow<A, B, C> is a utility type ensuring that A's property B is
 // of type C. Ie. Narrow generates the subtype of A where A[B] has
-// been narrowed to C. Btw, this utility type was co-authored by
-// ChatGPT Plus.
+// been narrowed to C.
 // Example:
 // type Fish = { species: 'goldfish' | 'tuna'; weight: number; };
 // type Tuna = Narrow<Fish, 'species', 'tuna'>; --> the set of all Fish where Fish['species'] == 'tuna'
