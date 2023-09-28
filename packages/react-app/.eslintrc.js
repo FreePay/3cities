@@ -51,6 +51,7 @@ module.exports = {
         "rulesdir/no-use-below": [
             "error",
         ],
+        "@typescript-eslint/switch-exhaustiveness-check": "error",
         "@typescript-eslint/no-empty-function": "off",
         "@typescript-eslint/no-inferrable-types": "off",
         "react-hooks/exhaustive-deps": [
