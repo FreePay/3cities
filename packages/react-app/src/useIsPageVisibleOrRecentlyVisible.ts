@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import useDebounce from './useDebounce';
 
-// TODO s/useIsPageVisible.ts/useIsPageVisibleOrRecentlyVisible.ts
-
 // this is a fork of https://github.com/pgilad/react-page-visibility
 
 const hasDocument: boolean = typeof document !== 'undefined';
