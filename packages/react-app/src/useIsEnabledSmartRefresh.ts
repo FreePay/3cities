@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
-import useDebounce from "./useDebounce";
-import { useIsPageVisible } from "./useIsPageVisible";
+import { useIsPageVisibleOrRecentlyVisible } from "./useIsPageVisible";
 
 // useIsEnabledSmartRefresh returns an `isEnabled` flag which can be passed
 // to a wagmi hook to (i) brief set enabled==false every N seconds, which
@@ -33,13 +32,9 @@ export function useIsEnabledSmartRefresh() {
     } else return;
   }, [isForceDisable, setIsForceDisable]);
 
-  const isPageVisible = useIsPageVisible();
-  const flushDebounce = isPageVisible; // if the page is visible, immediately flush this into the debounced value, otherwise isPageRecentlyVisible would be incorrect in the following case: page is invisible for a long time, page becomes visible, then page quickly becomes invisible again --> now we have isPageRecentlyVisible==false because the debounce timer didn't elapse before isPageVisible became false again.
-  const isPageVisibleOrRecentlyVisible = useDebounce(isPageVisible, 13_000, flushDebounce);
+  const isPageVisibleOrRecentlyVisible = useIsPageVisibleOrRecentlyVisible();
 
-  const isEnabled =
-    isPageVisibleOrRecentlyVisible // to save on our rpc cloud bill and minimize client load, refresh balances only if page is visible or was recently visible. The "if was recently visible" part is important so that if a user rapidly hides/shows the app, we aren't rapidly toggling enabled and refreshing data every time the app is hidden and then shown again.
-    && !isForceDisable;
+  const isEnabled = isPageVisibleOrRecentlyVisible && !isForceDisable;
 
   return isEnabled;
 }
