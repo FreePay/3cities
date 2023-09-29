@@ -1,7 +1,7 @@
 import React, { InputHTMLAttributes, useCallback, useState } from 'react';
 
 interface Opts {
-  onEnterKeyPress?: () => void; // callback that will be invoked when the user hits the enter key.
+  onEnterKeyPress?: (e: React.KeyboardEvent<HTMLInputElement>) => void; // callback that will be invoked when the user hits the enter key.
 }
 
 // https://stackoverflow.com/questions/55757761/handle-an-input-with-react-hooks
@@ -21,7 +21,7 @@ export function useInput(initialValue: boolean | string | number, inputHTMLAttri
   const onKeyDown = useCallback<(e: React.KeyboardEvent<HTMLInputElement>) => void>((e) => {
     const isEnterKey = (e.key === 'Enter') || (e.keyCode === 13); // e.keyCode is deprecated and the correct API is now e.key, but we check both to ensure backwards compatibilty. For a list of possible values of e.key, see https://www.w3.org/TR/uievents-key/#named-key-attribute-values
     if (isEnterKey && opts && opts.onEnterKeyPress !== undefined) {
-      opts.onEnterKeyPress();
+      opts.onEnterKeyPress(e);
     }
   }, [opts]);
 
