@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useIsPageVisibleOrRecentlyVisible } from "./useIsPageVisible";
+import { useIsPageVisibleOrRecentlyVisible } from "./useIsPageVisibleOrRecentlyVisible";
 
 // useIsEnabledSmartRefresh returns an `isEnabled` flag which can be passed
 // to a wagmi hook to (i) brief set enabled==false every N seconds, which
