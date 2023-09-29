@@ -49,7 +49,7 @@ export const QRCode: React.FC<QRCodeProps> = React.memo(({ data }: QRCodeProps) 
       height,
       data,
       qrOptions: {
-        errorCorrectionLevel: 'M', // here we use one level of error correction below the default of 'Q'. This results in substantially less encoded data and thus a high-resolutin QR code which makes it easier for older scanners to successfully scan it. The tradeoff is if the QR code is printed and damaged then there's less error correction to successfully scan the damaged QR code. https://www.qrcode.com/en/about/error_correction.html --> TODO when our links are shorter we may consider incrementing errorCorrectionLevel back up to 'Q'
+        errorCorrectionLevel: 'M', // here we use one level of error correction below the default of 'Q'. This results in substantially less encoded data and thus a high-resolution QR code which makes it easier for older scanners to successfully scan it. The tradeoff is if the QR code is printed and damaged then there's less error correction to successfully scan the damaged QR code. https://www.qrcode.com/en/about/error_correction.html --> NB also, for an unknown reason, using a level of 'Q' or 'H' results in the render size of the QR code being smaller (taking up only a middle portion of its canvas), which looks worse, so we'll stick with 'M' for now.
       },
       dotsOptions: {
         gradient: {
