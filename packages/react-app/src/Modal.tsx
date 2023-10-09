@@ -1,35 +1,47 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 interface ModalProps {
-  showModalNonce: number; // showModalNonce lets the client hide or show the modal programmatically. If showModalNonce < 1, the modal will be hidden, otherwise the modal will be shown. A client can re-show the modal (which might have been dismissed by the user) by incrementing showModalNonce, or hide the modal by resetting showModalNonce to 0. Of course, the user can hide the modal by dismissing it.
+  showModalNonce: number; // showModalNonce lets the client hide or show the modal programmatically. If showModalNonce < 1, the modal will be hidden, otherwise the modal will be shown. A client can re-show the modal (which might have been dismissed by the user) by incrementing showModalNonce, or hide the modal by resetting showModalNonce to 0. The user can hide the modal by dismissing it in various ways.
   children?: React.ReactNode;
 }
+
+// TODO add a modal open/close transition animation such as "transition-opacity duration-300 ease-in-out" --> however, in order to do this, a somewhat tricky opacity state machine must be managed: when the modal goes from invisible to visible, it must be immediately created with opacity 0, and then the opacity immediately changed from 0 to 100, and then it will fade in, and then when the modal is hidden, it must have its opacity immediately set to 0 but delay destruction until the fade out is complete, and then it must be destroyed --> this state machine description may not be exactly correct
 
 // Modal is our basic multi-purpose modal to pop-up a dismissable dialog
 // box that contains its children as content. Our Modal's API tends to
 // be a lot simpler than 3rd-party modals; it's sort of a
 // quick-and-dirty modal.
 const Modal: React.FC<ModalProps> = ({ showModalNonce, children }) => {
-  const [isModalVisible, setIsModalVisible] = React.useState(false);
+  const [isModalVisible, setIsModalVisible] = useState(false);
   const modalContentRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
+  useEffect(() => { // see note on showModalNonce definition
     if (showModalNonce > 0) setIsModalVisible(true);
     else setIsModalVisible(false);
   }, [showModalNonce]);
 
-  const handleClickOutside = (event: MouseEvent) => {
-    if (modalContentRef.current && !modalContentRef.current.contains(event.target as Node)) {
-      setIsModalVisible(false);
-    }
-  };
+  useEffect(() => { // close modal if the user hits the ESC key or clicks outside the modal
+    if (isModalVisible) {
+      const handleEscKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') {
+          setIsModalVisible(false);
+        }
+      };
 
-  useEffect(() => {
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+      const handleClickOutside = (event: MouseEvent) => {
+        if (modalContentRef.current && !modalContentRef.current.contains(event.target as Node)) {
+          setIsModalVisible(false);
+        }
+      };
+
+      document.addEventListener('keydown', handleEscKeyDown);
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        document.removeEventListener('keydown', handleEscKeyDown);
+      };
+    } else return;
+  }, [isModalVisible, setIsModalVisible, modalContentRef]);
 
   return !isModalVisible ? null : <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center">
     <div ref={modalContentRef} className="relative bg-gray-100 p-8 rounded-lg shadow-md w-full max-w-[92vw] sm:max-w-md">
