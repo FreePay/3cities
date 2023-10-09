@@ -29,7 +29,7 @@ const keyFormat = 'raw'; // 'raw' is typically used for symmetric algorithms. WA
 const isKeyExtractable = false; // Must be false for security. WARNING: Setting to true may expose the key and risk security.
 const keyDerivationAlgorithm = 'PBKDF2'; // PBKDF2 is widely supported and recommended for strong security.
 const hashFunction = 'SHA-256'; // SHA-256 offers a good balance of speed and security.
-const hmacAlgorithm = 'HMAC'; // HMAC is widely supported and provides strong security.
+const signatureAlgorithm = 'HMAC'; // HMAC is widely supported and provides strong security.
 const encryptionAlgorithm = 'AES-GCM'; // AES-GCM is recommended for symmetric encryption.
 const saltOrIvByteLength = 32; // 32 bytes is a good default for PBKDF2.
 const iterations = 2000000; // 2 million is recommended for strong security as of 2022. WARNING: Lowering this number reduces security.
@@ -63,7 +63,7 @@ function buildDeriveKeyParamsForSignature(baseKey: CryptoKey, salt: Uint8Array, 
       hash: hashFunction
     },
     baseKey,
-    { name: hmacAlgorithm, hash: hashFunction, length: keyBitLength },
+    { name: signatureAlgorithm, hash: hashFunction, length: keyBitLength },
     isKeyExtractable,
     [operation],
   ];
@@ -75,7 +75,7 @@ function buildDeriveKeyParamsForSignature(baseKey: CryptoKey, salt: Uint8Array, 
 export async function generateSignature(data: Uint8Array, password: string, salt: Uint8Array): Promise<ArrayBuffer> {
   const baseKey = await crypto.subtle.importKey(...buildImportKeyParams(password));
   const derivedKey = await crypto.subtle.deriveKey(...buildDeriveKeyParamsForSignature(baseKey, salt, 'sign'));
-  return crypto.subtle.sign(hmacAlgorithm, derivedKey, data);
+  return crypto.subtle.sign(signatureAlgorithm, derivedKey, data);
 }
 
 // verifySignature verifies that the passed data was signed with the
@@ -84,7 +84,7 @@ export async function generateSignature(data: Uint8Array, password: string, salt
 export async function verifySignature(data: Uint8Array, signature: ArrayBuffer, password: string, salt: Uint8Array): Promise<{ verificationSuccessful: boolean }> {
   const baseKey = await crypto.subtle.importKey(...buildImportKeyParams(password));
   const derivedKey = await crypto.subtle.deriveKey(...buildDeriveKeyParamsForSignature(baseKey, salt, 'verify'));
-  const verificationSuccessful = await crypto.subtle.verify(hmacAlgorithm, derivedKey, signature, data);
+  const verificationSuccessful = await crypto.subtle.verify(signatureAlgorithm, derivedKey, signature, data);
   return { verificationSuccessful };
 }
 
