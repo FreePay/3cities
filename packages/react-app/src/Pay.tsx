@@ -1,4 +1,3 @@
-import { isAddress } from "@ethersproject/address";
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { FaEye } from "react-icons/fa";
 import { Link, useSearchParams } from "react-router-dom";
@@ -6,21 +5,20 @@ import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
 import { ActiveDemoAccountContext } from "./ActiveDemoAccountContext";
-import { acceptReceiverProposedPayment, isReceiverProposedPayment, ReceiverProposedPayment } from "./agreements";
+import { ConnectWalletButton } from "./ConnectWalletButton";
+import QRCode from "./QRCode";
+import { RenderLogicalAssetAmount, renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
+import { RenderTokenBalance } from "./RenderTokenBalance";
+import { RenderTokenTransfer } from "./RenderTokenTransfer";
+import { ReceiverProposedPayment, acceptReceiverProposedPayment, isReceiverProposedPayment } from "./agreements";
 import { getBlockExplorerUrlForAddress, getBlockExplorerUrlForTransaction } from "./blockExplorerUrls";
 import { getChain, getSupportedChainName } from "./chains";
 import { Checkout } from "./checkout";
 import { useConnectedWalletAddressContext } from "./connectedWalletContextProvider";
-import { ConnectWalletButton } from "./ConnectWalletButton";
-import QRCode from "./QRCode";
-import { renderLogicalAssetAmount, RenderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
-import { RenderTokenBalance } from "./RenderTokenBalance";
-import { RenderTokenTransfer } from "./RenderTokenTransfer";
 import { deserializeFromModifiedBase64 } from "./serialize";
-import { getProposedStrategiesForProposedAgreement, getStrategiesForAgreement, Strategy } from "./strategies";
+import { Strategy, getProposedStrategiesForProposedAgreement, getStrategiesForAgreement } from "./strategies";
 import { getTokenKey } from "./tokens";
 import { ExecuteTokenTransferButton, ExecuteTokenTransferButtonStatus, TransactionFeeUnaffordableError } from "./transactions";
-import { truncateEthAddressVeryShort } from "./truncateAddress";
 import { useAddressOrENS } from "./useAddressOrENS";
 import { useBestStrategy } from "./useBestStrategy";
 import { useEnsName } from "./useEnsName";
@@ -28,8 +26,6 @@ import { useEnsName } from "./useEnsName";
 // TODO add a big "continue" button at bottom of "select payment method" because if you don't want to change the method, it's unclear that you have to click on the current method. --> see the "continue" button at bottom of Amazon's payment method selection during mobile checkout.
 
 // TODO use react-router routes for these different screens instead of state variables in this single route. This will make it easier to link to specific screens & payment states, and also make it easier to add new screens in the future. --> when we build the new route architecture, we'll have to figure out the right abstraction boundaries in terms of the pipeline of Checkout -> ac -> strategies -> best/otherStrategies -> pay now button -> menu of backup payment methods. There's a lot of potential ways to slice this, and I'm not sure which might be best.
-
-// ? TODO QR code to share payment receipt
 
 export const Pay: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -98,7 +94,7 @@ export const Pay: React.FC = () => {
 
   const [showFullRecipientAddress, setShowFullRecipientAddress] = useState(false);
 
-  const recipientEnsName = useEnsName(rpp.toAddress);
+  const { ensName: recipientEnsName } = useEnsName(rpp.toAddress);
 
   const recipientAddressOrEnsName: string = useAddressOrENS(rpp.toAddress,
     { truncated: !showFullRecipientAddress });
@@ -152,7 +148,7 @@ export const Pay: React.FC = () => {
     ) setSelectingPaymentMethod(false); // then we'll close the payment select view
   }, [setSelectingPaymentMethod, selectingPaymentMethod, canSelectNewStrategy, otherStrategies]);
 
-  const paymentScreen: false | JSX.Element = !selectingPaymentMethod && !status?.isSuccess && <>
+  const paymentScreen: false | JSX.Element = !status?.isSuccess && <div className={`${selectingPaymentMethod ? 'hidden' : '' /* WARNING here we hide the payment screen when selecting payment method instead of destroying it. This avoids an ExecuteTokenTransferButton remount each time the payment method changes, which is a mechanism to test reset logic and code paths. */}`}>
     <div className="w-full py-6">
       {(() => {
         if (!isConnected) return <ConnectWalletButton disconnectedLabel="Connect Wallet to Pay" />;
@@ -179,7 +175,7 @@ export const Pay: React.FC = () => {
         />
           {!retryButton && activeDemoAccount && (
             <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-tertiary-darker-2 text-sm whitespace-nowrap text-center">
-              disabled:<br/>demo is read-only
+              disabled when<br />impersonating
             </span>
           )}
           {retryButton}
@@ -216,7 +212,7 @@ export const Pay: React.FC = () => {
         </button>({otherStrategies.length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment methods)</span>}
       </div>
     </div>}
-  </>;
+  </div>;
 
   const acceptedTokensAndChainsBox: false | JSX.Element = ac !== undefined && bestStrategy === undefined && <div className="w-full">
     {(() => {
@@ -232,10 +228,10 @@ export const Pay: React.FC = () => {
     })()}
   </div>;
 
-  const selectPaymentMethodScreen: false | JSX.Element = selectingPaymentMethod && bestStrategy !== undefined && otherStrategies !== undefined && otherStrategies.length > 0 && <div className="grid grid-cols-1 w-full items-center py-6">
+  const selectPaymentMethodScreen: false | JSX.Element = bestStrategy !== undefined && otherStrategies !== undefined && otherStrategies.length > 0 && <div className={`grid grid-cols-1 w-full items-center py-6 ${selectingPaymentMethod ? '' : 'hidden'}`}>
     <div className="font-bold text-2xl">Select a payment method</div>
     <div className="py-2 flex items-end justify-between">
-      <div className="font-bold text-lg">Paying with</div>
+      <div className="font-bold text-lg">Pay with</div>
       <div className="font-bold text-sm">Your balance</div>
     </div>
     {[bestStrategy, ...otherStrategies].map((s, i) => {
@@ -266,7 +262,7 @@ export const Pay: React.FC = () => {
 
   const paymentSuccessfulBaseText: string = (() => {
     if (status?.isSuccess) {
-      return `Hey, I paid you ${renderLogicalAssetAmount({ ...checkout.proposedAgreement, showAllZeroesAfterDecimal: true })} using https://3cities.xyz.`;
+      return `Hey, I paid you ${renderLogicalAssetAmount({ ...checkout.proposedAgreement, showAllZeroesAfterDecimal: true })}${rpp.note ? ` for ${rpp.note}` : ''} using https://3cities.xyz.`;
     } else return ' ';
   })();
 
@@ -300,7 +296,7 @@ export const Pay: React.FC = () => {
       className="rounded-md p-3.5 font-medium bg-primary text-white sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer w-full"
       disabled={isPaymentSuccessfulShareCopied} onClick={() => {
         const toShare = {
-          title: "Money sent",
+          // title: "Money sent", // we omit title because some share contexts include it, some omit it, and we prefer our share content to be minimalist and consistently include no title
           text: paymentSuccessfulTextNoLinkToShare,
           ...(paymentSuccessfulBlockExplorerReceiptLink && { url: paymentSuccessfulBlockExplorerReceiptLink }),
         };
@@ -308,22 +304,23 @@ export const Pay: React.FC = () => {
           navigator.share(toShare);
         } else setIsPaymentSuccessfulShareCopied();
       }}>
-      {isPaymentSuccessfulShareCopied ? 'Copied. Paste to them in a DM' : 'Let them know you paid'}
+      {isPaymentSuccessfulShareCopied ? 'Receipt Copied' : 'Let them know you paid'}
     </button>
-    {paymentSuccessfulBlockExplorerReceiptLink && <div className="flex justify-center items-center">
+    {paymentSuccessfulBlockExplorerReceiptLink && <div className="flex flex-col justify-center items-center gap-2">
       <QRCode data={paymentSuccessfulBlockExplorerReceiptLink} />
+      <span>Scan for <a href={paymentSuccessfulBlockExplorerReceiptLink} target="_blank" rel="noopener noreferrer" className="text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer"> receipt</a></span>
     </div>}
     <div className="grid grid-cols-1 w-full items-center gap-4">
-      <span className="text-center">3cities doesn&apos;t let them know you paid (yet)</span>
-      <span className="text-center">Thanks for using 3cities! ❤️</span>
-      <span className="text-center"><Link to="/request-money" className="text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer">Request Money</Link></span>
+      <Link to="/pay-link">
+        <button
+          type="button"
+          className="rounded-md p-3.5 font-medium bg-primary text-white sm:hover:bg-primary-darker sm:hover:cursor-pointer w-full">
+          Send a new Pay Link
+        </button>
+      </Link>
     </div>
-  </div> : undefined;
 
-  const activeDemoAccountRendered = activeDemoAccount && isAddress(activeDemoAccount) ? truncateEthAddressVeryShort(activeDemoAccount) : activeDemoAccount;
-  const demoExplanation = activeDemoAccount && <div className="grid grid-cols-1 w-full items-center p-2 gap-4">
-    <span className="text-left text-tertiary-darker-2">Demo notice: 3cities is impersonating {activeDemoAccountRendered} as a demo. When paying, 3cities live searches supported chains to find payment methods and plugs the best payment method into a 1-Click &quot; Pay Now&quot; button. All data are auto-updated (no need to refresh page). Try changing the payment method or connecting your own wallet.</span>
-  </div>;
+  </div> : undefined;
 
   return (
     <div className="grid grid-cols-1">
@@ -331,7 +328,6 @@ export const Pay: React.FC = () => {
       {acceptedTokensAndChainsBox}
       {selectPaymentMethodScreen}
       {paymentSuccessfulScreen}
-      {demoExplanation}
     </div>
   );
 } 
