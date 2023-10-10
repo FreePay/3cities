@@ -94,6 +94,13 @@ export const wagmiClient = createClient({
   ],
 });
 
+// TODO -- I'd like to apply certain default options to all wagmi hooks, however based on testing, the staleTime below isn't actually applied to all queries, and staleTime must be added manually to each hook's options. How to fix this to properly apply default query options to all hooks? --> Perhaps don't try again until we update to latest wagmi.
+// wagmiClient.queryClient.setDefaultOptions({
+//   queries: Object.assign({}, wagmiClient.queryClient.getDefaultOptions().queries, { // use this Object.assign to preserve existing default query options, overwriting only opts we wish to update.
+//     staleTime: 15_000, // milliseconds until cached result is considered stale and will be refetched if subsequently requested. One reason it's important for us to have a short stale time is that if a user is temporarily offline, a result fetched while offline will be undefined and that undefined result will persist in the cache even after the user goes back online. For example, if we fetch a token balance or resolve an ENS name while the user is temporarily offline, that empty result will make it seem like the user has a zero balance for that token or an ENS name that's invalid or has address unset, when in reality the user was only temporarily offline and we want to re-fetch data when back online.
+//   }),
+// });
+
 let web3AuthConnector: Web3AuthConnector | undefined = undefined;
 
 // ensureWeb3AuthConnectorDestroyed ensures that any extant

@@ -1,7 +1,7 @@
 import { formatUnits } from "@ethersproject/units";
 import React from "react";
 import { formatFloat, FormatFloatOpts } from "./formatFloat";
-import { getDecimalsToRenderForLogicalAssetTicker, logicalAssetDecimals, LogicalAssetTicker } from "./logicalAssets";
+import { addCanonicalFormatToLogicalAssetValue, getDecimalsToRenderForLogicalAssetTicker, logicalAssetDecimals, LogicalAssetTicker } from "./logicalAssets";
 
 type RenderLogicalAssetAmountProps = {
   logicalAssetTicker: LogicalAssetTicker; // logical asset ticker of the amount to be rendered
@@ -16,25 +16,7 @@ export const RenderLogicalAssetAmount: React.FC<RenderLogicalAssetAmountProps> =
 }
 
 export function renderLogicalAssetAmount({ logicalAssetTicker, amountAsBigNumberHexString, showAllZeroesAfterDecimal }: RenderLogicalAssetAmountProps): string {
-  const prefix: string = (() => {
-    switch (logicalAssetTicker) {
-      case 'ETH': return '';
-      case 'USD': return '$';
-      case 'CAD': return 'CAD$';
-      case 'EUR': return '';
-    }
-  })();
-
-  const suffix: string = (() => {
-    switch (logicalAssetTicker) {
-      case 'ETH': return ' ETH';
-      case 'USD': return '';
-      case 'CAD': return '';
-      case 'EUR': return '€';
-    }
-  })();
-
   const formatFloatOpts: FormatFloatOpts | undefined = showAllZeroesAfterDecimal ? { showAllZeroesAfterDecimal: true } : undefined;
   const formattedFloat = formatFloat(formatUnits(amountAsBigNumberHexString, logicalAssetDecimals), getDecimalsToRenderForLogicalAssetTicker(logicalAssetTicker), formatFloatOpts);
-  return `${prefix}${formattedFloat}${suffix}`;
+  return `${addCanonicalFormatToLogicalAssetValue(logicalAssetTicker, formattedFloat)}`;
 }
