@@ -5,7 +5,7 @@ import { Outlet, ScrollRestoration } from "react-router-dom";
 import { Toaster } from 'sonner';
 import { WagmiConfig } from "wagmi";
 import { ConnectedWalletAddressContextObserverProvider } from "./connectedWalletContextProvider";
-import { DemoAccountProvider } from "./UseDemoAccount";
+import { DemoAccountProvider } from "./DemoAccountProvider";
 import { wagmiClient } from "./wagmiClient";
 
 const connectKitOptions: ConnectKitOptions = {
