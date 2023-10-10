@@ -300,8 +300,8 @@ export const Pay: React.FC = () => {
           text: paymentSuccessfulTextNoLinkToShare,
           ...(paymentSuccessfulBlockExplorerReceiptLink && { url: paymentSuccessfulBlockExplorerReceiptLink }),
         };
-        if (navigator.canShare && navigator.canShare(toShare)) {
-          navigator.share(toShare);
+        if (navigator.canShare && navigator.canShare(toShare)) { // test the Web Share API on desktop by enabling this flag chrome://flags/#web-share
+          navigator.share(toShare).catch(e => console.warn(e));
         } else setIsPaymentSuccessfulShareCopied();
       }}>
       {isPaymentSuccessfulShareCopied ? 'Receipt Copied' : 'Let them know you paid'}
