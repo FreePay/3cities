@@ -6,7 +6,6 @@ import { toast } from "sonner";
 import { useAccount } from "wagmi";
 import { ActiveDemoAccountContext } from "./ActiveDemoAccountContext";
 import { ConnectWalletButton } from "./ConnectWalletButton";
-import { useCheckoutSettings } from "./CheckoutSettingsProvider";
 import QRCode from "./QRCode";
 import { RenderLogicalAssetAmount, renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
 import { RenderTokenBalance } from "./RenderTokenBalance";
@@ -20,6 +19,7 @@ import { getTokenKey } from "./tokens";
 import { ExecuteTokenTransferButton, ExecuteTokenTransferButtonStatus, TransactionFeeUnaffordableError } from "./transactions";
 import { useAddressOrENS } from "./useAddressOrENS";
 import { useBestStrategy } from "./useBestStrategy";
+import { useCheckoutSettings } from "./useCheckoutSettings";
 import { useEnsName } from "./useEnsName";
 
 // TODO add a big "continue" button at bottom of "select payment method" because if you don't want to change the method, it's unclear that you have to click on the current method. --> see the "continue" button at bottom of Amazon's payment method selection during mobile checkout.
