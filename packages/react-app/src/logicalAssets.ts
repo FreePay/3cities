@@ -1,61 +1,84 @@
 import { BigNumber } from "@ethersproject/bignumber";
 import { parseUnits } from "@ethersproject/units";
+import { LogicalAssetTicker as LogicalAssetTickerPb } from "./gen/threecities/v1/v1_pb";
 
-// Design note: we have designed logical assets to have no dependecies (or at least, no dependency on tokens) so that the infrastructure for building and computing data structures over logical assets is separate from and doesn't depend on our supported crypto tokens or chains. Below, we implicitly connect logical assets to crypto tokens by providing a list of supported crypto token tickers for each logical asset. Note that these crypto token tickers don't actually have to exist and be supported by our system; if they don't exist, they'll simply be ignored silently at runtime.
+export type LogicalAssetTicker = Exclude<keyof typeof LogicalAssetTickerPb, 'UNSPECIFIED'>; // here, we use the protobuf definition of logical asset tickers to be our single authoritative definition, and derive our app-layer logical asset ticker types from protobuf definitions in a typesafe manner.
 
-export type LogicalAssetTicker = 'ETH' | 'USD' | 'CAD' | 'EUR';
+export const allLogicalAssetTickers: Readonly<LogicalAssetTicker[]> = (() => { // the set of all logical asset tickers we support
+  const o: { [lat in LogicalAssetTicker]: lat } = { // this literal is a "self-mapped" mapped type that enforces that the value for a given key must be the same as the key, while also enforcing that the set of keys is the complete set of LogicalAssetTickers. Combined with Object.values, it gives us a typesafe way to generate a complete list of logical asset tickers. If we instead tried to use Object.keys, it wouldn't be typesafe because Object.keys returns string[] and loses the type information, but Object.values retains the type information.
+    ETH: 'ETH',
+    USD: 'USD',
+    CAD: 'CAD',
+    EUR: 'EUR',
+  };
+  return Object.freeze(Object.values(o));
+})();
 
-export type LogicalAsset = {
-  ticker: LogicalAssetTicker, // ticker for this logical asset
+type PrefixXorSuffix = Readonly<{
+  prefix: string,
+  suffix?: never,
+} | {
+  prefix?: never,
+  suffix: string,
+}>
+
+export type LogicalAsset = Readonly<{
+  ticker: keyof typeof logicalAssetsByTicker, // ticker for this logical asset
   name: string, // human-readable name for this logical asset
-  supportedTokenTickers: { [tokenTicker: string]: true }, // set of crypto tokens we support where 1.0 unit sof each of these tokens is equivalent to 1.0 units of this logical asset. For example, "1 DAI == 1 USD"
-};
+  shortDescription: string, // human-readable short description for this logical asset, suitable to be displayed as a stand-alone explanation of the asset. Eg. on a button label
+  longDescription: string, // human-readable long description for this logical asset, suitable to be displayed as a stand-alone explanation of the asset. Eg. as a FAQ or glossary entry
+  symbol: PrefixXorSuffix, // human-readable symbol (ie. short, succinct) prefix and suffix for this logical asset
+  canonicalFormat: PrefixXorSuffix, // human-readable canonical format (ie. ordinary, conversational) prefix and suffix for this logical asset
+  verboseFormat: PrefixXorSuffix,  // human-readable verbose format (ie. unambiguous, formal) prefix and suffix for this logical asset
+}>;
 
 export const logicalAssetsByTicker: Readonly<{ [key in LogicalAssetTicker]: LogicalAsset }> = {
   'ETH': {
     ticker: 'ETH',
     name: 'Ether',
-    supportedTokenTickers: {
-      'ETH': true,
-      'WETH': true,
-    },
+    shortDescription: 'Ethereum ETH',
+    longDescription: 'Ether, the native currency of the Ethereum blockchain and many of its Layer-2 blockchains',
+    symbol: { prefix: 'Ξ' },
+    canonicalFormat: { suffix: ' ETH' },
+    verboseFormat: { suffix: ' ETH' },
   },
   'USD': {
     ticker: 'USD',
-    name: 'US Dollars',
-    supportedTokenTickers: {
-      'DAI': true,
-      'USDC': true,
-      'USDT': true,
-      'LUSD': true,
-    },
-  },
-  'CAD': {
-    ticker: 'CAD',
-    name: 'Canadian Dollars',
-    supportedTokenTickers: {
-      'CADC': true,
-    },
+    name: 'US Dollar',
+    shortDescription: 'US Dollar $',
+    longDescription: 'United States Dollar',
+    symbol: { prefix: '$' },
+    canonicalFormat: { prefix: '$' },
+    verboseFormat: { prefix: 'US$' },
   },
   'EUR': {
     ticker: 'EUR',
-    name: 'Euros',
-    supportedTokenTickers: {
-      'EURT': true,
-    },
+    name: 'Euro',
+    shortDescription: 'Euro €',
+    longDescription: 'European Union Euro',
+    symbol: { suffix: '€' },
+    canonicalFormat: { suffix: '€' },
+    verboseFormat: { suffix: '€' },
+  },
+  'CAD': {
+    ticker: 'CAD',
+    name: 'Canadian Dollar',
+    shortDescription: 'Canadian Dollar $',
+    longDescription: 'Canadian Dollar',
+    symbol: { prefix: '$' },
+    canonicalFormat: { prefix: '$' },
+    verboseFormat: { prefix: 'CA$' },
   },
 };
 
-export const logicalAssets: Readonly<LogicalAsset[]> = Object.values(logicalAssetsByTicker);
-
-// allLogicalAssetTickers is the set of all logical asset tickers we support.
-export const allLogicalAssetTickers = Object.keys(logicalAssetsByTicker);
+export const logicalAssets: Readonly<LogicalAsset[]> = Object.values(logicalAssetsByTicker); // the set of all logical assets we support
 
 export const logicalAssetDecimals = 6; // all logical assets have 6 decimals, ie. we model their amounts as if they were tokens with 6 decimals. For example, a logical asset amount for $5.75 is `5.75 * 10^6`. This allows us to map logical asset amounts to popular token amounts with no loss in precision because USDC and USDT have 6 decimals (requiring no widening) and ETH and DAI have 18 decimals (logical assets can be widened with no loss in precision by multiplying the logical asset amount by 10^12). However, this modeling means that logical assets can't express the full precision of ETH and DAI, eg. logical assets can't express the precision of wei or gwei
 
 // parseLogicalAssetAmount takes a string representation of a float
-// amount, such as "5.75" and returns the logical asset integer amount
-// based on the number of token decimals used for logical assets.
+// amount, such as "5.75" and returns the full-precision logical asset
+// integer amount based on the number of token decimals used for logical
+// assets.
 export function parseLogicalAssetAmount(amount: string): BigNumber {
   return parseUnits(amount, logicalAssetDecimals);
 }
@@ -63,24 +86,49 @@ export function parseLogicalAssetAmount(amount: string): BigNumber {
 const ten: BigNumber = BigNumber.from(10);
 
 // convertLogicalAssetUnits converts the passed logicalAssetAmount
-// (which is assumed to have logicalAssetDecimals decimal places
-// because it was constructed with parseLogicalAssetAmount) into the
-// passed newDecimals count of decimal places. For example,
-// `convertLogicalAssetUnits(myLogicalAssetAmount, DAI.decimals)`
-// converts the passed logical asset amount into a DAI amount.
+// (which is assumed to have the full-precision logicalAssetDecimals
+// decimal places because it was constructed with
+// parseLogicalAssetAmount) into the passed newDecimals count of decimal
+// places. For example, `convertLogicalAssetUnits(myLogicalAssetAmount,
+// DAI.decimals)` converts the passed logical asset amount into a DAI
+// amount.
 export function convertLogicalAssetUnits(logicalAssetAmount: BigNumber, newDecimals: number): BigNumber {
   if (newDecimals < logicalAssetDecimals) throw new Error(`convertLogicalAssetUnits: unsupported narrowing of passed logical asset amount to newDecimals=${newDecimals}`); // TODO support narrowing
   return logicalAssetAmount.mul(ten.pow(newDecimals - logicalAssetDecimals));
 }
 
-// getDecimalsToRenderForTLogicalAsseticker returns the canonical
-// number of digits after the decimal point to render for a logical
-// asset based on its passed ticker.
-export function getDecimalsToRenderForLogicalAssetTicker(ticker: LogicalAssetTicker): number {
-  switch (ticker) {
+// getDecimalsToRenderForTLogicalAsseticker returns the canonical number
+// of digits after the decimal point to render for a logical asset based
+// on its passed ticker.
+export function getDecimalsToRenderForLogicalAssetTicker(lat: LogicalAssetTicker): number {
+  switch (lat) {
     case 'ETH': return 4;
     case 'USD': return 2;
     case 'CAD': return 2;
     case 'EUR': return 2;
   }
+}
+
+// addSymbolToLogicalAssetValue takes the passed human-readable logical
+// asset value and applies its logical asset symbol to the value.
+// Example input: "5.35", example output: "$5.35".
+export function addSymbolToLogicalAssetValue(lat: LogicalAssetTicker, value: string): string {
+  const la = logicalAssetsByTicker[lat];
+  return `${la.symbol.prefix ?? ''}${value}${la.symbol.suffix ?? ''}`;
+}
+
+// addCanonicalFormatToLogicalAssetValue takes the passed human-readable
+// logical asset value and applies its canonical format to the value.
+// Example input: "5.35", example output: "5.35 ETH".
+export function addCanonicalFormatToLogicalAssetValue(lat: LogicalAssetTicker, value: string): string {
+  const la = logicalAssetsByTicker[lat];
+  return `${la.canonicalFormat.prefix ?? ''}${value}${la.canonicalFormat.suffix ?? ''}`;
+}
+
+// addVerboseFormatToLogicalAssetValue takes the passed human-readable
+// logical asset value and applies its canonical format to the value.
+// Example input: "5.35", example output: "5.35 ETH".
+export function addVerboseFormatToLogicalAssetValue(lat: LogicalAssetTicker, value: string): string {
+  const la = logicalAssetsByTicker[lat];
+  return `${la.verboseFormat.prefix ?? ''}${value}${la.verboseFormat.suffix ?? ''}`;
 }
