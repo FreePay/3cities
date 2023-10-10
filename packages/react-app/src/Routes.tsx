@@ -2,7 +2,7 @@ import React from "react";
 import { createHashRouter, createRoutesFromElements, Route } from "react-router-dom";
 import { About } from "./About";
 import { BuildInfo } from "./BuildInfo";
-import { ContextLink } from "./ContextLink";
+import { CheckoutSettingsProvider } from "./ContextLink";
 import { ConversionWrapper } from "./ConversionWrapper";
 import { FAQ } from "./FAQ";
 import { GlobalErrorBoundary } from "./GlobalErrorBoundary";
@@ -12,6 +12,7 @@ import { Home } from "./Home";
 import { MainWrapper } from "./MainWrapper";
 import { Me } from "./Me";
 import { Pay } from "./Pay";
+import { PayLinkNotFound } from "./PayLinkNotFound";
 import { RequestMoney } from "./RequestMoney";
 
 // TODO local error boundaries
@@ -19,10 +20,10 @@ export const router = createHashRouter(createRoutesFromElements(
   <Route path="/" element={<GlobalProviders />} errorElement={<GlobalErrorBoundary />}
   // loader={() => {
   //   console.log("router loader");
-  //   return new Promise((resolve) => {
+  //   return new Promise<null>((resolve) => {
   //     setTimeout(() => {
   //       console.log("router loader done");
-  //       resolve(undefined);
+  //       resolve(null);
   //     }, 5000);
   //   });
   // }}
@@ -42,16 +43,16 @@ export const router = createHashRouter(createRoutesFromElements(
       <Route path="payment-method" element={<PaymentMethodLandingPage />} /> */}
       <Route path="buildinfo" element={<BuildInfo />} />
     </Route>
-    {/* <Route path="0/:serialized" loader={deserializeContextLink} errorElement={<InvalidContextLink /> /> // no `element`; loader either throws redirect or throws error https://reactrouter.com/en/main/start/overview#redirects */}
-    <Route
-      // loader={deserializeContextLink}
-      element={<ContextLink />}>
-      {/* NB some routes don't need ConversionWrapper but do need ContextLink (such as a merchant employee point-of-sale dashboard); and some routes need both ConversionWrapper and ContextLink. And some future routes may need only ConversionWrapper but not ContextLink. */}
+    {/* NB some routes don't need ConversionWrapper but do need CheckoutSettingsProvider (such as a merchant employee point-of-sale dashboard); and some routes need both ConversionWrapper and CheckoutSettingsProvider. And some future routes may need only ConversionWrapper but not CheckoutSettingsProvider. */}
+    <Route element={<CheckoutSettingsProvider elementForPathIfCheckoutSettingsNotFound={{
+      /* NB when using both CheckoutSettingsProvider and ConversionWrapper, ConversionWrapper must be nested inside CheckoutSettingsProvider so that if the CheckoutSettings deserialization fails, the fallback element is not rendered inside the ConversionWrapper (as these fallbacks are typically standalone error pages) */
+      'pay': <PayLinkNotFound />,
+    }} />}>
       <Route element={<ConversionWrapper />}>
         <Route path="pay" element={<Pay />} />
-        {/* <Route path="donate" element={<Donate />} />
-        <Route path="prepare-checkout" element={<PointOfSaleCheckoutConfig />} />
-        <Route path="checkout" element={<Checkout />} /> */}
+        {/* <Route path="donate" element={<Donate />} /> */}
+        {/* <Route path="prepare-checkout" element={<PointOfSaleCheckoutConfig />} />  */}
+        {/* <Route path="checkout" element={<Checkout />} /> */}
       </Route>
     </Route>
   </Route>
