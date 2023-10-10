@@ -1,15 +1,15 @@
 import { BigNumber } from "@ethersproject/bignumber";
 import { arbitrum, arbitrumGoerli, mainnet, optimism, polygon } from '@wagmi/core/chains';
+import { StrategyPreferences } from "./StrategyPreferences";
+import { NativeCurrency, Token, isToken } from "./Token";
 import { AddressContext, canAfford } from "./addressContext";
-import { Agreement, isPayment, isReceiverProposedPayment, ProposedAgreement } from "./agreements";
+import { Agreement, Payment, ProposedAgreement, isPayment, isReceiverProposedPayment } from "./agreements";
 import { arbitrumNova, chainsSupportedBy3cities, polygonZkEvm, zkSync } from "./chains";
 import { isProduction } from "./isProduction";
 import { convertLogicalAssetUnits } from "./logicalAssets";
 import { getNativeCurrenciesAndTokensForLogicalAssetTicker } from "./logicalAssetsToTokens";
-import { StrategyPreferences } from "./StrategyPreferences";
-import { NativeCurrency, Token } from "./Token";
+import { TokenTransfer, TokenTransferForNativeCurrency, TokenTransferForToken } from "./tokenTransfer";
 import { allTokenKeys, allTokenTickers, getTokenKey } from "./tokens";
-import { TokenTransfer } from "./tokenTransfer";
 
 // TODO consider replacing "Strategy" with "PaymentMethod" in every context
 
@@ -101,15 +101,11 @@ export function getStrategiesForAgreement(prefs: StrategyPreferences, a: Agreeme
       .filter(isTokenSupported)
       .filter(isTokenPermittedByStrategyPreferences.bind(null, prefs))
       .map(token => {
-        return {
+        const s: Strategy = {
           agreement: a,
-          tokenTransfer: {
-            toAddress: a.toAddress,
-            fromAddress: a.fromAddress,
-            token,
-            amountAsBigNumberHexString: convertLogicalAssetUnits(BigNumber.from(a.amountAsBigNumberHexString), token.decimals).toHexString(),
-          },
+          tokenTransfer: unsafeMakeTokenTransferForPaymentAndToken(a, token),
         };
+        return s;
       })
       .filter(s => canAfford(ac, getTokenKey(s.tokenTransfer.token), s.tokenTransfer.amountAsBigNumberHexString)) // having already generated the set of possible strategies (which were already filtered to obey strategy preferences), we now further filter the strategies to accept only those affordable by the passed address context. Ie. here is where we ensure that the computed strategies are affordable by the payor
     );
@@ -117,6 +113,28 @@ export function getStrategiesForAgreement(prefs: StrategyPreferences, a: Agreeme
   // TODO support generation of strategies based on exchange rates, eg. if payment is for $5 USD then we should support a strategy of paying $5 in ETH and vice versa
   // console.log("getStrategiesForAgreement prefs=", prefs, "a=", a, "r=", ss);
   return sortStrategiesByPriority(staticChainIdPriority, staticTokenTickerPriority, ss);
+}
+
+// unsafeMakeTokenTransferForPaymentAndToken constructs a TokenTransfer
+// for the passed Payment and Token. Precondition: the passed payment
+// can be settled in the passed token. Ie. this function is marked
+// unsafe because of the constrictive precondition that the client must
+// have already safely determined that the passed payment can be settled
+// in the passed token.
+function unsafeMakeTokenTransferForPaymentAndToken(p: Payment, token: Token | NativeCurrency): TokenTransfer {
+  const ttPartial: Omit<TokenTransfer, 'token'> = {
+    toAddress: p.toAddress,
+    fromAddress: p.fromAddress,
+    amountAsBigNumberHexString: convertLogicalAssetUnits(BigNumber.from(p.amountAsBigNumberHexString), token.decimals).toHexString(),
+  };
+  // The following curious block of code is needed because until the type guard isToken is executed, TypeScript can't infer that `token` is assignable to TokenTransfer.token:
+  if (isToken(token)) {
+    const tt: TokenTransferForToken = Object.assign(ttPartial, { token });
+    return tt;
+  } else {
+    const tt: TokenTransferForNativeCurrency = Object.assign(ttPartial, { token });
+    return tt;
+  }
 }
 
 type ChainIdPriority = {
