@@ -1,5 +1,6 @@
-import React, { useCallback, useContext, useState } from "react";
+import React, { useCallback, useState } from "react";
 import { Outlet, useMatches, useSearchParams } from "react-router-dom";
+import { CheckoutSettingsContext } from "./CheckoutSettingsContext";
 import { Checkout } from "./checkout";
 import { deserializeFromModifiedBase64 } from "./serialize";
 import { useEffectSkipFirst } from "./useEffectSkipFirst";
@@ -35,8 +36,6 @@ import { useEffectSkipFirst } from "./useEffectSkipFirst";
 // will run in parallel. But today, none of our components require data
 // to be fetched before the initial render, so it's not beneficial to
 // us.
-
-const CheckoutSettingsContext = React.createContext<Checkout | undefined>(undefined); // the CheckoutSettings that was deserialized from its url param
 
 const checkoutSettingsGlobalCache: { [serialized: string]: Checkout } = {}; // a global cache of (serialized CheckoutSettings -> deserialized CheckoutSettings) to prevent redundant deserializations. This is efficient enough because serialized CheckoutSettings are relatively short (today ranging from ~45 chars to 100s of chars)
 
@@ -94,14 +93,4 @@ export function CheckoutSettingsProvider(props: Props): React.ReactNode {
     if (elForPath !== undefined) return elForPath;
     else throw new Error("invalid link but couldn't match a fallback element for the current path=" + matches[matches.length - 1]?.pathname);
   }
-}
-
-// useCheckoutSettings returns the contextual CheckoutSettings that's
-// been provided by CheckoutSettingsProvider, or throws an error if
-// useCheckoutSettings is used in a component that isn't a descendant of
-// CheckoutSettingsProvider.
-export function useCheckoutSettings(): Checkout {
-  const cs = useContext(CheckoutSettingsContext);
-  if (!cs) throw new Error("useCheckoutSettings must be used within a descendant of CheckoutSettingsProvider");
-  else return cs;
 }
