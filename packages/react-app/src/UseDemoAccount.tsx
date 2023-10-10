@@ -114,7 +114,7 @@ interface MockConnectedAddressProps {
 
 const demoAccountSearchParam = "demoAccount";
 
-export const UseDemoAccount: React.FC<MockConnectedAddressProps> = ({ children }) => {
+export const DemoAccountProvider: React.FC<MockConnectedAddressProps> = ({ children }) => {
   const [searchParams] = useSearchParams();
   const [shouldConnectToDemoAccount, setShouldConnectToDemoAccount] = useState<boolean>(true); // when the page loads, we'll connect to any demo account requested by the client via URL search param, overriding any other (re)connected account. We want the user to be able to disconnect any demo account and connect their own account, so we'll use shouldConnectToDemoAccount to track disconnection of the demo account and never reconnect it. If the demo account is disconnected, the user must reload the page to reconnect it. We don't want to modify the URL search params because we want to preserve the demo account in case the page is reloaded or link is shared.
 

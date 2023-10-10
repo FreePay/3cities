@@ -943,7 +943,7 @@ function isChainMismatchError(e: Error | undefined | null): boolean {
     if (
       // eslint-disable-next-line rulesdir/no-instanceof-ChainMismatchError
       (e instanceof ChainMismatchError) // canonically and usually, a chain mismatch error is correctly an instanceof ChainMismatchError.
-      || (hasOwnPropertyOfType(e, 'name', 'string') && e.name === 'ChainMismatchError') // however, sometimes a chain mismatch error can be an object that isn't an instanceof ChainMisMatchErorr and instead has a name property with the value 'ChainMismatchError'. TODO file this bug in wagmi --> a reproduction might be found using our UseDemoAccount mock addresses.
+      || (hasOwnPropertyOfType(e, 'name', 'string') && e.name === 'ChainMismatchError') // however, sometimes a chain mismatch error can be an object that isn't an instanceof ChainMisMatchErorr and instead has a name property with the value 'ChainMismatchError'. TODO file this bug in wagmi --> a reproduction might be found using our DemoAccountProvider mock addresses.
     ) return true;
     else return false;
   }
