@@ -1,7 +1,8 @@
 import React from "react";
 import { Link } from 'react-router-dom';
 import { chainsSupportedBy3cities } from "./chains";
-import { allLogicalAssetTickers, logicalAssetsByTicker } from "./logicalAssets";
+import { allLogicalAssetTickers } from "./logicalAssets";
+import { getNativeCurrenciesAndTokensForLogicalAssetTicker, isTokenTickerSupportedByLogicalAsset } from "./logicalAssetsToTokens";
 import { allTokenTickers } from "./tokens";
 
 export const About: React.FC = () => {
@@ -56,10 +57,10 @@ export const About: React.FC = () => {
     </ul>
     <h2 className="text-2xl my-4">Supported Assets and Networks</h2>
     <p className="mb-4">
-      Currencies: {allLogicalAssetTickers.filter(t => t === 'USD').join(", ")} (ETH and EUR coming soon)
+      Currencies: {allLogicalAssetTickers.filter(lat => getNativeCurrenciesAndTokensForLogicalAssetTicker(lat).length > 0).join(", ") /* ie. our customer-facing list of supported currencies are the logical assets with at least one supported native currecny or token */} 
     </p>
     <p className="mb-4">
-      Tokens: {allTokenTickers.filter(t => logicalAssetsByTicker['USD'].supportedTokenTickers[t] === true).join(", ")}
+      Tokens: {allLogicalAssetTickers.flatMap(lat => allTokenTickers.filter(isTokenTickerSupportedByLogicalAsset.bind(null, lat))).join(', ')}
     </p>
     <p>
       Chains: {chainsSupportedBy3cities.map(c => c.name).join(", ")}
