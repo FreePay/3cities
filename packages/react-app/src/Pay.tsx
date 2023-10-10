@@ -74,11 +74,9 @@ export const Pay: React.FC = () => {
   const retryButton = status?.isError ? <div className="grid grid-cols-1 w-full gap-4">
     <div className="mt-4 grid grid-cols-2 w-full gap-4">
       <button className="bg-primary sm:hover:bg-primary-darker sm:hover:cursor-pointer text-white font-bold py-2 px-4 rounded" onClick={doReset}>Retry</button>
-      <button className="bg-primary sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer text-white font-bold py-2 px-4 rounded" disabled={isErrorCopied} onClick={setCopied}>{isErrorCopied ? 'Copied. Please DM to @3cities_xyz' : 'Copy Error'}</button>
+      <button className="bg-primary sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer text-white font-bold py-2 px-4 rounded" disabled={isErrorCopied} onClick={setCopied}>{isErrorCopied ? 'Copied. DM to @3cities_xyz' : 'Copy Error'}</button>
     </div>
-    <span className="text-sm text-center">Sorry 😱</span>
     <span className="text-sm text-center">Please <span className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker" onClick={setCopied}>copy error</span> and<br />paste in a DM to <a href="https://twitter.com/3cities_xyz" target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker">@3cities_xyz</a></span>
-    <span className="text-sm text-center">Please submit the error for us to improve!</span>
   </div> : undefined;
 
   const strategies = useMemo<Strategy[] | undefined>(() => {
