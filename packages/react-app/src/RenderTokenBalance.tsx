@@ -1,7 +1,7 @@
 import React from "react";
-import { getSupportedChainName } from "./chains";
 import { RenderRawTokenBalance, RenderRawTokenBalanceProps } from "./RenderRawTokenBalance";
 import { TokenBalance } from "./TokenBalance";
+import { getSupportedChainName } from "./chains";
 import { getTokenByTokenKey } from "./tokens";
 
 type RenderTokenBalanceProps = {
@@ -18,6 +18,6 @@ export const RenderTokenBalance: React.FC<RenderTokenBalanceProps> = (props) => 
     ticker={t.ticker}
     decimals={t.decimals}
     chainName={getSupportedChainName(t.chainId)}
-    {...props}
+    {...(props.opts && { opts: props.opts })}
   />;
 }
