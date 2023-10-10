@@ -3,16 +3,15 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { TransactionReceipt } from "@ethersproject/providers";
 import { ChainMismatchError } from '@wagmi/core';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { SwitchChainError, useAccount, useContractWrite, useNetwork, usePrepareContractWrite, UserRejectedRequestError, useSwitchNetwork, useWaitForTransaction } from 'wagmi';
+import { SwitchChainError, UserRejectedRequestError, useAccount, useContractWrite, useNetwork, usePrepareContractWrite, usePrepareSendTransaction, useSendTransaction, useSwitchNetwork, useWaitForTransaction } from 'wagmi';
+import { Spinner } from "./Spinner";
+import { Writable } from "./Writable";
 import { getSupportedChainName } from "./chains";
 import { hasOwnPropertyOfType } from "./hasOwnProperty";
-import { makeAddress } from "./makeAddress";
-import { Narrow } from "./Narrow";
-import { makeObservableValue, Observer, useObservedValue } from "./observer";
-import { Spinner } from "./Spinner";
-import { isToken } from "./tokens";
-import { TokenTransfer, TokenTransferForNativeCurrency, TokenTransferForToken } from "./tokenTransfer";
-import { Writable } from "./Writable";
+import { Observer, makeObservableValue, useObservedValue } from "./observer";
+import { TokenTransfer, isTokenAndNotNativeCurrencyTransfer } from "./tokenTransfer";
+
+// TODO build and save list of test cases to check all ExecuteTokenTransfer code paths, eg. (automatic retries, other features) X (token, native currency) X (wallets) X (networks) X (different transfer amounts including very small amounts)
 
 // TODO s/transactions.tsx/ExecuteTokenTransfer.tsx
 
@@ -390,56 +389,30 @@ export type ExecuteTokenTransferProps = {
   setStatus: (status: ExecuteTokenTransferStatus) => void; // callback for the client to receive updated transfer status. This callback is mandatory because the client must call status.execute() to move the transfer forward. React note: if an ancestor component of ExecuteTokenTransfer caches this updated status as state, then ExecuteTokenTransfer will rerender redundantly each time it updates the status (because an ancestor's subtree rerenders on state change). These redundant rerenders can be avoided by storing eg. an Observer in the ancestor and using the updated status in a cousin component (including potentially caching it as state).
 }
 
-// ExecuteTokenTransfer is our facility to execute a single token
-// transfer.ExecuteTokenTransfer manages the full transfer lifecycle, and
-// is our plumbing-only (no UI) low-level facility built on the
-// even-lower-level wagmi hooks. Most clients should instead use the
-// higher-lever ExecuteTokenTokenTransferButton. However, clients that need
-// custom UI beyond the customizability of ExecuteTokenTransferButton can
-// use ExecuteTokenTransfer directly. Note that our implementation strategy
-// for ExecuteTokenTransfer is to build it on the wagmi react hooks instead
-// of the wagmi core action API. In general, a benefit of building on the
-// action API is that actions can be called conditionally but hooks can't,
-// so it could be tricky (but likely tractable) to implement (if we wanted
-// to) both token and native currency transfers in a single component using
-// hooks because they have different sets of hooks and all must be called
-// unconditionally. Yet, the benefits of building on the wagmi hooks
-// instead of the actions API are that 1) the wagmi hooks automatically
-// provide updated React state, with no need to re-run actions or manage
-// promise lifecycles, and 2) wagmi hooks are built on react-query and that
-// gives access to potentially using suspense mode and other feaures in the
-// future. And that's why ExecuteTokenTransfer is built on wagmi hooks and
-// not wagmi core actions.
-export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = (props) => {
-  // Here the TypeScript compiler can't seem to infer that props is
-  // either ExecuteTokenTransferForTokenProps or
-  // ExecuteTokenTransferForNativeCurrencyProps. If it could, then we
-  // wouldn't need an "else if" branch, we could have `if (forToken)
-  // ...; else { /* implicitly for nativeCurrency */ }` but since it
-  // can't infer this automatically, we need if token/else if nc/else
-  // error and two type guards.
-  if (isExecuteTokenTransferForTokenProps(props)) {
-    return <ExecuteTokenTransferForToken {...props} />;
-  } else if (isExecuteTokenTransferForNativeCurrencyProps(props)) {
-    return <ExecuteTokenTransferForNativeCurrency {...props} />;
-  } else throw new Error(`ExecuteTokenTransfer expected props.tt to be TokenTransferForToken or TokenTransferForNativeCurrency, but it was neither`);
-
-  function isExecuteTokenTransferForTokenProps(p: ExecuteTokenTransferProps): p is ExecuteTokenTransferForTokenProps {
-    return isToken(p.tt.token);
-  }
-
-  function isExecuteTokenTransferForNativeCurrencyProps(p: ExecuteTokenTransferProps): p is ExecuteTokenTransferForNativeCurrencyProps {
-    return !isToken(p.tt.token);
-  }
-}
-
-type ExecuteTokenTransferForTokenProps = Narrow<ExecuteTokenTransferProps, 'tt', TokenTransferForToken>;
-
-const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> = ({ setStatus, ...props }) => {
+// ExecuteTokenTransfer is our low-level facility to execute a single
+// token transfer. ExecuteTokenTransfer manages the full transfer
+// lifecycle, and is our plumbing-only (no UI) low-level facility built
+// on the even-lower-level wagmi hooks. Most clients should instead use
+// the higher-lever ExecuteTokenTokenTransferButton. However, clients
+// that need custom UI beyond the customizability of
+// ExecuteTokenTransferButton can use ExecuteTokenTransfer directly.
+// Note that our implementation strategy for ExecuteTokenTransfer is to
+// build it on the wagmi react hooks instead of the wagmi core action
+// API. In general, a benefit of building on the action API is that
+// actions can be called conditionally but hooks can't. Yet, the
+// benefits of building on the wagmi hooks instead of the actions API
+// are that 1) the wagmi hooks automatically provide updated React
+// state, with no need to re-run actions or manage promise lifecycles,
+// and 2) wagmi hooks are built on react-query and that gives access to
+// potentially using suspense mode and other feaures in the future. And
+// that's why ExecuteTokenTransfer is built on wagmi hooks and not wagmi
+// core actions.
+export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setStatus, ...props }) => {
   const { chain: activeChain } = useNetwork();
   const { isConnected } = useAccount();
   const [doReset, setDoReset] = useState(false); // doReset is set to true to immediately trigger an internal reset. doReset exists so that reset()'s useCallback doesn't depend on props.tt, so that a client that changes props.tt isn't triggering unnecessary rerenders and status updates, which can cause infinite render loops if an ancestor updates its state on status update.
-  const [cachedTT, setCachedTT] = useState<ExecuteTokenTransferForTokenProps['tt']>(props.tt); // wagmi's prepare/write/wait hooks aren't particularly resilient to automatic changes in the transfer details. Instead, we cache props.tt to lock in the transfer instance. Clients that wish to change the value of tt can call status.reset() to force a recache to the latest value of props.tt.
+  const [cachedTT, setCachedTT] = useState<ExecuteTokenTransferProps['tt']>(props.tt); // wagmi's prepare/write/wait hooks aren't particularly resilient to automatic changes in the transfer details. Instead, we cache props.tt to lock in the transfer instance. Clients that wish to change the value of tt can call status.reset() to force a recache to the latest value of props.tt.
+
   const [isSuccess, setIsSuccess] = useState(false); // wait.isSuccess can sometimes reset itself back to idle (such as on a network switch), so to prevent a Success status from clearing itself, we cache success status as state so that after the user has successfully paid, the transfer never clears its success status unless reset.
   const [userSignedTransaction, setUserSignedTransaction] = useState(false); // userSignedTransaction is set to true iff the user has signed the transaction. Note that userSignedTransaction is set to true immediately after successful signing, before the transaction is confirmed, and is never cleared back to false unless the client calls reset(). The sole purpose of userSignedTransaction is to be surfaced to the client to eg. help the client decide whether or not they want to call reset(). NB write.isSuccess can sometimes reset itself back to idle (such as on a network switch), so to prevent loss of information, we cache userSignedTransaction as state.
   const [autoExecuteState, setAutoExecuteState] = useState<'none' | 'clickedExecuteAndStartedSwitchingNetwork' | 'finishedSwitchingNetworkAndShouldAutoExecute' | 'autoRetry'>("none"); // autoExecuteState is a small state machine used to control whether or not execution of prompting the user to sign the transaction will happen automatically. We want to auto-execute if the user already called status.execute() once (eg. user clicked button once) AND this click caused a network switch to be triggered AND that network switch was successful. This avoids requiring the user to click the button more than once when a network add and/or switch is required. We also want to auto-execute if the transfer has determined it should be automatically retried.
@@ -469,38 +442,90 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
   //    confirmed: success
   //    revert: ? presumably error
 
-  const prepareParams = useMemo(() => { // here we must memoize prepareParams so that a new object isn't created each render which would cause usePrepareContractWrite to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
-    return {
-      chainId: cachedTT.token.chainId,
-      address: makeAddress(cachedTT.token.contractAddress), // TODO HACK permanent solution for makeAddress
-      abi: abis.erc20,
-      functionName: 'transfer',
-      args: [cachedTT.toAddress, BigNumber.from(cachedTT.amountAsBigNumberHexString).toString()],
-    };
-  }, [cachedTT]);
-  const prepare = usePrepareContractWrite(prepareParams);
-
-  const prepareError = prepare.error; // use a local variable so that the refetch useEffect's dependency is only on prepare.error and not the entire prepare object
-  const prepareRefetch = prepare.refetch; // use a local variable so that the refetch useEffect's dependency is only on the prepare.refetch function and not the entire prepare object
-  useEffect(() => {
-    if (isEphemeralPrepareError(prepareError)) {
-      prepareRefetch(); // NB refetches are run back-to-back with no backoff or maximum refetch limit. In every case I tested, it took only a single refetch to clear the ephemeral error.
-    }
-  }, [prepareError, prepareRefetch]);
-
-  const transactionFeeUnaffordableErrorFromPrepare: TransactionFeeUnaffordableError | undefined = useMemo(() => tryMakeTransactionFeeUnaffordableError(prepare.error), [prepare.error]);
-
-  const onWriteSuccess = useCallback<() => void>(() => {
+  const onTransactionSigned = useCallback<() => void>(() => {
     setUserSignedTransaction(true);
   }, [setUserSignedTransaction]);
 
-  const writeParams = useMemo(() => { // here we must memoize writeParams so that a new object isn't created each render which would cause useContractWrite to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
-    return {
-      ...prepare.config,
-      onSuccess: onWriteSuccess,
+  // ********** BEGIN hooks used only for token transfers (and not native currency transfers) **********
+  const prepareContractWriteParams = useMemo(() => { // here we must memoize prepareContractWriteParams so that a new object isn't created each render which would cause usePrepareContractWrite to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
+    if (isTokenAndNotNativeCurrencyTransfer(cachedTT)) return {
+      chainId: cachedTT.token.chainId,
+      address: cachedTT.token.contractAddress,
+      abi: abis.erc20,
+      functionName: 'transfer',
+      args: [cachedTT.toAddress, BigNumber.from(cachedTT.amountAsBigNumberHexString).toString()],
+    }; else return {
+      enabled: false,
     };
-  }, [prepare.config, onWriteSuccess]);
-  const write = useContractWrite(writeParams);
+  }, [cachedTT]);
+  const prepareContractWrite = usePrepareContractWrite(prepareContractWriteParams);
+
+  const contractWriteParams = useMemo(() => { // here we must memoize contractWriteParams so that a new object isn't created each render which would cause useContractWrite to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
+    return {
+      ...prepareContractWrite.config,
+      onSuccess: onTransactionSigned,
+    };
+  }, [prepareContractWrite.config, onTransactionSigned]);
+  const contractWrite = useContractWrite(contractWriteParams);
+  // ********** END hooks used only for token transfers (and not native currency transfers) **********
+
+  // ********** BEGIN hooks used only for native currency transfers (and not token transfers) **********
+
+  const prepareSendTransactionParams = useMemo(() => { // here we must memoize prepareSendTransactionParams so that a new object isn't created each render which would cause usePrepareSendTransaction to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
+    if (isTokenAndNotNativeCurrencyTransfer(cachedTT)) return {
+      enabled: false,
+    }; else return {
+      chainId: cachedTT.token.chainId,
+      request: {
+        to: cachedTT.toAddress,
+        value: BigNumber.from(cachedTT.amountAsBigNumberHexString).toString(),
+      },
+    };
+  }, [cachedTT]);
+  const prepareSendTransaction = usePrepareSendTransaction(prepareSendTransactionParams);
+
+  const sendTransactionParams = useMemo(() => { // here we must memoize sendTransactionParams so that a new object isn't created each render which would cause useSendTransaction to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
+    return {
+      ...prepareSendTransaction.config,
+      onSuccess: onTransactionSigned,
+    };
+  }, [prepareSendTransaction.config, onTransactionSigned]);
+  const sendTransaction = useSendTransaction(sendTransactionParams);
+
+  // ********** END hooks used only for native currency transfers (and not token transfers) **********
+
+  // ********** BEGIN variables that unify token and native currency hook states and provide an abstraction boundary for downstream to not know or care if cachedTT is a token or native currency transfer **********
+
+  const prepare: Pick<typeof prepareContractWrite & typeof prepareSendTransaction, 'isIdle' | 'error' | 'isError' | 'isLoading' | 'isSuccess' | 'isFetched' | 'isFetchedAfterMount' | 'isFetching' | 'isRefetching' | 'status'> & {
+    refetch: () => void; // prepareContractWrite.refetch and prepareSendTransaction.refetch have different type signatures and so can't be included in the Pick, but these signatures share a supertype of `() => void` so we can include that supertype manually (and that works because we don't use any of the params passable to refetch).
+  } = isTokenAndNotNativeCurrencyTransfer(cachedTT) ? prepareContractWrite : prepareSendTransaction;
+
+  const write: Pick<typeof contractWrite & typeof sendTransaction, 'isIdle' | 'error' | 'isError' | 'isLoading' | 'isSuccess' | 'data' | 'status'> = isTokenAndNotNativeCurrencyTransfer(cachedTT) ? contractWrite : sendTransaction;
+
+  const signAndSendTransaction: (() => void) | undefined = isTokenAndNotNativeCurrencyTransfer(cachedTT) ? contractWrite.write : sendTransaction.sendTransaction; // write.write and sendTransaction.sendTransaction have different names (ie. write vs sendTransaction) so we unify them as a new local variable (ie. signAndSendTransaction) instead of including them in the `write` unification above.
+
+  const writeReset: () => void = useCallback(() => { // WARNING here we define writeReset to reset both the underlying wagmi hooks to ensure that both actually get reset when a reset is executed. If we instead added 'reset' to our `write` unification above and then used `write.reset`, this would be incorrect because when the client calls reset(), the active token transfer (cachedTT) is updated and this may cause the write unification to flip between token/native currency, and then the underlying write hook that needed to be reset (the one that was actually used prior to the reset) wouldn't be reset (because it's reset function would no longer be included in the write unification). So instead, we correctly reset both hooks here and exclude 'reset' from our write unification above.
+    contractWrite.reset();
+    sendTransaction.reset();
+  }, [contractWrite, sendTransaction]);
+
+  // WARNING prepareContractWrite and contractWrite have been unified into `write` and, per the following eslint rules, neither should be used below here so as to create an abstraction boundary where the code below here doesn't have to know or care if we're sending a token or native currency transfer.
+  // @eslint-no-use-below[prepareContractWrite]
+  // @eslint-no-use-below[contractWrite]
+
+  // ********** END variables that unify token and native currency hook states and provide an abstraction boundary for downstream to not know or care if cachedTT is a token or native currency transfer **********
+
+  const pe = prepare.error; // use a local variable so that the refetch useEffect's dependency is only on prepare.error and not the entire prepare object
+  const pr = prepare.refetch; // use a local variable so that the refetch useEffect's dependency is only on the prepare.refetch function and not the entire prepare object
+  useEffect(() => {
+    if (isEphemeralPrepareError(pe)) {
+      pr(); // NB refetches are run back-to-back with no backoff or maximum refetch limit. In every case I tested, it took only a single refetch to clear the ephemeral error.
+    }
+  }, [pe, pr]);
+  // @eslint-no-use-below[pe]
+  // @eslint-no-use-below[pr]
+
+  const transactionFeeUnaffordableErrorFromPrepare: TransactionFeeUnaffordableError | undefined = useMemo(() => tryMakeTransactionFeeUnaffordableError(prepare.error), [prepare.error]);
 
   const userRejectedTransactionSignRequest: boolean = isUserRejectedTransactionSignRequestError(write.error);
 
@@ -569,7 +594,6 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
 
   const [executeCalledAtLeastOnce, setExecuteCalledAtLeastOnce] = useState(false);
 
-  const wr = write.reset; // use a local variable so that the reset useEffect's dependency is only on the write.reset function and not the entire write object
   const swr = switchNetwork.reset; // use a local variable so that the reset useEffect's dependency is only on the switchNetwork.reset function and not the entire switchNetwork object
   useEffect(() => {
     if (doReset) {
@@ -581,32 +605,33 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
       setAutoExecuteState(willAutoRetry && executeCalledAtLeastOnce && !isSuccess ? "autoRetry" : "none"); // here, we will auto-execute due to autoRetry iff we've just reset due to an auto retry and also the user clicked the button at least once since the previous retry and also we check !isSuccess as an extra sanity to help ensure we don't auto-execute a double-spend. WARNING the latter clause of not auto-executing unless the user clicked the button at least once is crucial because there certain usePrepareContractWrite(...).errors are retryable, and so if we were to auto-execute without the condition of user having clicked button, we would be sending a transaction the user didn't actually request (eg. button loads -> prepare emits retryable error -> reset -> autoRetry -> auto-execute -> now we've executed without the user ever having clicked the button, which is particularly bad for wallets like web3auth that auto-approve any suggestion transactions, so we'd be sending money without the user ever having approved it!)
       setWillAutoRetry(false);
       setTransactionReceipt(undefined);
-      wr();
+      writeReset();
       swr();
       setExecuteCalledAtLeastOnce(false);
       setDoReset(false);
     }
-  }, [props.tt, setCachedTT, setIsSuccess, isSuccess, setUserSignedTransaction, setAutoExecuteState, setTransactionReceipt, wr, swr, setExecuteCalledAtLeastOnce, executeCalledAtLeastOnce, setDoReset, doReset, willAutoRetry, setWillAutoRetry]);
+  }, [props.tt, setCachedTT, setIsSuccess, isSuccess, setUserSignedTransaction, setAutoExecuteState, setTransactionReceipt, writeReset, swr, setExecuteCalledAtLeastOnce, executeCalledAtLeastOnce, setDoReset, doReset, willAutoRetry, setWillAutoRetry]);
+  // @eslint-no-use-below[swr] swr is a local variable intended only to help optimize the above hook
 
   const needToSwitchNetwork: boolean =
     isChainMismatchError(prepare.error) // ie. wagmi's API is that prepare.error is a chain mismatch error if and only if the wallet's active network differs from the chainId passed to prepare.
     || (activeChain?.id !== undefined && activeChain.id !== cachedTT.token.chainId) // in certain cases, the active chain may not be the token's chain while wagmi's prepare.error is null. For example, this can happen if props.tt.token.chainId is recached after a successful prepare without reseting write. NB wagmi's hooks aren't particularly resilient to changes in props.tt, so we currently don't support automatic changes to props.tt (by way of caching its first value into cachedTT), so rn, we don't expect this conditional branch to ever be true because prepare.error should be ChainMismatchError unless activeChain==token.chainId, but we kept the conditional branch code anyway because it's knowlege and probably more correct.
 
-  const sw = switchNetwork.switchNetwork; // allow useMemo hook dep to be on switchNetwork.switchNetwork instead of switchNetwork;
-  const ww = write.write; // allow useMemo hook dep to be on write.write instead of write;
+  const sw = switchNetwork.switchNetwork; // allow useMemo hook dep to be on switchNetwork.switchNetwork instead of switchNetwork
   const writeIsLoading = write.isLoading; // allow useMemo hook dep to be on write.isLoading instead of write;
   const execute: () => void = useCallback(() => { // status will be ReadyToExecute only if the user may prompt a programmatic network switch or sign the transaction. So, here we construct an execute function to run these actions. NB it may be invalid to run this execute because we would be in any status (such as Error), but we construct execute here because hooks must be run unconditionally. WARNING we construct execute with useCallback so that if execute's dependencies change, we'll trigger a rerender and pass the updated execute to the client. If instead we defined execute inline (without useCallback/useMemo), then execute's dependencies could change but the client would still have a stale version of execute if a re-render hadn't been triggered to push the new status and new execute to the client
     setExecuteCalledAtLeastOnce(true);
     if (!isConnected) {
-      console.error("ExecuteTokenTransferForToken: execute() called when wallet not connected");
+      console.error("ExecuteTokenTransfer: execute() called when wallet not connected");
     } if (needToSwitchNetwork && sw) {
       setAutoExecuteState("clickedExecuteAndStartedSwitchingNetwork");
       sw();
-    } else if (ww && !writeIsLoading) { // here we protect against redundant calls to write.write by ensuring that we call write.write only if write isn't loading idle. This helps to make execute idempotent so that if client calls it repeatedly for any reason, we don't end up throws errors or in an error state. (NB we might be tempted to check write.isIdle here instead of write.isLoading, but that's incorrect because if the user already rejected the transaction, write.isIdle is false and write.error is an instanceof UserRejectedRequestError.)
+    } else if (signAndSendTransaction && !writeIsLoading) { // here we protect against redundant calls to write.write by ensuring that we call write.write only if write isn't loading. This helps to make execute idempotent so that if client calls it repeatedly for any reason, we don't end up throws errors or in an error state. (NB we might be tempted to check write.isIdle here instead of write.isLoading, but that's incorrect because if the user already rejected the transaction, write.isIdle is false and write.error is an instanceof UserRejectedRequestError.)
       setAutoExecuteState("none");
-      ww();
-    } else throw new Error(`ExecuteTokenTransferForToken: unexpected execute()`);
-  }, [isConnected, setAutoExecuteState, needToSwitchNetwork, sw, ww, writeIsLoading]);
+      signAndSendTransaction();
+    } else throw new Error(`ExecuteTokenTransfer: unexpected execute()`);
+  }, [isConnected, setAutoExecuteState, needToSwitchNetwork, sw, signAndSendTransaction, writeIsLoading]);
+  // @eslint-no-use-below[sw] sw is a local variable intended only to help optimize the above hook
 
   // console.log("ExecuteTokenTransfer\ntt", cachedTT, "\nprepare", {
   //   status: prepare.status,
@@ -623,7 +648,7 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
   //   status: write.status,
   //   error: JSON.stringify(write.error),
   //   isLoading: write.isLoading,
-  //   write: write.write,
+  //   signAndSendTransaction,
   //   data: write.data,
   // }, "\nwait", {
   //   status: wait.status,
@@ -722,7 +747,7 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
           else if (switchNetwork.isLoading) return 'SwitchingNetwork';
           else if (write.isLoading) return 'SigningTransaction';
           else if (wait.isLoading) return 'ConfirmingTransaction';
-          else throw new Error(`ExecuteTokenTransferForToken: unexpected loading status`);
+          else throw new Error(`ExecuteTokenTransfer: unexpected loading status`);
         })();
         const s: ExecuteTokenTransferStatus = {
           activeTokenTransfer: cachedTT,
@@ -762,7 +787,7 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
         return s;
       } else if (
         (needToSwitchNetwork && switchNetwork.switchNetwork !== undefined)
-        || write.write !== undefined
+        || signAndSendTransaction !== undefined
       ) {
         const s: Writable<ExecuteTokenTransferStatus> = {
           activeTokenTransfer: cachedTT,
@@ -814,15 +839,8 @@ const ExecuteTokenTransferForToken: React.FC<ExecuteTokenTransferForTokenProps> 
       }
     })();
     setStatus(nextStatus); // design note: in general, nextStatus may be identical to the current status cached by clients. This is because there's a loss of information between this useEffect's dependencies when computing nextStatus. For example, if switchNetwork becomes defined, we will compute nextStatus, but both the current and next status may have nothing to do with switchNetwork being defined or not. In fact, this is exactly what usually happens when this component initializes: switchNetwork.switchNetwork is initially undefined, and it becomes defined shortly after mounting, which triggers computation of nextStatus, but both the current status and nextStatus are "Loading - Init", so we know we're usually sending a redundant nextStatus to the client. If we wanted to fix this, a good way to do so may be to do a deep comparison of ObservableValue.getCurrentValue vs. nextStatus in ExecuteTokenTransferButton, and skip calling setValueAndNotifyObservers if the current and next statuses are equal. A good deep comparison library is fast-deep-equal, it is both fast and relatively small (13kb), but that's still an extra 13kb of bundle size. But currently, we think it's better to shave 13kb off the bundle size vs. avoiding a few unnecessary rerenders that React handles instantly and without any UI jank/disruptions because the shadow DOM diff interprets the redundant status update as a no-op, so that's why right now, nextStatus may be identical to the current status cached by clients.
-  }, [setStatus, isConnected, cachedTT, prepare.error, write.error, wait.error, switchNetwork.error, prepare.isLoading, write.isLoading, wait.isLoading, switchNetwork.isLoading, isEverythingIdle, needToSwitchNetwork, switchNetwork.switchNetwork, execute, reset, transactionReceipt, isSuccess, userSignedTransaction, write.write, autoExecuteState, userRejectedTransactionSignRequest, transactionFeeUnaffordableError, executeCalledAtLeastOnce, autoRetryInProgress]);
+  }, [setStatus, isConnected, cachedTT, prepare.error, write.error, wait.error, switchNetwork.error, prepare.isLoading, write.isLoading, wait.isLoading, switchNetwork.isLoading, isEverythingIdle, needToSwitchNetwork, switchNetwork.switchNetwork, execute, reset, transactionReceipt, isSuccess, userSignedTransaction, signAndSendTransaction, autoExecuteState, userRejectedTransactionSignRequest, transactionFeeUnaffordableError, executeCalledAtLeastOnce, autoRetryInProgress]);
 
-  return null;
-}
-
-type ExecuteTokenTransferForNativeCurrencyProps = Narrow<ExecuteTokenTransferProps, 'tt', TokenTransferForNativeCurrency>;
-
-const ExecuteTokenTransferForNativeCurrency: React.FC<ExecuteTokenTransferForNativeCurrencyProps> = () => {
-  // TODO implement using wagmi hooks
   return null;
 }
 
@@ -894,10 +912,15 @@ function isRetryableError(e: Error | undefined | null): boolean {
 }
 
 // isEphemeralPrepareError returns true iff the passed Error indicates
-// useContractPrepareWrite failed for ephemeral reasons and should be
-// retried by way of refetched. Not to be confused with
+// useContractPrepareWrite or usePrepareSendTransaction failed for
+// ephemeral reasons and can be immediately retried by way of being
+// refetch()'d. Ephemeral errors are typically entirely local and don't
+// involve network operations as they are retried an infinite number of
+// times with no backoff. An example kind of ephemeral error would be a
+// race condition in a module dependency. Not to be confused with
 // isRetryableError. The error passed must be sourced from
-// `usePrepareContractWrite(...).error` or behaviour is undefined.
+// `usePrepareContractWrite(...).error` or
+// `usePrepareSendTransaction(...).error` or behaviour is undefined.
 function isEphemeralPrepareError(e: Error | undefined | null): boolean {
   // WARNING errors passed into this function can come from a variety of upstream sources, and they may not confirm to the TypeScript typeof Error, which is why we do extra checking to ensure properties exist before we read them.
   if (e === undefined || e === null) return false;
@@ -926,7 +949,6 @@ function isChainMismatchError(e: Error | undefined | null): boolean {
   }
 }
 
-
 // isTransactionFeeUnaffordableError returns an instance of
 // TransactionFeeUnaffordableError iff the passed Error represents the user
 // being unable to afford to pay the transaction fee for a particular token
@@ -953,7 +975,6 @@ function tryMakeTransactionFeeUnaffordableError(e: Error | undefined | null): Tr
 // particular token transfer due to the user being unable to afford to
 // pay the transaction fee.
 export class TransactionFeeUnaffordableError extends Error {
-  readonly cause?: Error;
   constructor(message: string, cause?: Error) {
     super(message);
     this.name = 'TransactionFeeUnaffordableError';
