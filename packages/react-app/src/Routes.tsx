@@ -9,7 +9,6 @@ import { GlobalErrorBoundary } from "./GlobalErrorBoundary";
 import { GlobalProviders } from "./GlobalProviders";
 import { HideFooterOnMobile } from "./HideFooter";
 import { Home } from "./Home";
-import "./index.css";
 import { MainWrapper } from "./MainWrapper";
 import { Me } from "./Me";
 import { Pay } from "./Pay";
