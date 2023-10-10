@@ -26,6 +26,12 @@ export type NativeCurrency = Readonly<{
   testnet?: true; // true iff this token is on a testnet chain
 }>
 
+// isToken is a TypeScript type guard helper function to match
+// `NativeCurrency | Token` into `Token` or `NativeCurrency`
+export function isToken(o: NativeCurrency | Token): o is Token {
+  return Object.prototype.hasOwnProperty.call(o, "contractAddress");
+}
+
 // const t: Token = { name: 'Test', ticker: 'T', decimals: 18, chainId: 5, contractAddress: "0x123" };
 // const nc: NativeCurrency = { name: 'Test2', ticker: 'T2', decimals: 18, chainId: 5 };
 // const fails: NativeCurrency = t;

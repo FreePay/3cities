@@ -1,12 +1,10 @@
 import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvmTestnet, scrollTestnet } from '@wagmi/core/chains';
 import { Chain } from 'wagmi';
-import { allSupportedChainIds, arbitrumNova, lineaTestnet, polygonZkEvm, taikoTestnet, zkSync, zkSyncTestnet } from "./chains";
-import { isProduction } from "./isProduction";
 import { NonEmptyArray } from "./NonEmptyArray";
 import { Optional } from './Optional';
-import { NativeCurrency, Token } from "./Token";
-
-// TODO add stables from https://stablecoins.wtf/ and https://defillama.com/stablecoins
+import { NativeCurrency, Token, isToken } from "./Token";
+import { allSupportedChainIds, arbitrumNova, lineaTestnet, polygonZkEvm, taikoTestnet, zkSync, zkSyncTestnet } from "./chains";
+import { isProduction } from "./isProduction";
 
 // ***************************************************************
 const isTestShorterListOfTokens = false; // WARNING test flag to be manually toggled during develpment to cull the list of supported tokens down to a minimal set for testing purposes
@@ -74,7 +72,7 @@ const LUSD = token(mainnet, { name: 'Liquity USD', ticker: 'LUSD', contractAddre
 const GoerliLUSD = token(goerli, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x1B881E518f8CA8a7ccf7e7AFA459e7303F8f5939' });
 
 // optimism and optimismGoerli
-// optimism L2 token list (see very useful reference for mainnet, Optimism Goerli, Goerli, and other chains https://static.optimism.io/optimism.tokenlist.json)
+// token list https://github.com/ethereum-optimism/ethereum-optimism.github.io
 const OptimismETH = nativeCurrency(optimism);
 const OptimismGoerliETH = nativeCurrency(optimismGoerli);
 const OptimismWETH = token(optimism, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0x4200000000000000000000000000000000000006' });
@@ -330,12 +328,6 @@ export function getTokenByTokenKey(tk: TokenKey): NativeCurrency | Token {
   const t = tokensByTokenKey[tk];
   if (t === undefined) throw new Error(`getTokenByTokenKey: unknown TokenKey: ${tk}`);
   return t;
-}
-
-// isToken is a TypeScript type assertion helper function to match
-// `NativeCurrency | Token` into `Token` or `NativeCurrency`
-export function isToken(o: NativeCurrency | Token): o is Token {
-  return Object.prototype.hasOwnProperty.call(o, "contractAddress");
 }
 
 // getDecimalsToRenderForTokenTicker returns the canonical number of

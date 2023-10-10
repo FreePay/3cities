@@ -1,10 +1,9 @@
-import { NativeCurrency, Token } from "./Token";
+import { NativeCurrency, Token, isToken } from "./Token";
 import React from "react";
 import { getSupportedChainName } from "./chains";
 import { useLiveNativeCurrencyBalance } from "./hooks/useLiveNativeCurrencyBalance";
 import { useLiveTokenBalance } from "./hooks/useLiveTokenBalance";
 import { RenderRawTokenBalance } from "./RenderRawTokenBalance";
-import { isToken } from "./tokens";
 
 type RenderLiveTokenBalanceProps = {
   address: string; // address whose token balance will be live-reloaded and rendered
