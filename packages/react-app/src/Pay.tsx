@@ -1,11 +1,12 @@
 import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { FaEye } from "react-icons/fa";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
 import { ActiveDemoAccountContext } from "./ActiveDemoAccountContext";
 import { ConnectWalletButton } from "./ConnectWalletButton";
+import { useCheckoutSettings } from "./ContextLink";
 import QRCode from "./QRCode";
 import { RenderLogicalAssetAmount, renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
 import { RenderTokenBalance } from "./RenderTokenBalance";
@@ -13,9 +14,7 @@ import { RenderTokenTransfer } from "./RenderTokenTransfer";
 import { ReceiverProposedPayment, acceptReceiverProposedPayment, isReceiverProposedPayment } from "./agreements";
 import { getBlockExplorerUrlForAddress, getBlockExplorerUrlForTransaction } from "./blockExplorerUrls";
 import { getChain, getSupportedChainName } from "./chains";
-import { Checkout } from "./checkout";
 import { useConnectedWalletAddressContext } from "./connectedWalletContextProvider";
-import { deserializeFromModifiedBase64 } from "./serialize";
 import { Strategy, getProposedStrategiesForProposedAgreement, getStrategiesForAgreement } from "./strategies";
 import { getTokenKey } from "./tokens";
 import { ExecuteTokenTransferButton, ExecuteTokenTransferButtonStatus, TransactionFeeUnaffordableError } from "./transactions";
@@ -25,22 +24,10 @@ import { useEnsName } from "./useEnsName";
 
 // TODO add a big "continue" button at bottom of "select payment method" because if you don't want to change the method, it's unclear that you have to click on the current method. --> see the "continue" button at bottom of Amazon's payment method selection during mobile checkout.
 
-// TODO use react-router routes for these different screens instead of state variables in this single route. This will make it easier to link to specific screens & payment states, and also make it easier to add new screens in the future. --> when we build the new route architecture, we'll have to figure out the right abstraction boundaries in terms of the pipeline of Checkout -> ac -> strategies -> best/otherStrategies -> pay now button -> menu of backup payment methods. There's a lot of potential ways to slice this, and I'm not sure which might be best.
-
 export const Pay: React.FC = () => {
-  const [searchParams] = useSearchParams();
   const { isConnected, address } = useAccount();
-  const [checkout] = useState<Checkout | undefined>(() => {
-    const s = searchParams.get("c"); // TODO receive checkout from ContextLink instead of parsing it directly from searchparams
-    if (s !== null) try {
-      return deserializeFromModifiedBase64(s);
-    } catch (e) {
-      console.warn(e);
-      return undefined;
-    } else return undefined;
-  });
+  const checkout = useCheckoutSettings();
 
-  if (checkout === undefined) throw new Error(`checkout undefined`); // TODO rm this when the checkout is always be defined as provided by ContextLink
   if (!isReceiverProposedPayment(checkout.proposedAgreement)) throw new Error(`checkout wasn't a receiverProposedPayment`); // TODO support more checkout types than just receiverProposedPayment
   const rpp: ReceiverProposedPayment = checkout.proposedAgreement;
 
