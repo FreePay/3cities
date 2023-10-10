@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useAccount } from "wagmi";
 import { ActiveDemoAccountContext } from "./ActiveDemoAccountContext";
 import { ConnectWalletButton } from "./ConnectWalletButton";
-import { useCheckoutSettings } from "./ContextLink";
+import { useCheckoutSettings } from "./CheckoutSettingsProvider";
 import QRCode from "./QRCode";
 import { RenderLogicalAssetAmount, renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
 import { RenderTokenBalance } from "./RenderTokenBalance";

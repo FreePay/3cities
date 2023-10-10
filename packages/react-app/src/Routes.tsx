@@ -2,7 +2,7 @@ import React from "react";
 import { createHashRouter, createRoutesFromElements, Route } from "react-router-dom";
 import { About } from "./About";
 import { BuildInfo } from "./BuildInfo";
-import { CheckoutSettingsProvider } from "./ContextLink";
+import { CheckoutSettingsProvider } from "./CheckoutSettingsProvider";
 import { ConversionWrapper } from "./ConversionWrapper";
 import { FAQ } from "./FAQ";
 import { GlobalErrorBoundary } from "./GlobalErrorBoundary";
