@@ -1,7 +1,5 @@
 
-<p align="center" style="font-size: 2rem;">
-    3cities
-</p>
+# 3cities
 
 [![dev branch](https://github.com/3cities/3cities/actions/workflows/0-build-dev.yml/badge.svg)](https://github.com/3cities/3cities/actions/workflows/0-build-dev.yml)
 [![staging release](https://github.com/3cities/3cities/actions/workflows/1-deploy-main-to-staging.yml/badge.svg)](https://github.com/3cities/3cities/actions/workflows/1-deploy-main-to-staging.yml)
