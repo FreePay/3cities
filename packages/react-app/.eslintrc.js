@@ -60,6 +60,9 @@ module.exports = {
                 "additionalHooks": "useEffectSkipFirst*",
             },
         ],
+        "no-shadow": [
+            "error",
+        ],
         "eqeqeq": [
             "error",
         ],
