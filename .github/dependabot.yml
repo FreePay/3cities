@@ -1,0 +1,39 @@
+# See dependabot.yml reference https://docs.github.com/en/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Maintain dependencies for GitHub Actions
+  - package-ecosystem: "github-actions"
+    # Workflow files stored in the default location of `.github/workflows`. (You don't need to specify `/.github/workflows` for `directory`. You can use `directory: "/"`.)
+    directory: "/"
+    schedule:
+      interval: "daily"
+    target-branch: "dev"
+    labels:
+      - "dependencies"
+      - "github-actions"
+    open-pull-requests-limit: 10
+    allow:
+      - dependency-type: "all"
+    assignees:
+      - "ryanberckmans"
+
+  # Maintain dependencies for npm
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    target-branch: "dev"
+    versioning-strategy: "increase"
+    labels:
+      - "dependencies"
+      - "npm"
+    open-pull-requests-limit: 10
+    allow:
+      - dependency-type: "all"
+    ignore:
+      - dependency-name: "@web3auth/*"
+      - dependency-name: "wagmi*"
+      - dependency-name: "connectkit*"
+    assignees:
+      - "ryanberckmans"
