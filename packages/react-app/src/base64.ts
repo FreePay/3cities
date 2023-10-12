@@ -63,9 +63,9 @@ export function modifiedBase64Encode(arraybuffer: ArrayBuffer): string {
   }
 
   if (len % 3 === 2) {
-    base64 = base64.substring(0, base64.length - 1) + '.';
+    base64 = base64.substring(0, base64.length - 1) /*+ '.' // NB here we omit the padding char '.' because our base64 decoder doesn't require it and it makes links one char shorter */;
   } else if (len % 3 === 1) {
-    base64 = base64.substring(0, base64.length - 2) + '..';
+    base64 = base64.substring(0, base64.length - 2) /*+ + '..' // NB here we omit the padding chars '..' because our base64 decoder doesn't require them and it makes links two chars shorter */;
   } else {
     // len % 3 === 0 which indicates the input byte array length is
     // perfectly divisible by 3. In Base64 encoding, each set of 3 bytes
