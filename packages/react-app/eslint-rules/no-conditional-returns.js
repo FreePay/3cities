@@ -1,3 +1,6 @@
+
+// NB see noConditionalReturnsTestCases.ts
+
 // This no-conditional-returns eslint rule ensures that if any branch of an
 // if-statement or try/catch might return, then the whole statement always
 // returns or throws, and control flow never continues in the same
@@ -16,6 +19,10 @@ module.exports = {
         const ifHasReturn = hasAnyReturn(node.consequent);
         const elseHasReturn = node.alternate && hasAnyReturn(node.alternate);
         return ifHasReturn || elseHasReturn;
+      } else if (node.type === 'SwitchStatement') {
+        return node.cases.some((caseNode) => caseNode.consequent.some(hasAnyReturn));
+      } else if (node.type === 'SwitchCase') {
+        return node.consequent.some(hasAnyReturn);
       } else if (node.type === 'TryStatement') {
         const blockHasReturn = hasAnyReturn(node.block);
         const handlerHasReturn = node.handler && hasAnyReturn(node.handler.body);
@@ -34,6 +41,10 @@ module.exports = {
         const ifReturnsOrThrows = returnsOrThrowsUnconditionally(node.consequent);
         const elseReturnsOrThrows = node.alternate && returnsOrThrowsUnconditionally(node.alternate);
         return ifReturnsOrThrows && (elseReturnsOrThrows || node.alternate === null);
+      } else if (node.type === 'SwitchStatement') {
+        return node.cases.every((caseNode) => caseNode.consequent.some(returnsOrThrowsUnconditionally));
+      } else if (node.type === 'SwitchCase') {
+        return node.consequent.some(returnsOrThrowsUnconditionally);
       } else if (node.type === 'TryStatement') {
         const blockReturnsOrThrows = returnsOrThrowsUnconditionally(node.block);
         const handlerReturnsOrThrows = node.handler && returnsOrThrowsUnconditionally(node.handler.body);
@@ -66,6 +77,20 @@ module.exports = {
       }
     }
 
+    function checkSwitchStatement(switchStatement) {
+      if (switchStatement.cases.length < 1) return;
+
+      const anyCaseHasAnyReturn = switchStatement.cases.some(caseNode => hasAnyReturn(caseNode));
+      const allCasesReturnOrThrowUnconditionally = switchStatement.cases.every(caseNode => returnsOrThrowsUnconditionally(caseNode));
+
+      if (anyCaseHasAnyReturn && !allCasesReturnOrThrowUnconditionally) {
+        context.report({
+          node: switchStatement,
+          message: 'Expected all cases in the "switch" statement to unconditionally return or throw when any case has a return.',
+        });
+      }
+    }
+
     function checkTryCatch(tryStatement) {
       const blockHasAnyReturn = hasAnyReturn(tryStatement.block);
       const handlerExistsAndHasAnyReturn = tryStatement.handler && hasAnyReturn(tryStatement.handler.body);
@@ -88,6 +113,7 @@ module.exports = {
 
     return {
       IfStatement: checkConditional,
+      SwitchStatement: checkSwitchStatement,
       TryStatement: checkTryCatch,
     };
   },

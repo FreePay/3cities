@@ -203,6 +203,22 @@
 //   }
 // }
 
+// export function testNonViolation26(s: 1 | 2 | 3): number {
+//   if (s === 1) return 5;
+//   else switch (s) {
+//     case 2: return 5;
+//     case 3: return 8;
+//   }
+// }
+
+// export function testNonViolation27(s: 1 | 2 | 3): number {
+//   switch (s) {
+//     case 1: if (s === 1) return 5; else return 9;
+//     case 2: return 5;
+//     case 3: return 8;
+//   }
+// }
+
 // // ********************************************************
 // // no-conditional-returns: examples of rule violations
 
@@ -388,4 +404,31 @@
 //     return 7;
 //   }
 //   return 13;
+// }
+
+// export function testViolation18(s: 1 | 2 | 3): number {
+//   if (s === 1) return 5;
+//   else switch (s) {
+//     case 2: return 5;
+//     case 3: console.log("hi");
+//   }
+//   return 8;
+// }
+
+// export function testViolation19(s: 1 | 2 | 3): number {
+//   switch (s) {
+//     case 1: if (s === 1) return 5; else return 9;
+//     case 2: console.log("hey"); break;
+//     case 3: return 8;
+//   }
+//   return 5;
+// }
+
+// export function testViolation20(s: 1 | 2 | 3): number {
+//   switch (s) {
+//     case 1: if (s === 1) return; else console.log('hi'); break;
+//     case 2: return 4;
+//     case 3: return 8;
+//   }
+//   return 8;
 // }
