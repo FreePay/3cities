@@ -4,9 +4,10 @@ import React from "react";
 import { Outlet, ScrollRestoration } from "react-router-dom";
 import { Toaster } from 'sonner';
 import { WagmiConfig } from "wagmi";
-import { ConnectedWalletAddressContextObserverProvider } from "./connectedWalletContextProvider";
+import { ConnectedAccountContextObserverProvider } from "./connectedWalletContextProvider";
 import { DemoAccountProvider } from "./DemoAccountProvider";
 import { wagmiClient } from "./wagmiClient";
+import { IsPageVisibleOrRecentlyVisibleProvider } from "./useIsPageVisibleOrRecentlyVisible";
 
 const connectKitOptions: ConnectKitOptions = {
   walletConnectName: "WalletConnect", // default is "Other Wallets" which I find confusing because anybody who knows they can scan a qr code from mobile will most likely be looking for the name "WalletConnect"
@@ -22,16 +23,18 @@ export const GlobalProviders = () => {
     <ScrollRestoration /> {/* https://reactrouter.com/en/main/components/scroll-restoration */}
     <WagmiConfig client={wagmiClient}>
       {/* <ConnectWalletProvider chains={chainsSupportedBy3cities}>  TODO connect-wallet support blocked by runtime error https://github.com/Shopify/blockchain-components/issues/16 */}
-      <DemoAccountProvider>
-        <ConnectKitProvider options={connectKitOptions}>
-          <ConnectedWalletAddressContextObserverProvider>
-            <Toaster richColors /> {/* NB here we put the toaster inside the wagmi, connectkit, and addressContext providers so that the toast clients can have access to these services */}
-            <Outlet />
-          </ConnectedWalletAddressContextObserverProvider>
-        </ConnectKitProvider>
-        {/* </ConnectWalletProvider> */}
-        {/* <Web3ModalInstance /> */ /* TODO we can't use web3modal right now because of bugs in WalletConnectConnector which should become resolved after these libs finish the current transition to walletconnect v2. See notes on WalletConnectConnector in wagmi config. */}
-      </DemoAccountProvider>
+      <IsPageVisibleOrRecentlyVisibleProvider>
+        <DemoAccountProvider>
+          <ConnectKitProvider options={connectKitOptions}>
+            <ConnectedAccountContextObserverProvider>
+              <Toaster richColors /> {/* NB here we put the toaster inside the wagmi, connectkit, and addressContext providers so that the toast clients can have access to these services */}
+              <Outlet />
+            </ConnectedAccountContextObserverProvider>
+          </ConnectKitProvider>
+          {/* </ConnectWalletProvider> */}
+          {/* <Web3ModalInstance /> */ /* TODO we can't use web3modal right now because of bugs in WalletConnectConnector which should become resolved after these libs finish the current transition to walletconnect v2. See notes on WalletConnectConnector in wagmi config. */}
+        </DemoAccountProvider>
+      </IsPageVisibleOrRecentlyVisibleProvider>
     </WagmiConfig>
   </div>;
 };
