@@ -2,7 +2,6 @@ import { isAddress } from "@ethersproject/address";
 import { useMemo } from "react";
 import { goerli, mainnet, useEnsName as wagmiUseEnsName } from 'wagmi';
 import { isProduction } from "./isProduction";
-import { makeAddress } from "./makeAddress";
 import { truncateENSAddress } from "./truncateAddress";
 import { useEnsAddress } from "./useEnsAddress";
 import { useIsPageVisibleOrRecentlyVisible } from "./useIsPageVisibleOrRecentlyVisible";
@@ -24,7 +23,7 @@ export function useEnsName(address: undefined, opts?: Opts): {
   error?: never;
   isLoading: false;
 }
-export function useEnsName(address: string, opts?: Opts): {
+export function useEnsName(address: `0x${string}`, opts?: Opts): {
   ensName: string | undefined;
   error?: never;
   isLoading: false;
@@ -37,7 +36,7 @@ export function useEnsName(address: string, opts?: Opts): {
   error?: never;
   isLoading: true;
 }
-export function useEnsName(address: string | undefined, opts?: Opts): {
+export function useEnsName(address: `0x${string}` | undefined, opts?: Opts): {
   ensName?: never;
   error?: never;
   isLoading: false;
@@ -54,7 +53,7 @@ export function useEnsName(address: string | undefined, opts?: Opts): {
   error?: never;
   isLoading: true;
 }
-export function useEnsName(address: string | undefined, opts?: Opts): {
+export function useEnsName(address: `0x${string}` | undefined, opts?: Opts): {
   ensName?: never;
   error?: never;
   isLoading: false;
@@ -72,11 +71,11 @@ export function useEnsName(address: string | undefined, opts?: Opts): {
   isLoading: true;
 } {
   const isPageVisibleOrRecentlyVisible = useIsPageVisibleOrRecentlyVisible();
-  const isEnabled = isPageVisibleOrRecentlyVisible && Boolean(address && isAddress(address)); // NB wagmi returns the cached result while disabled, so setting isEnabled==false while page is invisible does not cause the result to be undefined
+  const isEnabled = isPageVisibleOrRecentlyVisible && Boolean(address && isAddress(address)); // NB wagmi returns the cached result while disabled, so setting isEnabled==false while page is invisible does not cause the result to be undefined. NB isAddress(address) is needed because the address type `0x${string}` includes invalid ethereum addresses but isAddress ensures validity, including EIP-55 address checksum verification
   const args = useMemo(() => {
     return {
       chainId: isProduction ? mainnet.id : goerli.id,
-      address: makeAddress(address || '0x01'), // WARNING HACK TODO permanent solution for makeAddress
+      address: address ?? '0x00', // here the dummy value of '0x00' satisfies wagmiUseEnsName's requirement for address to be defined, but the dummy value will never be used because isEnabled===true implies address is defined
       enabled: isEnabled,
       staleTime: 15_000, // milliseconds until cached result is considered stale and will be refetched if subsequently requested. If a user is temporarily offline, a result fetched while offline will be undefined and that undefined result will persist even after the user goes back online, so we mark it as stale to correctly fetch the actual result when back online.
     };
@@ -88,24 +87,27 @@ export function useEnsName(address: string | undefined, opts?: Opts): {
 
   const verificationSuccessful = Boolean(ensName && !useEnsAddressIsLoading && addressFromENSName && addressFromENSName.toLowerCase() === address?.toLowerCase()); // true iff forward resolution of the reverse record ENS name was found to have resolved back to the passed address, indicating the ensName for the passed address has been securely verified.
 
-  if (address === undefined || !isAddress(address)) return {
-    isLoading: false,
-  }; else if (wagmiUseEnsNameError) return {
-    error: wagmiUseEnsNameError,
-    isLoading: false,
-  }; else if (!opts?.unsafeDisableForwardResolutionVerification && useEnsAddressError) return {
-    error: new Error(`useEnsName: forward resolution verification error`, { cause: useEnsAddressError }),
-    isLoading: false,
-  }; else if (typeof ensName === 'string' && ensName.length > 0 && (opts?.unsafeDisableForwardResolutionVerification || verificationSuccessful)) return {
-    ensName: opts?.truncate ? truncateENSAddress(ensName, opts.maxENSNameLength ?? 14) : ensName,
-    isLoading: false,
-  }; else if (wagmiUseEnsNameIsLoading || (!opts?.unsafeDisableForwardResolutionVerification && useEnsAddressIsLoading)) return {
-    isLoading: true,
-  }; else {
-    // console.log(`useEnsName returned undefined. Was it because the passed address had no ens name xor verification failed? ${JSON.stringify({ address, ensName, wagmiUseEnsNameError, isLoading: wagmiUseEnsNameIsLoading, verificationSuccessful, addressFromENSName, useEnsAddressError, useEnsAddressIsLoading, opts }, (_key, value) => typeof value === 'undefined' ? null : value)}`);
-    return {
-      ensName: undefined,
+  const result = useMemo<ReturnType<typeof useEnsName>>(() => {
+    if (address === undefined || !isAddress(address)) return {
       isLoading: false,
-    };
-  }
+    }; else if (wagmiUseEnsNameError) return {
+      error: wagmiUseEnsNameError,
+      isLoading: false,
+    }; else if (!opts?.unsafeDisableForwardResolutionVerification && useEnsAddressError) return {
+      error: new Error(`useEnsName: forward resolution verification error`, { cause: useEnsAddressError }),
+      isLoading: false,
+    }; else if (typeof ensName === 'string' && ensName.length > 0 && (opts?.unsafeDisableForwardResolutionVerification || verificationSuccessful)) return {
+      ensName: opts?.truncate ? truncateENSAddress(ensName, opts.maxENSNameLength ?? 14) : ensName,
+      isLoading: false,
+    }; else if (wagmiUseEnsNameIsLoading || (!opts?.unsafeDisableForwardResolutionVerification && useEnsAddressIsLoading)) return {
+      isLoading: true,
+    }; else {
+      // console.log(`useEnsName returned undefined. Was it because the passed address had no ens name xor verification failed? ${JSON.stringify({ address, ensName, wagmiUseEnsNameError, isLoading: wagmiUseEnsNameIsLoading, verificationSuccessful, addressFromENSName, useEnsAddressError, useEnsAddressIsLoading, opts }, (_key, value) => typeof value === 'undefined' ? null : value)}`);
+      return {
+        ensName: undefined,
+        isLoading: false,
+      };
+    }
+  }, [address, opts, ensName, wagmiUseEnsNameError, wagmiUseEnsNameIsLoading, verificationSuccessful, useEnsAddressError, useEnsAddressIsLoading]);
+  return result;
 }
