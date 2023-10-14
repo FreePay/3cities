@@ -1,7 +1,43 @@
-import { useEffect, useState } from 'react';
+import React, { FC, createContext, useContext, useEffect, useState } from 'react';
+import { ObservableValue, makeObservableValue, useObservedValue } from './observer';
 import useDebounce from './useDebounce';
 
-// this is a fork of https://github.com/pgilad/react-page-visibility
+// useIsPageVisibleOrRecentlyVisible returns true iff the page is
+// currently visible or has been visible in the past opts.recentMillis
+// milliseconds (default 13 seconds). useIsPageVisibleOrRecentlyVisible
+// re-renders iff the return value changes. Clients may use
+// useIsPageVisibleOrRecentlyVisible to eg. refresh data fetches only if
+// page visible or was recently visible to help minimize rpc load. The
+// "if was recently visible" part is important so that if a user rapidly
+// hides/shows the app, we aren't rapidly toggling and refreshing data
+// every time the app is hidden and then shown again. See
+// useIsPageVisible for details on how page visibility is detected.
+export function useIsPageVisibleOrRecentlyVisible(): boolean {
+  return useContext(IsPageVisibleOrRecentlyVisibleContext);
+}
+
+type IsPageVisibleOrRecentlyVisibleProviderProps = {
+  children?: React.ReactNode;
+  opts?: UseIsPageVisibleOrRecentlyVisibleOpts;
+}
+
+// IsPageVisibleOrRecentlyVisibleProvider is a global provider to
+// provide data for useIsPageVisibleOrRecentlyVisible. By using observer
+// indirection, IsPageVisibleOrRecentlyVisibleProvider prevents
+// useIsPageVisibleOrRecentlyVisible from re-rendering unnecessarily.
+export const IsPageVisibleOrRecentlyVisibleProvider: FC<IsPageVisibleOrRecentlyVisibleProviderProps> = ({ children, opts }) => {
+  const [isPageVisibleOrRecentlyVisibleOv] = useState(() => makeObservableValue<boolean>(true));
+  const isPageVisibleOrRecentlyVisible: boolean = useObservedValue(isPageVisibleOrRecentlyVisibleOv.observer);
+  console.log("render IsPageVisibleOrRecentlyVisibleProvider, recentlyVisible=", isPageVisibleOrRecentlyVisible); // TODO rm
+  return <>
+    <IsPageVisibleOrRecentlyVisibleContext.Provider value={isPageVisibleOrRecentlyVisible}>
+      {children}
+    </IsPageVisibleOrRecentlyVisibleContext.Provider>
+    <CalcIsPageVisibleOrRecentlyVisibleProvider ov={isPageVisibleOrRecentlyVisibleOv} {...(opts && { opts })} />
+  </>;
+};
+
+// the core visibility code here is a fork of https://github.com/pgilad/react-page-visibility
 
 const hasDocument: boolean = typeof document !== 'undefined';
 const vendorEvents = [
@@ -50,7 +86,7 @@ const visibility = (() => {
 })();
 
 const getHandlerArgs = () => {
-  if (!visibility) return [true, 'visible'];
+  if (!visibility) return [true, 'visible']; // this line of code is what ensures the page is permanently detected as visible if the browser doesn't support visibility detection
   else {
     const { hidden, state } = visibility;
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -70,11 +106,9 @@ const isSupportedLocal = isSupported && visibility;
 // To determine if a particular element is visible in the viewport, use
 // eg. https://github.com/joshwnj/react-visibility-sensor
 // useIsPageVisible isn't exported because clients should instead use
-// useIsPageRecentlyVisible so that if a user rapidly hides/shows the
-// app, we aren't rapidly toggling visibility status, which, given the
-// canonical client use case of not refreshing data while page is
-// invisible, can cause unnecessarily rapid data refreshes every time
-// the app is hidden and then shown again.
+// useIsPageRecentlyVisible because WARNING useIsPageVisible re-renders
+// every time the page's visibility status changes, such as if the user
+// rapidly switches browser tabs.
 const useIsPageVisible: () => boolean = () => {
   const [isPageVisible, setIsPageVisible] = useState<boolean>(() => {
     const [initiallyVisible] = getHandlerArgs();
@@ -114,19 +148,32 @@ interface UseIsPageVisibleOrRecentlyVisibleOpts {
   recentMillis?: number; // definition of "recent" in milliseconds. Ie. duration of the window during which the page is considered to have been recently visible
 }
 
-// useIsPageVisibleOrRecentlyVisible returns true iff the page is
-// currently visible or has been visible in the past opts.recentMillis
-// milliseconds (default 13 seconds). Clients may use
-// useIsPageVisibleOrRecentlyVisible to eg. refresh data fetches only if
-// page visible or was recently visible to help minimize rpc load. The
-// "if was recently visible" part is important so that if a user rapidly
-// hides/shows the app, we aren't rapidly toggling and refreshing data
-// every time the app is hidden and then shown again. See
-// useIsPageVisible for details on how page visibility is detected.
-export function useIsPageVisibleOrRecentlyVisible(opts?: UseIsPageVisibleOrRecentlyVisibleOpts): boolean {
+// useCalcIsPageVisibleOrRecentlyVisible calculates
+// isPageVisibleOrRecentlyVisible. useCalcIsPageVisibleOrRecentlyVisible
+// re-renders every time the page toggles visibility status and is
+// therefore unsuitable for client use and is used only internally to
+// provide data for the client entrypoint
+// useIsPageVisibleOrRecentlyVisible.
+function useCalcIsPageVisibleOrRecentlyVisible(opts?: UseIsPageVisibleOrRecentlyVisibleOpts): boolean {
   const recentMillis = opts?.recentMillis ?? 13_000;
   const isPageVisible = useIsPageVisible();
   const flushDebounce = isPageVisible; // if the page is visible, immediately flush this into the debounced value, otherwise isPageRecentlyVisible would be incorrect in the following case: page is invisible for a long time, page becomes visible, then page quickly becomes invisible again --> now we have isPageRecentlyVisible==false because the debounce timer didn't elapse before isPageVisible became false again.
   const isPageVisibleOrRecentlyVisible = useDebounce(isPageVisible, recentMillis, flushDebounce);
   return isPageVisibleOrRecentlyVisible;
 }
+
+const IsPageVisibleOrRecentlyVisibleContext = createContext<boolean>(true); // default to true because page is typically visible when the app initially loads
+
+type CalcIsPageVisibleOrRecentlyVisibleProviderProps = {
+  ov: ObservableValue<boolean>;
+  opts?: UseIsPageVisibleOrRecentlyVisibleOpts;
+}
+
+const CalcIsPageVisibleOrRecentlyVisibleProvider: FC<CalcIsPageVisibleOrRecentlyVisibleProviderProps> = ({ ov, opts }) => {
+  const isPageVisibleOrRecentlyVisible: boolean = useCalcIsPageVisibleOrRecentlyVisible(opts);
+  useEffect(
+    () => ov.setValueAndNotifyObservers(isPageVisibleOrRecentlyVisible),
+    [ov, opts, isPageVisibleOrRecentlyVisible],
+  );
+  return undefined;
+};
