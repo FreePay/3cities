@@ -240,8 +240,8 @@ export const allSupportedChainIds: NonEmptyArray<number> = (() => {
 // chainId, or a message indicating the chain is unknown if the passed
 // chainId is for an unsupported chain.
 export function getSupportedChainName(chainId: number): string {
-  const n = chainsSupportedBy3cities.find(n => n.id === chainId); // O(chains) and in the distance future may want to implement a lookup table of chainId -> chainName that's built statically upon module initialization
-  return n === undefined ? `unknown chain ${chainId}` : n.name;
+  const chain = chainsSupportedBy3cities.find(n => n.id === chainId); // O(chains) and in the distance future may want to implement a lookup table of chainId -> chainName that's built statically upon module initialization
+  return chain === undefined ? `unknown chain ${chainId}` : chain.name;
 }
 
 // getChain returns the Chain for the passed chainId, or undefined if the
