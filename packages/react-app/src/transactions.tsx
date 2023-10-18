@@ -10,6 +10,8 @@ import { getSupportedChainName } from "./chains";
 import { hasOwnPropertyOfType } from "./hasOwnProperty";
 import { Observer, makeObservableValue, useObservedValue } from "./observer";
 import { TokenTransfer, isTokenAndNotNativeCurrencyTransfer } from "./tokenTransfer";
+import { PartialFor } from "./PartialFor";
+import { Narrow } from "./Narrow";
 
 // TODO build and save list of test cases to check all ExecuteTokenTransfer code paths, eg. (automatic retries, other features) X (token, native currency) X (wallets) X (networks) X (different transfer amounts including very small amounts)
 
@@ -83,7 +85,7 @@ export type ExecuteTokenTransferButtonStatus = Readonly<{
 })>;
 
 export type ExecuteTokenTransferButtonProps = {
-  tt: TokenTransfer; // the token transfer this button will execute. WARNING ExecuteTokenTransferButton doesn't support arbitrary ongoing changes to the props TokenTransfer. See ExecuteTokenTransferButtonStatus.activeTokenTransfer.
+  tt: TokenTransfer | undefined; // the token transfer this button will execute. If undefined, the button will appear to be loading forever, and the passed setStatus will never be called. WARNING ExecuteTokenTransferButton doesn't support arbitrary ongoing changes to the props TokenTransfer. See ExecuteTokenTransferButtonStatus.activeTokenTransfer.
   autoReset?: true; // if set, the button will automatically call its own status.reset to update cached token transfer details when props.tt changes, but only if the user isn't currently signing the transaction or has already signed the transaction, in which case the button is never auto-reset but can still be reset manually by the client. WARNING automatic resets trigger a new status, so clients must ensure a new status doesn't unconditionally compute new tt object, or else an infinite async render loop will occur (new tt -> auto reset -> async reset -> new status -> repeat)
   loadForeverOnTransactionFeeUnaffordableError?: true; // when the button detects that the user can't afford the transaction fee for the active token transfer, the button UI normally shows an error, but if this is set, instead will show itself as loading. When the fee is unaffordable, regardless if this set, `status.error` will be an instanceof TransactionFeeUnaffordableError, which allows the client to detect fee unaffordability and optionally, replace the active transfer with one that the user may be able to afford. The point of this flag is to enable the client to replace the active transfer on fee unaffordability without the janky intermediate UI state of the button showing an error. WARNING TransactionFeeUnaffordableError is detected on a case-by-case basis depending on the wallet's implementation, so the transaction might be (or end up being) unaffordable even if there's no error or the error isn't an instanceof TransactionFeeUnaffordableError. Ie. TransactionFeeUnaffordableError is subject to false negatives, but not false positives.
   label: string; // label to put on the button, eg. "Pay Now", "Donate Now", "Place your order"
@@ -101,7 +103,7 @@ export type ExecuteTokenTransferButtonProps = {
 // ExecuteTokenTransferButton is a batteries-included button to manage the
 // full lifecycle of a single token transfer.
 export const ExecuteTokenTransferButton: React.FC<ExecuteTokenTransferButtonProps> = ({ setStatus, ...props }) => {
-  const [ov] = useState(() => makeObservableValue<ExecuteTokenTransferStatus>(getInitialExecuteTokenTransferStatus(props.tt)));
+  const [ov] = useState(() => makeObservableValue<ExecuteTokenTransferStatus | undefined>(undefined));
 
   const innerSetStatus = useCallback<((s: ExecuteTokenTransferStatus) => void)>((s: ExecuteTokenTransferStatus) => {
     // the job of this outer ExecuteTokenTransferButton component is to avoid necessary rerenders (especially not rerendering on each transfer status update) and to act as plumbing between the transfer, the client, and the UI. Here, a new status has been produced by the transfer, and so this component will push that status to the UI and the client, while leveraging ObservableValue to avoid state updates to itself:
@@ -110,18 +112,32 @@ export const ExecuteTokenTransferButton: React.FC<ExecuteTokenTransferButtonProp
   }, [setStatus, ov]);
 
   return <>
-    {props.disabled !== undefined ? undefined : <ExecuteTokenTransfer tt={props.tt} setStatus={innerSetStatus} />}
+    {props.tt === undefined || props.disabled !== undefined ? undefined : <ExecuteTokenTransfer tt={props.tt} setStatus={innerSetStatus} />}
     <ExecuteTokenTransferButtonUI {...props} observer={ov.observer} />
   </>;
 }
 
+const defaultExecuteTokenTransferStatus: PartialFor<Narrow<ExecuteTokenTransferStatus, 'status', 'Loading'>, 'activeTokenTransfer'> = {
+  reset: () => { },
+  status: 'Loading',
+  isError: false,
+  isReadyToExecute: false,
+  executeCalledAtLeastOnce: false,
+  isLoading: true,
+  loadingStatus: 'Init',
+  needToSwitchNetworkManually: false,
+  userSignedTransaction: false,
+  isSuccess: false,
+};
+
 type ExecuteTokenTransferButtonUIProps = Pick<ExecuteTokenTransferButtonProps, 'tt' | 'autoReset' | 'loadForeverOnTransactionFeeUnaffordableError' | 'label' | 'successLabel' | 'disabled' | 'className' | 'disabledClassName' | 'enabledClassName' | 'errorClassName' | 'warningClassName' | 'loadingSpinnerClassName'> & {
-  observer: Observer<ExecuteTokenTransferStatus>;
+  observer: Observer<ExecuteTokenTransferStatus | undefined>;
 };
 
 const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> = ({ tt, autoReset, loadForeverOnTransactionFeeUnaffordableError, label, successLabel, disabled, className, disabledClassName, enabledClassName, errorClassName, warningClassName, loadingSpinnerClassName, observer, }) => {
   const { connector: activeConnector } = useAccount();
-  const status: ExecuteTokenTransferStatus = useObservedValue(observer);
+  const statusFromObserver: ExecuteTokenTransferStatus | undefined = useObservedValue(observer);
+  const status = statusFromObserver || defaultExecuteTokenTransferStatus;
 
   const connectedWalletAutoSigns: boolean = activeConnector ? activeConnector.id.includes("web3auth") : false; // true iff the connected wallet does not ask the user to sign the transaction and instead signs it on their behalf.
 
@@ -144,7 +160,7 @@ const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> 
       else return undefined;
     })();
     const needToDismissOtherNetworkSwitch = status.warning === 'NetworkSwitchNonFatalError' ? 'Finish other network switch and retry' : undefined;
-    const needToSwitchNetworkManuallyMsg = status.needToSwitchNetworkManually ? <span className={warningClassName || ''}>Switch wallet network to {getSupportedChainName(tt.token.chainId)} ({tt.token.chainId})</span> : undefined;
+    const needToSwitchNetworkManuallyMsg = status.needToSwitchNetworkManually ? <span className={warningClassName || ''}>Switch wallet network to {getSupportedChainName(status.activeTokenTransfer.token.chainId)} ({status.activeTokenTransfer.token.chainId})</span> : undefined;
     const needToSignInWallet = status.isLoading && status.loadingStatus === 'SigningTransaction' && !connectedWalletAutoSigns ? 'Confirm in Wallet' : undefined;
     const payingInProgress = status.isLoading && (
       status.loadingStatus === 'ConfirmingTransaction'
@@ -300,22 +316,6 @@ export type ExecuteTokenTransferStatus = Readonly<{
   successData: TransactionReceipt;
 })>;
 
-function getInitialExecuteTokenTransferStatus(tt: TokenTransfer): ExecuteTokenTransferStatus {
-  return {
-    activeTokenTransfer: tt,
-    reset: () => { },
-    status: 'Loading',
-    isError: false,
-    isReadyToExecute: false,
-    executeCalledAtLeastOnce: false,
-    isLoading: true,
-    loadingStatus: 'Init',
-    needToSwitchNetworkManually: false,
-    userSignedTransaction: false,
-    isSuccess: false,
-  };
-}
-
 function transferStatusToButtonStatus(s: ExecuteTokenTransferStatus): ExecuteTokenTransferButtonStatus {
   switch (s.status) {
     case 'Error': return {
@@ -453,7 +453,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
       address: cachedTT.token.contractAddress,
       abi: abis.erc20,
       functionName: 'transfer',
-      args: [cachedTT.toAddress, BigNumber.from(cachedTT.amountAsBigNumberHexString).toString()],
+      args: [cachedTT.receiverAddress, BigNumber.from(cachedTT.amountAsBigNumberHexString).toString()],
     }; else return {
       enabled: false,
     };
@@ -477,7 +477,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
     }; else return {
       chainId: cachedTT.token.chainId,
       request: {
-        to: cachedTT.toAddress,
+        to: cachedTT.receiverAddress,
         value: BigNumber.from(cachedTT.amountAsBigNumberHexString).toString(),
       },
     };
