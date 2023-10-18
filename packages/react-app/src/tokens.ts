@@ -168,8 +168,8 @@ const polygonUSDT = token(polygon, { name: 'Tether USD', ticker: 'USDT', contrac
 const polygonLUSD = token(polygon, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x23001f892c0C82b79303EDC9B9033cD190BB21c7' });
 // const polygonMumbaiLUSD = token(polygonMumbai, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '' });
 
-function isTokenOnASupportedChain(token: NativeCurrency | Token): boolean {
-  return allSupportedChainIds.indexOf(token.chainId) > -1;
+function isTokenOnASupportedChain(t: NativeCurrency | Token): boolean {
+  return allSupportedChainIds.indexOf(t.chainId) > -1;
 }
 
 // nativeCurrencies is our static global definition of all supported

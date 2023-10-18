@@ -18,12 +18,10 @@ function truncateEthAddressInternal(regex: RegExp, address?: string, separator: 
   }
 }
 
-// truncateENSAddress truncates the passed ENS name to be no longer than
+// truncateENSAddress truncates the passed ens name to be no longer than
 // the passed maxLength.
-export const truncateENSAddress = (ensName: string, maxLength: number): string => {
-  if (ensName.length > maxLength) {
-    return ensName.replace('.eth', '').slice(0, maxLength) + '...';
-  } else {
-    return ensName;
-  }
+export const truncateEnsAddress = (ensName: string | undefined, maxLength: number = 14): string => {
+  if (!ensName) return '';
+  else if (ensName.length > maxLength) return ensName.replace('.eth', '').slice(0, maxLength) + '...';
+  else return ensName;
 };

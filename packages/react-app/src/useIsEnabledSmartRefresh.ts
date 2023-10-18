@@ -10,7 +10,7 @@ import { useIsPageVisibleOrRecentlyVisible } from "./useIsPageVisibleOrRecentlyV
 // `staleTime/cacheTime`, and none of them worked for us. See 'redesign of
 // live balance fetching' in 3cities design.
 // Example: useBalance({ enabled: isEnabledFromThisHook })
-export function useIsEnabledSmartRefresh() {
+export function useIsEnabledSmartRefresh(): boolean {
   const [isForceDisable, setIsForceDisable] = useState(false);
 
   useEffect(() => { // long periodic timer to trigger disable

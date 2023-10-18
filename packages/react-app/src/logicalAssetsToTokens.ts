@@ -39,24 +39,24 @@ export function isTokenTickerSupportedByLogicalAsset(lat: LogicalAssetTicker, to
   return logicalAssetsToSupportedTokenTickers[lat][toUppercase(tokenTicker)] === true;
 }
 
-// getNativeCurrenciesAndTokensForLogicalAssetTicker returns the set of
+// getAllNativeCurrenciesAndTokensForLogicalAssetTicker returns the set of
 // all native currencies and tokens that are both supported by 3cities
 // (by way of our global token registry) and supported by the passed
 // logical asset (as identified by the passed logical asset ticker).
-export function getNativeCurrenciesAndTokensForLogicalAssetTicker(lat: LogicalAssetTicker): (NativeCurrency | Token)[] {
+export function getAllNativeCurrenciesAndTokensForLogicalAssetTicker(lat: LogicalAssetTicker): (NativeCurrency | Token)[] {
   const r: (NativeCurrency | Token)[] = [];
   for (const t of Object.keys(logicalAssetsToSupportedTokenTickers[lat])) {
     const maybeTokens = tokensByTicker[t];
     if (maybeTokens !== undefined) r.push(...maybeTokens);
   }
-  // console.log("getNativeCurrenciesAndTokensForLogicalAssetTicker lat=", lat, "r=", r);
+  // console.log("getAllNativeCurrenciesAndTokensForLogicalAssetTicker lat=", lat, "r=", r);
   return r;
 }
 
 /*
   logical assets to tokens examples
     DONE given a logical asset ticker, get all its supported tokens/natives.
-      DONE getNativeCurrenciesAndTokensForLogicalAssetTicker
+      DONE getAllNativeCurrenciesAndTokensForLogicalAssetTicker
     DONE given list of tokens/natives tickers, filter for ones that are supported by given the logical asset or at least one logical asset
       DONE allTokenTickers.filter(isTokenTickerSupportedByLogicalAsset.bind(null, lat))
       SKIP allTokenTickers.filter(isTokenTickerSupportedByAnyLogicalAsset.bind(null, lats))
