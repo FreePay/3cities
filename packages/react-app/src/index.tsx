@@ -1,7 +1,10 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
+import { enableMapSet } from "immer";
 import "./index.css";
+
+enableMapSet(); // see https://immerjs.github.io/immer/map-set https://immerjs.github.io/immer/installation#pick-your-immer-version
 
 const root = createRoot((() => {
   const r = document.getElementById("root");
