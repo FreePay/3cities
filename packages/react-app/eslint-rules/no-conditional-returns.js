@@ -1,4 +1,6 @@
 
+// TODO support switch fallthrough cases
+
 // NB see noConditionalReturnsTestCases.ts
 
 // This no-conditional-returns eslint rule ensures that if any branch of an
