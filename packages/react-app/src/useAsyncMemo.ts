@@ -1,10 +1,12 @@
-import { DependencyList, useEffect, useState } from 'react';
+import { DependencyList, useEffect, useMemo, useState } from 'react';
 
 // Copied from https://github.com/awmleer/use-async-memo/blob/master/src/index.ts
-export function useAsyncMemo<T>(factory: () => Promise<T> | undefined | null, deps: DependencyList): T | undefined
-export function useAsyncMemo<T>(factory: () => Promise<T> | undefined | null, deps: DependencyList, initialValue: T): T
+export function useAsyncMemo<T>(factory: () => Promise<T> | undefined | null, deps: DependencyList): [T | undefined, () => void]
+export function useAsyncMemo<T>(factory: () => Promise<T> | undefined | null, deps: DependencyList, initialValue: T): [T, () => void]
 export function useAsyncMemo<T>(factory: () => Promise<T> | undefined | null, deps: DependencyList, initialValue?: T) {
   const [value, setValue] = useState<T | undefined>(initialValue);
+  const [nonce, setNonce] = useState(0);
+  const forceRecache = useMemo<() => void>(() => () => setNonce(n => n + 1), [setNonce]);
   useEffect(() => {
     let cancel = false;
     const promise = factory();
@@ -20,8 +22,8 @@ export function useAsyncMemo<T>(factory: () => Promise<T> | undefined | null, de
       };
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, deps);
-  return value;
+  }, deps.concat([nonce]));
+  return [value, forceRecache];
 }
 
 // useAsyncValuesMemo provides a list of values where each of those
