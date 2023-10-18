@@ -1,4 +1,4 @@
-import React, { InputHTMLAttributes, useCallback, useState } from 'react';
+import React, { InputHTMLAttributes, useCallback, useMemo, useState } from 'react';
 
 interface Opts {
   onEnterKeyPress?: (e: React.KeyboardEvent<HTMLInputElement>) => void; // callback that will be invoked when the user hits the enter key.
@@ -25,12 +25,15 @@ export function useInput(initialValue: boolean | string | number, inputHTMLAttri
     }
   }, [opts]);
 
-  const input = <input
+  const input = useMemo(() => <input
     value={typeof value !== 'boolean' ? value : undefined}
     checked={typeof value === 'boolean' ? value : undefined}
     onChange={onChange}
     onKeyDown={onKeyDown}
     {...inputHTMLAttributes}
-  />;
-  return [value, input, setValue];
+  />, [value, onChange, onKeyDown, inputHTMLAttributes]);
+
+  const ret = useMemo<[boolean | string | number, JSX.Element, ((newValue: boolean) => void) | ((newValue: string) => void) | ((newValue: number) => void)]>(() => [value, input, setValue], [value, input, setValue]);
+
+  return ret;
 }
