@@ -6,8 +6,8 @@ import { Toaster } from 'sonner';
 import { WagmiConfig } from "wagmi";
 import { ConnectedAccountContextObserverProvider } from "./ConnectedAccountContextObserverProvider";
 import { DemoAccountProvider } from "./DemoAccountProvider";
+import { IsPageVisibleOrRecentlyVisibleProvider } from "./IsPageVisibleOrRecentlyVisibleProvider";
 import { wagmiClient } from "./wagmiClient";
-import { IsPageVisibleOrRecentlyVisibleProvider } from "./useIsPageVisibleOrRecentlyVisible";
 
 const connectKitOptions: ConnectKitOptions = {
   walletConnectName: "WalletConnect", // default is "Other Wallets" which I find confusing because anybody who knows they can scan a qr code from mobile will most likely be looking for the name "WalletConnect"
