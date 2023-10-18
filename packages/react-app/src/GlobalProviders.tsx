@@ -24,7 +24,7 @@ export const GlobalProviders = () => {
     <WagmiConfig client={wagmiClient}>
       {/* <ConnectWalletProvider chains={chainsSupportedBy3cities}>  TODO connect-wallet support blocked by runtime error https://github.com/Shopify/blockchain-components/issues/16 */}
       <IsPageVisibleOrRecentlyVisibleProvider>
-        <DemoAccountProvider>
+        <DemoAccountProvider> {/* WARNING DemoAccountProvider must be nested inside IsPageVisibleOrRecentlyVisibleProvider because DemoAccountProvider depends on ens name resolution and that depends on page recent visiblity */}
           <ConnectKitProvider options={connectKitOptions}>
             <ConnectedAccountContextObserverProvider>
               <Toaster richColors /> {/* NB here we put the toaster inside the wagmi, connectkit, and addressContext providers so that the toast clients can have access to these services */}

@@ -1,12 +1,12 @@
 import { isAddress } from "@ethersproject/address";
-import React, { useContext } from "react";
+import React from "react";
 import { Outlet } from "react-router-dom";
-import { ActiveDemoAccountContext } from "./ActiveDemoAccountContext";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
 import { truncateEthAddressVeryShort } from "./truncateAddress";
+import { useActiveDemoAccount } from "./useActiveDemoAccount";
 
 function ConversionHeader() {
-  const activeDemoAccount: string | undefined = useContext(ActiveDemoAccountContext);
+  const activeDemoAccount: string | undefined = useActiveDemoAccount();
   return (
     <header className="relative bg-quaternary p-5 min-h-[80px] flex items-center">
       <div className="mx-auto flex w-full max-w-screen-lg items-center justify-between">

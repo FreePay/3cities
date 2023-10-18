@@ -1,11 +1,50 @@
 import { Signer } from '@ethersproject/abstract-signer';
 import { isAddress } from "@ethersproject/address";
 import { MockConnector } from '@wagmi/core/connectors/mock';
-import React, { useCallback, useEffect, useState } from "react";
+import React, { FC, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from 'react-router-dom';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { ActiveDemoAccountContext } from './ActiveDemoAccountContext';
+import { ObservableValue, Observer, makeObservableValue, useObservedValue } from './observer';
 import { useEnsAddress } from './useEnsAddress';
+
+type DemoAccountProviderProps = {
+  children?: React.ReactNode;
+}
+
+// DemoAccountProvider is a global provider to provide data for
+// useActiveDemoAccount. By using observer indirection,
+// DemoAccountProvider prevents the client entrypoint
+// useActiveDemoAccount from re-rendering unnecessarily, especially
+// because useCalcActiveDemoAccount occassionally rerenders when
+// wagmi.useAccount triggers an internal reconnection for some reason.
+export const DemoAccountProvider: FC<DemoAccountProviderProps> = ({ children }) => {
+  const [activeDemoAccountOv] = useState(() => makeObservableValue<string | undefined>(undefined));
+  return <>
+    <DemoAccountProviderInner activeDemoAccountObserver={activeDemoAccountOv.observer}>
+      {children}
+    </DemoAccountProviderInner>
+    <ActiveDemoAccountUpdater ov={activeDemoAccountOv} />
+  </>;
+};
+
+type DemoAccountProviderInnerProps = DemoAccountProviderProps & {
+  activeDemoAccountObserver: Observer<string | undefined>;
+}
+
+// DemoAccountProviderInner exists to prevent ActiveDemoAccountUpdater
+// from redundantly rerendering when activeDemoAccount changes. Ie. if
+// ActiveDemoAccountContext.Provider is included directly in
+// DemoAccountProvider, then we have the render flow
+// (ActiveDemoAccountUpdater rerenders because activeDemoAccount changes
+// -> DemoAccountProvider rerenders on observed value update ->
+// ActiveDemoAccountUpdater rerenders because its parent rerendered).
+const DemoAccountProviderInner: FC<DemoAccountProviderInnerProps> = ({ children, activeDemoAccountObserver }) => {
+  const activeDemoAccount: string | undefined = useObservedValue(activeDemoAccountObserver);
+  return <ActiveDemoAccountContext.Provider value={activeDemoAccount}>
+    {children}
+  </ActiveDemoAccountContext.Provider>;
+};
 
 // tests
 //   real address or mock already connected -> invalid mock address -> the invalid mock address fails connectAsync and real address stays connected
@@ -29,7 +68,7 @@ class ReadonlySigner extends Signer {
 
   readonly address;
 
-  constructor(address: string) {
+  constructor(address: `0x${string}`) {
     super();
     this.address = address;
   }
@@ -39,8 +78,8 @@ class ReadonlySigner extends Signer {
   }
 }
 
-// useMockConnectedAddress sets the connected wallet address to the
-// passed mockAddressOrENS. This allows the connected address to be
+// useMockConnectedAddress sets the wagmi connected wallet address to
+// the passed mockAddressOrENS. This allows the connected address to be
 // overridden for demo purposes on a read-only basis (the mocked address
 // will not be able to sign any transactions as it has no private key).
 // Pass undefined or the empty string to skip mocking.
@@ -50,7 +89,7 @@ function useMockConnectedAddress(mockAddressOrENS?: string | undefined): undefin
   const { address, isConnecting, isReconnecting, isDisconnected } = useAccount();
 
   const mockEnsName: string | undefined = !mockAddressOrENS || isAddress(mockAddressOrENS) ? undefined : mockAddressOrENS;
-  const { address: addressFromENS } = useEnsAddress(mockEnsName);
+  const { address: addressFromEns, isLoading: addressFromEnsIsLoading } = useEnsAddress(mockEnsName);
 
   const [doConnectThunk, setDoConnectThunk] = useState<(() => void) | undefined>(undefined);
 
@@ -69,12 +108,13 @@ function useMockConnectedAddress(mockAddressOrENS?: string | undefined): undefin
   }, [mockAddressOrENS]);
 
   useEffect(() => {
-    const addressToConnect = isAddress(mockAddressOrENS || '') ? mockAddressOrENS : addressFromENS;
+    const addressToConnect: `0x${string}` | undefined = mockAddressOrENS && isAddress(mockAddressOrENS) ? mockAddressOrENS : addressFromEns;
     if (isConnecting || isReconnecting) {
       // wagmi is busy connecting or reconnecting to some address. We'll wait until it finishes and then update our state machine from there.
     } else if (
       // check to see if we need to disconnect a previously-connected mock address:
       mockAddressOrENS === undefined // client requested no mock address, so if there's a previously-connected mock address, we'll need to disconnect it.
+      || (mockEnsName && !addressFromEns && !addressFromEnsIsLoading && mockAddressConnectionStatus === 'connected') // the client has requested a mock ens name, but the ens name failed to resolve to an address, and we're already connected to a different mock address that did not fail to connect, so we'll need to disconnect it.
       || (addressToConnect && mockAddressConnectionStatus === 'connected' && address !== addressToConnect) // the client has requested as mock address, but we're already connected to a different mock address, so we'll need to disconnect it.
     ) {
       if (mockAddressConnectionStatus === 'connecting' || mockAddressConnectionStatus === 'connected') {
@@ -103,18 +143,14 @@ function useMockConnectedAddress(mockAddressOrENS?: string | undefined): undefin
         });
       });
     }
-  }, [connectAsync, disconnectAsync, address, mockAddressOrENS, addressFromENS, mockAddressConnectionStatus, setMockAddressConnectionStatus, isConnecting, isReconnecting, isDisconnected, setDoConnectThunk]);
+  }, [connectAsync, disconnectAsync, address, mockAddressOrENS, mockEnsName, addressFromEns, addressFromEnsIsLoading, mockAddressConnectionStatus, setMockAddressConnectionStatus, isConnecting, isReconnecting, isDisconnected, setDoConnectThunk]);
 
   return mockAddressConnectionStatus === 'connected' ? 'mockAddressSuccessfullyConnected' : undefined;
 }
 
-interface MockConnectedAddressProps {
-  children?: React.ReactNode;
-}
-
 const demoAccountSearchParam = "demoAccount";
 
-export const DemoAccountProvider: React.FC<MockConnectedAddressProps> = ({ children }) => {
+function useCalcActiveDemoAccount() {
   const [searchParams] = useSearchParams();
   const [shouldConnectToDemoAccount, setShouldConnectToDemoAccount] = useState<boolean>(true); // when the page loads, we'll connect to any demo account requested by the client via URL search param, overriding any other (re)connected account. We want the user to be able to disconnect any demo account and connect their own account, so we'll use shouldConnectToDemoAccount to track disconnection of the demo account and never reconnect it. If the demo account is disconnected, the user must reload the page to reconnect it. We don't want to modify the URL search params because we want to preserve the demo account in case the page is reloaded or link is shared.
 
@@ -147,7 +183,19 @@ export const DemoAccountProvider: React.FC<MockConnectedAddressProps> = ({ child
   }, [demoAccountToConnect, setShouldConnectToDemoAccount, demoAccountSuccessfullyConnected, demoAccountThatWasSuccessfullyConnected]);
   useAccount({ onDisconnect });
 
-  return <ActiveDemoAccountContext.Provider value={demoAccountSuccessfullyConnected && rawDemoAccountSearchParam ? rawDemoAccountSearchParam : undefined}>
-    {children}
-  </ActiveDemoAccountContext.Provider>
+  const activeDemoAccount: string | undefined = demoAccountSuccessfullyConnected && rawDemoAccountSearchParam ? rawDemoAccountSearchParam : undefined;
+  return activeDemoAccount;
 }
+
+interface ActiveDemoAccountUpdaterProps {
+  ov: ObservableValue<string | undefined>;
+}
+
+const ActiveDemoAccountUpdater: FC<ActiveDemoAccountUpdaterProps> = ({ ov }) => {
+  const activeDemoAccount: string | undefined = useCalcActiveDemoAccount();
+  useEffect(
+    () => ov.setValueAndNotifyObservers(activeDemoAccount),
+    [ov, activeDemoAccount],
+  );
+  return undefined;
+};
