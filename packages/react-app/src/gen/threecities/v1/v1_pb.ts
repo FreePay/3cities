@@ -95,7 +95,7 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
    */
   proposedPaymentPaymentMode: {
     /**
-     * Big-endian binary encoding of payment logical asset amount. Deserialized as CheckoutSettings.proposedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString --> TODO should this be encoded using our new 7-bit method? Probably not, right, because it's a single number and will already be efficiently binary-encoded?
+     * Big-endian binary encoding of payment logical asset amount. Deserialized as CheckoutSettings.proposedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString
      *
      * @generated from field: bytes proposed_payment_payment_mode_logical_asset_amount = 4;
      */
@@ -135,7 +135,7 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
   } | { case: undefined; value?: undefined } = { case: undefined };
 
   /**
-   * optional. See comparative analysis below for why this design was chosen --> TODO I think the generated links will almost always be shorter if we serialize the chainIds as space-delimited strings
+   * optional. See comparative analysis below for why this design was chosen
    *
    * @generated from oneof threecities.v1.CheckoutSettings.receiver_strategy_preferences_accepted_chain_ids
    */
@@ -282,7 +282,7 @@ export class CheckoutSettings_PayWhatYouWant extends Message<CheckoutSettings_Pa
   flags = CheckoutSettings_PayWhatYouWant_PayWhatYouWantFlags.UNSPECIFIED;
 
   /**
-   * optional. Big-endian binary encoding of suggested payment logical asset amounts. Since this is "pay what you want" mode, these amounts are only suggested to the sender and not required. Deserialized as CheckoutSettings.proposedPayment.paymentMode.payWhatYouWant.suggestedLogicalAssetAmountsAsBigNumberHexStrings --> TODO should this be encoded using our new 7-bit method (as a `bytes` instead of `repeated bytes`? I think so?
+   * optional. Big-endian binary encoding of suggested payment logical asset amounts. Since this is "pay what you want" mode, these amounts are only suggested to the sender and not required. Deserialized as CheckoutSettings.proposedPayment.paymentMode.payWhatYouWant.suggestedLogicalAssetAmountsAsBigNumberHexStrings
    *
    * @generated from field: repeated bytes suggested_logical_asset_amounts = 2;
    */
@@ -323,8 +323,8 @@ export class CheckoutSettings_PayWhatYouWant extends Message<CheckoutSettings_Pa
  * of flags are: 1) isDynamicPricingEnabled is true iff 3cities
  * should try to suggest different amounts to pay based on the net
  * worth of the sender's connected wallet (eg. rich wallets get
- * suggested to pay more), 2) canDonateAnyAsset is true iff the
- * sender may donate any token in any amount, bypassing the usual
+ * suggested to pay more), 2) canPayAnyAsset is true iff the
+ * sender may pay any token in any amount, bypassing the usual
  * need to pay in the receiver's specified logical asset. Using this
  * enum to bitpack makes these flags consume a total of 2 bytes if
  * any flags are set or 0 bytes if none are set. Using regular bools
@@ -351,26 +351,26 @@ export enum CheckoutSettings_PayWhatYouWant_PayWhatYouWantFlags {
    * are set. This saves 2 bytes in the binary serialization when no
    * flags are set.
    *
-   * @generated from enum value: PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_FALSE_CAN_DONATE_ANY_ASSET_TRUE = 1;
+   * @generated from enum value: PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_FALSE_CAN_PAY_ANY_ASSET_TRUE = 1;
    */
-  IS_DYNAMIC_PRICING_ENABLED_FALSE_CAN_DONATE_ANY_ASSET_TRUE = 1,
+  IS_DYNAMIC_PRICING_ENABLED_FALSE_CAN_PAY_ANY_ASSET_TRUE = 1,
 
   /**
-   * @generated from enum value: PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_DONATE_ANY_ASSET_FALSE = 2;
+   * @generated from enum value: PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_PAY_ANY_ASSET_FALSE = 2;
    */
-  IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_DONATE_ANY_ASSET_FALSE = 2,
+  IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_PAY_ANY_ASSET_FALSE = 2,
 
   /**
-   * @generated from enum value: PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_DONATE_ANY_ASSET_TRUE = 3;
+   * @generated from enum value: PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_PAY_ANY_ASSET_TRUE = 3;
    */
-  IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_DONATE_ANY_ASSET_TRUE = 3,
+  IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_PAY_ANY_ASSET_TRUE = 3,
 }
 // Retrieve enum metadata with: proto3.getEnumType(CheckoutSettings_PayWhatYouWant_PayWhatYouWantFlags)
 proto3.util.setEnumType(CheckoutSettings_PayWhatYouWant_PayWhatYouWantFlags, "threecities.v1.CheckoutSettings.PayWhatYouWant.PayWhatYouWantFlags", [
   { no: 0, name: "PAY_WHAT_YOU_WANT_FLAGS_UNSPECIFIED" },
-  { no: 1, name: "PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_FALSE_CAN_DONATE_ANY_ASSET_TRUE" },
-  { no: 2, name: "PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_DONATE_ANY_ASSET_FALSE" },
-  { no: 3, name: "PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_DONATE_ANY_ASSET_TRUE" },
+  { no: 1, name: "PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_FALSE_CAN_PAY_ANY_ASSET_TRUE" },
+  { no: 2, name: "PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_PAY_ANY_ASSET_FALSE" },
+  { no: 3, name: "PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_PAY_ANY_ASSET_TRUE" },
 ]);
 
 /**

@@ -24,8 +24,8 @@ message CheckoutSettings {
     // of flags are: 1) isDynamicPricingEnabled is true iff 3cities
     // should try to suggest different amounts to pay based on the net
     // worth of the sender's connected wallet (eg. rich wallets get
-    // suggested to pay more), 2) canDonateAnyAsset is true iff the
-    // sender may donate any token in any amount, bypassing the usual
+    // suggested to pay more), 2) canPayAnyAsset is true iff the
+    // sender may pay any token in any amount, bypassing the usual
     // need to pay in the receiver's specified logical asset. Using this
     // enum to bitpack makes these flags consume a total of 2 bytes if
     // any flags are set or 0 bytes if none are set. Using regular bools
@@ -43,9 +43,9 @@ message CheckoutSettings {
       // assuming that the zero value of UNSPECIFIED implies no flags
       // are set. This saves 2 bytes in the binary serialization when no
       // flags are set.
-      PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_FALSE_CAN_DONATE_ANY_ASSET_TRUE = 1;
-      PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_DONATE_ANY_ASSET_FALSE = 2;
-      PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_DONATE_ANY_ASSET_TRUE = 3;
+      PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_FALSE_CAN_PAY_ANY_ASSET_TRUE = 1;
+      PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_PAY_ANY_ASSET_FALSE = 2;
+      PAY_WHAT_YOU_WANT_FLAGS_IS_DYNAMIC_PRICING_ENABLED_TRUE_CAN_PAY_ANY_ASSET_TRUE = 3;
     }
 
     PayWhatYouWantFlags flags = 1; // required iff any flag is true, otherwise must be omitted iff all flags are false. See note on PayWhatYouWantFlags. Deserialized into multiple booleans inside CheckoutSettings.proposedPayment.paymentMode.payWhatYouWant
