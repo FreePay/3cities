@@ -1,0 +1,4 @@
+# https://buf.build/docs/configuration/v1/buf-work-yaml
+version: v1
+directories:
+  - proto
