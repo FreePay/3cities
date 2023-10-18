@@ -9,7 +9,7 @@ import { isProduction } from "./isProduction";
 import { convertLogicalAssetUnits } from "./logicalAssets";
 import { getNativeCurrenciesAndTokensForLogicalAssetTicker } from "./logicalAssetsToTokens";
 import { TokenTransfer, TokenTransferForNativeCurrency, TokenTransferForToken } from "./tokenTransfer";
-import { allTokenKeys, allTokenTickers, getTokenKey } from "./tokens";
+import { allTokenTickers, getTokenKey, isTokenSupported } from "./tokens";
 
 // TODO consider replacing "Strategy" with "PaymentMethod" in every context
 
@@ -22,20 +22,6 @@ function isTokenPermittedByStrategyPreferences(prefs: StrategyPreferences, token
   else return true;
 }
 
-// isTokenSupported returns true iff the passed token is supported. An
-// unsupported token may be due to eg. an unsupported chain, or eg. a
-// supported chain but an unsupported token on that chain. There may
-// be multiple root causes as to why a token ends up being
-// unsupported. One root cause may be that a Checkout was serialized
-// with a Token that was on a supported chain, but now it's been
-// deserialized in a context where that chain is no longer supported
-// (eg. Token constructed in production but deserialized in test).
-// Another root cause may be that the Token may have been maliciously
-// constructed by an attacker to try to get a user to send an
-// unsupported token.
-function isTokenSupported(token: NativeCurrency | Token): boolean {
-  return allTokenKeys.indexOf(getTokenKey(token)) > -1;
-}
 
 // Strategy represents one plan (ie. strategic alternative) that is
 // sufficient to fulfill the agreement contained in this strategy. The
