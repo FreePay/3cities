@@ -5,6 +5,8 @@
   "browserslist": {
     "production": [
       "supports bigint",
+      "supports textencoder",
+      "supports cryptography",
       "not dead"
     ],
     "development": [
@@ -15,19 +17,16 @@
   },
   "dependencies": {
     "@3cities/contracts": "^1.0.0",
-    "@ethersproject/contracts": "5.7.0",
     "@bufbuild/buf": "^1.26.1",
     "@bufbuild/protobuf": "^1.3.1",
     "@ethersproject/providers": "5.7.2",
-    "@msgpack/msgpack": "3.0.0-beta2",
     "@web3auth/base": "^5.2.0",
     "@web3auth/no-modal": "^5.2.0",
     "@web3auth/openlogin-adapter": "^5.2.0",
     "@web3auth/web3auth-wagmi-connector": "^3.0.2",
     "connectkit": "1.3.0",
     "ethers": "^5.7.2",
-    "fflate": "^0.7.4",
-    "immer": "^10.0.1",
+    "immer": "^10.0.3",
     "localforage": "^1.10.0",
     "qr-code-styling": "^1.6.0-rc.1",
     "react": "^18.2.0",
@@ -51,6 +50,7 @@
     "@typescript-eslint/eslint-plugin": "^6.7.2",
     "@typescript-eslint/parser": "^6.7.2",
     "autoprefixer": "^10.4.14",
+    "depcheck": "^1.4.7",
     "env-cmd": "^10.1.0",
     "eslint": "^8.50.0",
     "eslint-plugin-react": "^7.33.2",
@@ -62,6 +62,7 @@
     "source-map-explorer": "^2.5.3",
     "tailwindcss": "^3.3.2",
     "ts-macros": "^2.2.1",
+    "ts-prune": "^0.10.3",
     "typescript": "^5.2.2"
   },
   "eslintConfig": {
@@ -77,6 +78,7 @@
     "build:prod-test": "if [ -z \"$(git status --porcelain)\" ]; then npx env-cmd -e prod-test yarn build-raw; else echo 'refusing to run prod-test build with uncommited changes in the working directory'; exit 1; fi",
     "build:prod": "if [ -z \"$(git status --porcelain)\" ]; then npx env-cmd -e prod npm run build-raw; else echo 'refusing to run production build with uncommited changes in the working directory'; exit 1; fi",
     "build": "yarn build:prod",
+    "depcheck": "depcheck",
     "eject": "react-scripts eject",
     "gen": "npx buf generate proto",
     "lint": "yarn eslint . && buf lint",
@@ -85,7 +87,8 @@
     "start:prod-test": "yarn env-cmd -e prod-test yarn start-raw",
     "start:prod": "yarn env-cmd -e prod yarn start-raw",
     "start": "yarn start:dev",
-    "test": "react-scripts test"
+    "test": "react-scripts test",
+    "ts-prune": "ts-prune"
   },
   "license": "MIT"
 }
