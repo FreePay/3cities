@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useIsPageVisibleOrRecentlyVisible } from "./useIsPageVisibleOrRecentlyVisible";
 
+// TODO add a feature to protect our ethrpc bill by greatly slowing down the refresh rate after the page has been recently visible for a long period of time. This protects us from eg. a user leaving the window open over the weekend. --> eg. IF page has been recently visible for N minutes THEN decrease refresh frequency to 5 minutes instead of 20 seconds. Or even disable refreshing entirely --> design to do this: add a new provider that consumes useIsPageRecentlyVisible and provides useIsPageIdle and then consume useIsPageIdle here to disable refreshing --> a visual indicator can be added to Main/Conversion wrapper (such as a status banner on the top) indicating that data refreshes have been disabled (to re-enable, navigate to another tab and back and/or refresh page)
+
 // useIsEnabledSmartRefresh returns an `isEnabled` flag which can be passed
 // to a wagmi hook to (i) brief set enabled==false every N seconds, which
 // has the effect of forcing the hook to reload its data, and (ii) set
