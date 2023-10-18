@@ -1,11 +1,9 @@
 import React, { useCallback, useState } from "react";
 import { Outlet, useMatches, useSearchParams } from "react-router-dom";
+import { CheckoutSettings } from "./CheckoutSettings";
 import { CheckoutSettingsContext } from "./CheckoutSettingsContext";
-import { Checkout } from "./checkout";
-import { deserializeFromModifiedBase64 } from "./serialize";
+import { deserializeCheckoutSettings } from "./serialize";
 import { useEffectSkipFirst } from "./useEffectSkipFirst";
-
-// TODO rename to CheckoutSettingsProvider.tsx
 
 // Design goals of CheckoutSettingsProvider (which were achieved)
 //   1. centralize deserialization of CheckoutSettings, as it's a general payload required by various routes.
@@ -37,7 +35,7 @@ import { useEffectSkipFirst } from "./useEffectSkipFirst";
 // to be fetched before the initial render, so it's not beneficial to
 // us.
 
-const checkoutSettingsGlobalCache: { [serialized: string]: Checkout } = {}; // a global cache of (serialized CheckoutSettings -> deserialized CheckoutSettings) to prevent redundant deserializations. This is efficient enough because serialized CheckoutSettings are relatively short (today ranging from ~45 chars to 100s of chars)
+const checkoutSettingsGlobalCache: { [serialized: string]: CheckoutSettings } = {}; // a global cache of (serialized CheckoutSettings -> deserialized CheckoutSettings) to prevent redundant deserializations. This is efficient enough because serialized CheckoutSettings are relatively short (today ranging from ~45 chars to 100s of chars)
 
 type Props = {
   elementForPathIfCheckoutSettingsNotFound: { [path: string]: React.ReactNode }; // fallback element per react router path to render if CheckoutSettings couldn't be deserialized
@@ -55,13 +53,13 @@ export function CheckoutSettingsProvider(props: Props): React.ReactNode {
   const [searchParams] = useSearchParams();
   const serializedCheckoutSettings = searchParams.get(serializedCheckoutSettingsUrlParam);
 
-  const doDeserialize = useCallback((): Checkout | undefined => {
+  const doDeserialize = useCallback((): CheckoutSettings | undefined => {
     // console.log("doDeserialize start");
     if (serializedCheckoutSettings === null) return undefined;
     else {
       if (!checkoutSettingsGlobalCache[serializedCheckoutSettings]) {
         // console.log("doDeserialize cache miss");
-        const cs = deserializeFromModifiedBase64<Checkout>(serializedCheckoutSettings);
+        const cs = deserializeCheckoutSettings(serializedCheckoutSettings);
         if (cs) checkoutSettingsGlobalCache[serializedCheckoutSettings] = cs;
       } else {
         // console.log("doDeserialize cache hit");
@@ -70,7 +68,7 @@ export function CheckoutSettingsProvider(props: Props): React.ReactNode {
     }
   }, [serializedCheckoutSettings]);
 
-  const [checkoutSettings, setCheckoutSettings] = useState<Checkout | undefined>(doDeserialize);
+  const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings | undefined>(doDeserialize);
 
   useEffectSkipFirst(() => {
     // console.log("redo doDeserialize");
@@ -82,6 +80,7 @@ export function CheckoutSettingsProvider(props: Props): React.ReactNode {
       <Outlet />
     </CheckoutSettingsContext.Provider>;
   } else {
+    // checkoutSettings couldn't be deserialized, so we'll render a fallback element. The fallback element is configured per current route matches:
     let elForPath: React.ReactNode | undefined;
     for (const path of Object.keys(props.elementForPathIfCheckoutSettingsNotFound)) {
       const foundPath: boolean = matches.filter(m => m.pathname.includes(path)).length > 0;
