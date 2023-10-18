@@ -9,7 +9,7 @@ export const truncateEthAddressVeryShort = truncateEthAddressInternal.bind(null,
 // truncateEthAddress truncates the passed Ethereum address.
 export const truncateEthAddress = truncateEthAddressInternal.bind(null, truncateRegex);
 
-function truncateEthAddressInternal(regex: RegExp, address?: string, separator: string = '••••'): string {
+function truncateEthAddressInternal(regex: RegExp, address?: `0x${string}`, separator: string = '••'): string {
   if (!address) return '';
   else {
     const match = address.match(regex);
