@@ -23,7 +23,7 @@ export const Home: React.FC = () => {
     <div className="sm:my-8">
       <div className="text-left max-w-4xl mx-auto grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <h2 className="text-2xl mb-8"><Link to="/request-money" className="text-primary sm:hover:text-primary-darker font-bold">
+          <h2 className="text-2xl mb-8"><Link to="/pay-link" className="text-primary sm:hover:text-primary-darker font-bold">
             Request Money
           </Link> using 3cities</h2>
           <p className="mb-8">
@@ -33,7 +33,7 @@ export const Home: React.FC = () => {
             It&apos;s fast and free.
           </p>
           <p className="mb-8">
-            No sign-up required. No connect wallet required. <Link to="/request-money" className="text-primary sm:hover:text-primary-darker font-bold">
+            No sign-up required. No connect wallet required. <Link to="/pay-link" className="text-primary sm:hover:text-primary-darker font-bold">
               Try it now.
             </Link>
           </p>

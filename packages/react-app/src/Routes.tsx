@@ -30,7 +30,8 @@ export const router = createHashRouter(createRoutesFromElements(
   >
     <Route element={<HideFooterOnMobile />}>
       <Route element={<MainWrapper />}>
-        <Route path="request-money" element={<RequestMoney />} />
+        {/* TODO there's an interesting render "bug" where because RequestMoney is nested as `HideFooterOnMobile > MainWrapper > RequestMoney` and Home is nested as `MainWrapper > Home`, the Connect Wallet button flickers when switching between these routes because it's being rerendered as the MainWrapper routes change. We should update so that ordinary route transitions minimize header/footer/etc rerenders. How to solve? --> see TODO in HideFooter.tsx as a starter solution (but would still create rerenders) --> it should be possible to send a message directly to Footer to hide the footer upon a route's request. Could also do a hack to hardcode the set of routes to hide the Footer inside the Footer itself */}
+        <Route path="pay-link" element={<RequestMoney />} />
       </Route>
     </Route>
     <Route element={<MainWrapper />}>

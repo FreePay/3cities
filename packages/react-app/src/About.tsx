@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from 'react-router-dom';
 import { chainsSupportedBy3cities } from "./chains";
 import { allLogicalAssetTickers } from "./logicalAssets";
-import { getNativeCurrenciesAndTokensForLogicalAssetTicker, isTokenTickerSupportedByLogicalAsset } from "./logicalAssetsToTokens";
+import { getAllNativeCurrenciesAndTokensForLogicalAssetTicker, isTokenTickerSupportedByLogicalAsset } from "./logicalAssetsToTokens";
 import { allTokenTickers } from "./tokens";
 
 export const About: React.FC = () => {
@@ -57,7 +57,7 @@ export const About: React.FC = () => {
     </ul>
     <h2 className="text-2xl my-4">Supported Assets and Networks</h2>
     <p className="mb-4">
-      Currencies: {allLogicalAssetTickers.filter(lat => getNativeCurrenciesAndTokensForLogicalAssetTicker(lat).length > 0).join(", ") /* ie. our customer-facing list of supported currencies are the logical assets with at least one supported native currecny or token */} 
+      Currencies: {allLogicalAssetTickers.filter(lat => getAllNativeCurrenciesAndTokensForLogicalAssetTicker(lat).length > 0).join(", ") /* ie. our customer-facing list of supported currencies are the logical assets with at least one supported native currecny or token */} 
     </p>
     <p className="mb-4">
       Tokens: {allLogicalAssetTickers.flatMap(lat => allTokenTickers.filter(isTokenTickerSupportedByLogicalAsset.bind(null, lat))).join(', ')}
@@ -68,7 +68,7 @@ export const About: React.FC = () => {
     <h2 className="text-2xl my-4">Products</h2>
     <ul className="list-disc list-inside">
       <li className="mb-2">
-        <Link to="/request-money" className="text-primary sm:hover:text-primary-darker">
+        <Link to="/pay-link" className="text-primary sm:hover:text-primary-darker">
           Send a Payment Link
         </Link>
         : Request money from anyone by sending them a link. They can pay with any wallet. The link is private unless publicly posted. Our default tokens and chains work for most users, but can be customized easily.
