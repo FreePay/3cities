@@ -16,6 +16,8 @@
   "dependencies": {
     "@3cities/contracts": "^1.0.0",
     "@ethersproject/contracts": "5.7.0",
+    "@bufbuild/buf": "^1.26.1",
+    "@bufbuild/protobuf": "^1.3.1",
     "@ethersproject/providers": "5.7.2",
     "@msgpack/msgpack": "3.0.0-beta2",
     "@web3auth/base": "^5.2.0",
@@ -39,6 +41,7 @@
     "wagmi": "0.12.19"
   },
   "devDependencies": {
+    "@bufbuild/protoc-gen-es": "^1.3.1",
     "@testing-library/dom": "9.2.0",
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^14.0.0",
@@ -75,7 +78,8 @@
     "build:prod": "if [ -z \"$(git status --porcelain)\" ]; then npx env-cmd -e prod npm run build-raw; else echo 'refusing to run production build with uncommited changes in the working directory'; exit 1; fi",
     "build": "yarn build:prod",
     "eject": "react-scripts eject",
-    "lint": "yarn eslint .",
+    "gen": "npx buf generate proto",
+    "lint": "yarn eslint . && buf lint",
     "start-raw": "REACT_APP_GIT_COMMIT=`git rev-parse --short HEAD` REACT_APP_GIT_COMMIT_DATE=`TZ=UTC0 git show --quiet --date=local --format='%cd UTC'` react-scripts start # run dev mode in the context of an env that's already been set; WARNING build-raw and start-raw each separately define the computation of env vars REACT_APP_GIT_COMMIT and REACT_APP_GIT_COMMIT_DATE, and these must be identical in both places",
     "start:dev": "yarn env-cmd -e dev yarn start-raw",
     "start:prod-test": "yarn env-cmd -e prod-test yarn start-raw",
