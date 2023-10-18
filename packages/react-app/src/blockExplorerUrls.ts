@@ -9,7 +9,7 @@ export function getBlockExplorerUrlForTransaction(chainId: number | undefined, t
   } else return undefined;
 }
 
-export function getBlockExplorerUrlForAddress(chainId: number | undefined, address: string): string | undefined {
+export function getBlockExplorerUrlForAddress(chainId: number | undefined, address: `0x${string}`): string | undefined {
   const chain: Chain | undefined = getChain(chainId);
   const blockExplorerUrl: string | undefined = getBlockExplorerUrl(chain);
   if (blockExplorerUrl) {

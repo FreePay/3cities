@@ -6,7 +6,7 @@ import { useLiveTokenBalance } from "./hooks/useLiveTokenBalance";
 import { RenderRawTokenBalance } from "./RenderRawTokenBalance";
 
 type RenderLiveTokenBalanceProps = {
-  address: string; // address whose token balance will be live-reloaded and rendered
+  address: `0x${string}`; // address whose token balance will be live-reloaded and rendered
   nativeCurrencyOrToken: NativeCurrency | Token; // native currency or token whose address balance will be live-reloaded and rendered
 };
 export const RenderLiveTokenBalance: React.FC<RenderLiveTokenBalanceProps> = ({ address, nativeCurrencyOrToken }) => {
@@ -16,7 +16,7 @@ export const RenderLiveTokenBalance: React.FC<RenderLiveTokenBalanceProps> = ({ 
 }
 
 type RenderLiveNativeCurrencyBalanceProps = {
-  address: string;
+  address: `0x${string}`;
   nativeCurrency: NativeCurrency;
 };
 const RenderLiveNativeCurrencyBalance: React.FC<RenderLiveNativeCurrencyBalanceProps> = ({ address, nativeCurrency }) => {
@@ -30,7 +30,7 @@ const RenderLiveNativeCurrencyBalance: React.FC<RenderLiveNativeCurrencyBalanceP
 }
 
 type RenderLiveTokenBalanceInternalProps = {
-  address: string;
+  address: `0x${string}`;
   token: Token;
 };
 const RenderLiveTokenBalanceInternal: React.FC<RenderLiveTokenBalanceInternalProps> = ({ address, token }) => {

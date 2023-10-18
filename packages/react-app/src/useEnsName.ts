@@ -2,7 +2,7 @@ import { isAddress } from "@ethersproject/address";
 import { useMemo } from "react";
 import { goerli, mainnet, useEnsName as wagmiUseEnsName } from 'wagmi';
 import { isProduction } from "./isProduction";
-import { truncateENSAddress } from "./truncateAddress";
+import { truncateEnsAddress } from "./truncateAddress";
 import { useEnsAddress } from "./useEnsAddress";
 import { useIsPageVisibleOrRecentlyVisible } from "./useIsPageVisibleOrRecentlyVisible";
 
@@ -97,7 +97,7 @@ export function useEnsName(address: `0x${string}` | undefined, opts?: Opts): {
       error: new Error(`useEnsName: forward resolution verification error`, { cause: useEnsAddressError }),
       isLoading: false,
     }; else if (typeof ensName === 'string' && ensName.length > 0 && (opts?.unsafeDisableForwardResolutionVerification || verificationSuccessful)) return {
-      ensName: opts?.truncate ? truncateENSAddress(ensName, opts.maxENSNameLength ?? 14) : ensName,
+      ensName: opts?.truncate ? truncateEnsAddress(ensName, opts.maxENSNameLength ?? 14) : ensName,
       isLoading: false,
     }; else if (wagmiUseEnsNameIsLoading || (!opts?.unsafeDisableForwardResolutionVerification && useEnsAddressIsLoading)) return {
       isLoading: true,
