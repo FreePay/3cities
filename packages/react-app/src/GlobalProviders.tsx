@@ -4,7 +4,7 @@ import React from "react";
 import { Outlet, ScrollRestoration } from "react-router-dom";
 import { Toaster } from 'sonner';
 import { WagmiConfig } from "wagmi";
-import { ConnectedAccountContextObserverProvider } from "./connectedWalletContextProvider";
+import { ConnectedAccountContextObserverProvider } from "./ConnectedAccountContextObserverProvider";
 import { DemoAccountProvider } from "./DemoAccountProvider";
 import { wagmiClient } from "./wagmiClient";
 import { IsPageVisibleOrRecentlyVisibleProvider } from "./useIsPageVisibleOrRecentlyVisible";
