@@ -1,13 +1,17 @@
 import { BigNumber } from "@ethersproject/bignumber";
 import { arbitrum, arbitrumGoerli, mainnet, optimism, polygon } from '@wagmi/core/chains';
+import { AddressContext } from "./AddressContext";
+import { Intersection } from "./Intersection";
+import { PartialFor } from "./PartialFor";
+import { AddressOrEnsName, Payment, ProposedPayment, isPayment } from "./Payment";
 import { StrategyPreferences } from "./StrategyPreferences";
 import { NativeCurrency, Token, isToken } from "./Token";
-import { AddressContext, canAfford } from "./addressContext";
-import { Agreement, Payment, ProposedAgreement, isPayment, isReceiverProposedPayment } from "./agreements";
+import { canAfford } from "./canAfford";
 import { arbitrumNova, chainsSupportedBy3cities, polygonZkEvm, zkSync } from "./chains";
+import { flatMap } from "./flatMap";
 import { isProduction } from "./isProduction";
 import { convertLogicalAssetUnits } from "./logicalAssets";
-import { getNativeCurrenciesAndTokensForLogicalAssetTicker } from "./logicalAssetsToTokens";
+import { getAllNativeCurrenciesAndTokensForLogicalAssetTicker } from "./logicalAssetsToTokens";
 import { TokenTransfer, TokenTransferForNativeCurrency, TokenTransferForToken } from "./tokenTransfer";
 import { allTokenTickers, getTokenKey, isTokenSupported } from "./tokens";
 
@@ -17,109 +21,207 @@ import { allTokenTickers, getTokenKey, isTokenSupported } from "./tokens";
 // strategy preferences permits the passed token to be included in
 // strategy generation.
 function isTokenPermittedByStrategyPreferences(prefs: StrategyPreferences, token: NativeCurrency | Token): boolean {
-  if (prefs.tokenTickerExclusions && prefs.tokenTickerExclusions.indexOf(token.ticker) > -1) return false; // WARNING ~O(N^2) when used in a list of tokens, if data size grows, in future we may want to convert tokenTickerExclusions to a map { [ticker: string]: true }
-  else if (prefs.chainIdExclusions && prefs.chainIdExclusions.indexOf(token.chainId) > -1) return false; // WARNING ~O(N^2) when used in a list of tokens, if data size grows, in future we may want to convert chainIdExclusions to a map { [chainId: number]: true }
+  if (prefs.acceptedTokenTickers?.denylist && prefs.acceptedTokenTickers.denylist.has(token.ticker)) return false;
+  else if (prefs.acceptedTokenTickers?.allowlist && !prefs.acceptedTokenTickers.allowlist.has(token.ticker)) return false;
+  else if (prefs.acceptedChainIds?.denylist && prefs.acceptedChainIds.denylist.has(token.chainId)) return false;
+  else if (prefs.acceptedChainIds?.allowlist && !prefs.acceptedChainIds.allowlist.has(token.chainId)) return false;
   else return true;
 }
 
+// Strategy represents a plan (ie. strategic alternative) to take
+// actions that are sufficient to settle the payment contained in this
+// strategy. The idea here is for a payment to generate a set of
+// strategies, and then the user picks one of the strategies to execute.
+export type Strategy = Readonly<{
+  payment: Payment, // the payment which is being settled by this strategy
+  tokenTransfer: TokenTransfer, // the single token transfer which, once executed, will represent the settling of this payment. NB here we have restricted the concept of which actions a strategy may take to single token transfers. In future it might become appropriate for Strategy to have a more complex relationship with the actions it describes, eg. `tokenTransfers: TokenTransfer[]`, `actions: (TokenTransfer | FutureType)[]`, etc.
+}>
 
-// Strategy represents one plan (ie. strategic alternative) that is
-// sufficient to fulfill the agreement contained in this strategy. The
-// idea here is for an agreement to generate a set of strategies, and
-// then the user picks one of the strategies to execute.
-export type Strategy = {
-  agreement: Agreement, // the agreement which is being fulfilled by this strategy
-  tokenTransfer: TokenTransfer, // the single token transfer which, once completed, will represent the execution of this agreement. NB here we have restricted the concept of which actions a strategy may take to single token transfers. In future it might become appropriate for Strategy to have a more complex relationship with the actions it describes, eg. `tokenTransfers: TokenTransfer[]`, `actions: (TokenTransfer | FutureType)[]`, etc.
+// ProposedTokenTransfer is a token transfer to a specified receiver
+// that may be proposed to a sender who is not yet specified. The
+// proposed token transfer may include unresolved details that must be
+// resolved for the proposal to be "accepted" and "promoted" into a
+// (non-proposal) token transfer.
+export type ProposedTokenTransfer = Readonly<PartialFor<
+  Omit<TokenTransfer, 'receiverAddress'>,
+  'senderAddress'> & { // ProposedTokenTransfer allows the sender's address to be not yet specified because we define a proposed token transfer as a proposal to transfer tokens to a receiver before the sender may be known
+    receiver: AddressOrEnsName; // ProposedTokenTransfer allows the payment receiver to be specified as an ENS name or an address. The ENS name must be resolved into an address before the ProposedTokenTransfer can become a TokenTransfer
+  }>;
+
+// ProposedStrategy is a proposed plan (ie. strategic alternative) to
+// take actions that are sufficient to settle the proposed payment
+// contained in this proposed strategy. The idea here is that, given the
+// contained proposed payment that doesn't yet have a sender, the
+// proposed strategy helps say to a prospective sender, "let me help you
+// make a decision and motivate you to accept this proposed payment by
+// showing you an example of the actions you could take to settle this
+// payment".
+export type ProposedStrategy = Readonly<{
+  proposedPayment: ProposedPayment, // the proposed payment which this proposed strategy may end up settling if the proposal is accepted
+  proposedTokenTransfer: ProposedTokenTransfer, // the single proposed token transfer which once accepted and executed will settle the proposed payment in this proposed strategy. See design note on Strategy.tokenTransfer
+}>
+
+// getAllNativeCurrenciesAndTokensAcceptedByReceiverForPayment returns
+// all native currencies and tokens which the passed (proposed)
+// payment's receiver accepts to settle the passed (proposed) payment.
+// Precondition: the passed receiver strategy preferences are for the
+// same receiver as the passed (proposed) payment's receiver.
+function getAllNativeCurrenciesAndTokensAcceptedByReceiverForPayment(receiverStrategyPreferences: StrategyPreferences, p: Intersection<Payment, ProposedPayment>): (NativeCurrency | Token)[] {
+  return getAllNativeCurrenciesAndTokensForLogicalAssetTicker(p.logicalAssetTicker)
+    .filter(isTokenSupported)
+    .filter(isTokenPermittedByStrategyPreferences.bind(null, receiverStrategyPreferences));
 }
 
-// ReceiverProposedTokenTransfer is a TokenTransfer that's been
-// proposed by the receiver, ie. it lacks a sender.
-export type ReceiverProposedTokenTransfer = Omit<TokenTransfer, 'fromAddress'>
+// design note: WARNING today, generation of strategies and proposed
+// strategies are disunified. The definition of the kinds of strategies
+// that can be generated and their semantics are copied into both
+// getStrategiesForPayment and getProposedStrategiesForProposedPayment.
+// We explored two different unification approaches, but both failed.
+// The first approach was to have a single strategy generation function
+// that had overloaded signatures to handle strategies vs proposed
+// strategies. However, TypeScript's overloaded signature capability
+// isn't smart enough to detect the case of "(ProposedPayment is
+// provided) xor (Payment and AddressContext are provided)". Nor is it
+// smart enough to allow a local variable's type to be conditional on a
+// parameter type, eg. (const generatedStrategies: Strategy[] |
+// ProposedStrategy[] --> this sum type can't be conditional on whether
+// or not the passed `p` is a Payment or ProposedPayment). So, the
+// approach of having a single strategy generation function didn't seem
+// to be typesafe and was abandoned. The second approach is to have the
+// strategy generation function produce only proposed strategies, and
+// then to generate strategies, we demote a Payment to a
+// ProposedPayment, generate proposed strategies, and then promote the
+// proposed strategies to strategies. But demoting a Payment to a
+// ProposedPayment felt weird and brittle, and when promoting proposed
+// strategies to strategies, there's a need to filter for strategies
+// that are affordable by the sender's AddressContext, which is trivial
+// for TokenTransfer strategies but may be non-trivial for future kinds
+// of strategies. Eg. when we add bridging strategies, the set of
+// generated bridge strategies may a non-trivial function of the
+// sender's AddressContext. In short, it may be the case that strategies
+// and proposed strategies are intrinsically separate concepts and will
+// always remain disunified.
 
-// ProposedStrategy is a draft proposal to take actions sufficient to
-// fulfill the proposed agreement between at least one concrete
-// participant and at least one unspecified participant. The idea here
-// is that given a proposed agreement hasn't yet been accepted by the
-// counterparty(ies), the function of a proposed strategy is to say,
-// "let me help you make a decision and motivate you to accept the
-// agreement by showing you an example of the actions you could take to
-// fulfill this agreement".
-export type ProposedStrategy = {
-  proposedAgreement: ProposedAgreement, // the proposed agreement which this proposed strategy may end up fulfilling fulfill if the proposal is accepted
-  receiverProposedTokenTransfer: ReceiverProposedTokenTransfer, // the single proposed token transfer which, once accepted and completed, will represent the execution of this agreement. See design note on Strategy.tokenTransfer
-}
+// TODO support generation of forex strategies based on exchange rates,
+// eg. if payment is for $5 USD then we should support a strategy of
+// paying $5 in ETH and vice versa. While forex payments in general may
+// be complex, a simple way to get started with this is with an
+// allowlist of forex "routes". For example, we can support paying the
+// ETH logical currency (any token denominated in ETH) to settle a
+// payment in USD and vice versa, and we can support paying non-rebased
+// yield-bearing tokens to settle payments in their underlying, such as
+// paying rETH or cbETH for an ETH payment, or Ondo Finance's USDY for a
+// USD payment.
 
-// getProposedStrategiesForProposedAgreement computes the proposed
-// strategies for the passed proposed agreement, taking into account
-// the passed strategy preferences.
-export function getProposedStrategiesForProposedAgreement(prefs: StrategyPreferences, pa: ProposedAgreement): ProposedStrategy[] {
+// getProposedStrategiesForProposedPayment computes the proposed
+// strategies for the passed proposed payment, taking into account the
+// passed receiver strategy preferences. Precondition: the passed
+// receiver strategy preferences are for the same receiver as the passed
+// proposed payment's receiver.
+export function getProposedStrategiesForProposedPayment(receiverStrategyPreferences: StrategyPreferences, p: ProposedPayment): ProposedStrategy[] {
+  const ts: (NativeCurrency | Token)[] = getAllNativeCurrenciesAndTokensAcceptedByReceiverForPayment(receiverStrategyPreferences, p);
   const pss: ProposedStrategy[] = [];
-  if (isReceiverProposedPayment(pa)) {
-    const ts = getNativeCurrenciesAndTokensForLogicalAssetTicker(pa.logicalAssetTicker);
-    pss.push(...ts
-      .filter(isTokenSupported)
-      .filter(isTokenPermittedByStrategyPreferences.bind(null, prefs))
-      .map(token => {
-        return {
-          proposedAgreement: pa,
-          receiverProposedTokenTransfer: {
-            toAddress: pa.toAddress,
-            token,
-            amountAsBigNumberHexString: convertLogicalAssetUnits(BigNumber.from(pa.amountAsBigNumberHexString), token.decimals).toHexString(),
-          },
-        };
-      }));
-  }
-  // TODO support generation of strategies based on exchange rates, eg. if payment is for $5 USD then we should support a strategy of paying $5 in ETH and vice versa
-  // console.log("getProposedStrategiesForProposedAgreement prefs=", prefs, "pa=", pa, "r=", pss);
-  return sortProposedStrategiesByPriority(staticChainIdPriority, staticTokenTickerPriority, pss);
+
+  // Generate proposed strategy type #1: ProposedTokenTransfer, ie. a
+  // proposed strategy of paying via a direct token transfer on the same
+  // chain. (There is currently only one type of proposed strategy)
+  pss.push(...flatMap(ts, t => {
+    const ptt: ProposedTokenTransfer | undefined = unsafeMakeTokenTransferForPaymentAndToken(p, t);
+    if (!ptt) return undefined;
+    else {
+      const s: ProposedStrategy = {
+        proposedPayment: p,
+        proposedTokenTransfer: ptt,
+      };
+      return s;
+    }
+  }));
+
+  return sortStrategiesByPriority(staticChainIdPriority, staticTokenTickerPriority, pss);
 }
 
-// getStrategiesForAgreement computes the strategies for the passed
-// agreement, taking into account the passed strategy preferences and
-// address context.
-// TODO WARNING today, the set of strategies computed for an Agreement runs the algorithm below, and that's a separate algorithm than the set of proposed strategies computed for a ProposedAgreement in getProposedStrategiesForProposedAgreement --> perhaps instead, there should be a single strategy generator shared by both functions --> next step is to think about and write down the tradeoffs/examples here... are there situations where an Agreement and ProposedAgreement should generate very different strategies, or can they usually/always share a strategy generation algorithm?
-export function getStrategiesForAgreement(prefs: StrategyPreferences, a: Agreement, ac: AddressContext): Strategy[] {
+// getStrategiesForPayment computes the strategies for the passed
+// payment, taking into account the passed receiver strategy preferences
+// and sender address context. Precondition: the passed receiver
+// strategy preferences are for the same receiver as the passed
+// payment's receiver, and the passed sender address context is for the
+// same sender as the passed payment's sender.
+export function getStrategiesForPayment(receiverStrategyPreferences: StrategyPreferences, p: Payment, senderAddressContext: AddressContext): Strategy[] {
+  const ts: (NativeCurrency | Token)[] = getAllNativeCurrenciesAndTokensAcceptedByReceiverForPayment(receiverStrategyPreferences, p);
   const ss: Strategy[] = [];
-  if (isPayment(a)) {
-    const ts = getNativeCurrenciesAndTokensForLogicalAssetTicker(a.logicalAssetTicker);
-    ss.push(...ts
-      .filter(isTokenSupported)
-      .filter(isTokenPermittedByStrategyPreferences.bind(null, prefs))
-      .map(token => {
+
+  // Generate strategy type #1: TokenTransfer, ie. a strategy of paying
+  // via a direct token transfer on the same chain. (There is currently
+  // only one type of strategy)
+  ss.push(
+    ...flatMap(ts, t => {
+      const tt: TokenTransfer | undefined = unsafeMakeTokenTransferForPaymentAndToken(p, t);
+      if (!tt) return undefined;
+      else {
         const s: Strategy = {
-          agreement: a,
-          tokenTransfer: unsafeMakeTokenTransferForPaymentAndToken(a, token),
+          payment: p,
+          tokenTransfer: tt,
         };
         return s;
-      })
-      .filter(s => canAfford(ac, getTokenKey(s.tokenTransfer.token), s.tokenTransfer.amountAsBigNumberHexString)) // having already generated the set of possible strategies (which were already filtered to obey strategy preferences), we now further filter the strategies to accept only those affordable by the passed address context. Ie. here is where we ensure that the computed strategies are affordable by the payor
-    );
-  }
-  // TODO support generation of strategies based on exchange rates, eg. if payment is for $5 USD then we should support a strategy of paying $5 in ETH and vice versa
-  // console.log("getStrategiesForAgreement prefs=", prefs, "a=", a, "r=", ss);
+      }
+    }).filter(s => canAfford(senderAddressContext, getTokenKey(s.tokenTransfer.token), s.tokenTransfer.amountAsBigNumberHexString)) // having already generated the set of possible token transfer strategies, we now further filter these strategies to accept only those affordable by the passed sender address context. Ie. here is where we ensure that the computed token transfer strategies are affordable by the sender
+  );
+
   return sortStrategiesByPriority(staticChainIdPriority, staticTokenTickerPriority, ss);
 }
 
 // unsafeMakeTokenTransferForPaymentAndToken constructs a TokenTransfer
-// for the passed Payment and Token. Precondition: the passed payment
-// can be settled in the passed token. Ie. this function is marked
-// unsafe because of the constrictive precondition that the client must
-// have already safely determined that the passed payment can be settled
-// in the passed token.
-function unsafeMakeTokenTransferForPaymentAndToken(p: Payment, token: Token | NativeCurrency): TokenTransfer {
-  const ttPartial: Omit<TokenTransfer, 'token'> = {
-    toAddress: p.toAddress,
-    fromAddress: p.fromAddress,
-    amountAsBigNumberHexString: convertLogicalAssetUnits(BigNumber.from(p.amountAsBigNumberHexString), token.decimals).toHexString(),
-  };
-  // The following curious block of code is needed because until the type guard isToken is executed, TypeScript can't infer that `token` is assignable to TokenTransfer.token:
-  if (isToken(token)) {
-    const tt: TokenTransferForToken = Object.assign(ttPartial, { token });
-    return tt;
-  } else {
-    const tt: TokenTransferForNativeCurrency = Object.assign(ttPartial, { token });
-    return tt;
+// (ProposedTokenTransfer) for the passed (proposed) payment and token.
+// Precondition: the passed (proposed) payment can be settled in the
+// passed token. Ie. this function is marked unsafe because of the
+// constrictive precondition that the client must have already safely
+// determined that the passed (proposed) payment can be settled in the
+// passed token.
+function unsafeMakeTokenTransferForPaymentAndToken(p: Payment, token: Token | NativeCurrency): TokenTransfer | undefined
+function unsafeMakeTokenTransferForPaymentAndToken(p: ProposedPayment, token: Token | NativeCurrency): ProposedTokenTransfer | undefined
+function unsafeMakeTokenTransferForPaymentAndToken(p: Payment | ProposedPayment, token: Token | NativeCurrency): TokenTransfer | ProposedTokenTransfer | undefined
+function unsafeMakeTokenTransferForPaymentAndToken(p: Payment | ProposedPayment, token: Token | NativeCurrency): TokenTransfer | ProposedTokenTransfer | undefined {
+  if (p.paymentMode.payWhatYouWant) return undefined; // NB in "pay what you want" mode, no canonical token transfer can be derived from the Payment because there's no single specific amount to be paid. Instead, "pay what you want" mode must be handled upstream by obtaining the sender's preference(s) as to what amount(s) they may want to pay and then constructing ordinary payment(s) (that don't use "pay what you want" mode)in those amount(s), and then those ordinary payments can have canonical token transfers derived normally
+  else {
+    const ttPartial: Pick<Intersection<TokenTransfer, ProposedTokenTransfer>, 'amountAsBigNumberHexString'> = {
+      amountAsBigNumberHexString: convertLogicalAssetUnits(BigNumber.from(p.paymentMode.logicalAssetAmountAsBigNumberHexString), token.decimals).toHexString(),
+    };
+    if (isPayment(p)) {
+      const ttPartial2: Omit<TokenTransfer, 'token'> = Object.assign({}, ttPartial, {
+        receiverAddress: p.receiverAddress,
+        senderAddress: p.senderAddress,
+      });
+      // The following curious block of code is needed because until the type guard isToken is executed, TypeScript can't infer that `token` is assignable to TokenTransfer.token:
+      if (isToken(token)) {
+        const tt: TokenTransferForToken = Object.assign(ttPartial2, { token });
+        return tt;
+      } else {
+        const tt: TokenTransferForNativeCurrency = Object.assign(ttPartial2, { token });
+        return tt;
+      }
+      //  NB I asked GPT why the isToken type guard is needed to
+      //  construct a TokenTransfer but isn't needed to construct a
+      //  ProposedTokenTransfer, which is extremely weird given that
+      //  ProposedTokenTransfer.token has an identical type to
+      //  TokenTransfer.token. GPT gave this unsatisfying answer, "The
+      //  issue is likely stemming from TypeScript's strictness
+      //  regarding the type compatibility of discriminated unions when
+      //  you try to assign the object to TokenTransfer, which is a
+      //  union type.When you are constructing ProposedTokenTransfer,
+      //  it's a single type, so TypeScript is less strict. For
+      //  TokenTransfer, TypeScript has to make sure that the
+      //  constructed object strictly adheres to one of the possible
+      //  union types (TokenTransferForToken or
+      //  TokenTransferForNativeCurrency), and the types must align
+      //  exactly."
+    } else {
+      const tt: ProposedTokenTransfer = Object.assign({}, ttPartial, {
+        receiver: p.receiver,
+        token,
+        ...(p.senderAddress && { senderAddress: p.senderAddress }),
+      });
+      return tt;
+    }
   }
 }
 
@@ -131,40 +233,39 @@ type TokenTickerPriority = {
   [ticker: string]: number;
 };
 
+// sortStrategiesByPriority sorts the passed (proposed) strategies from
+// most preferable to least preferable. Usually, the concept of
+// "preferable" is from the point of view of the sender since they are
+// the counterparty spending the money. The passed (proposed) strategies
+// are sorted in-place, and the array is returned for convenience.
+function sortStrategiesByPriority(
+  chainIdPriority: ChainIdPriority,
+  tokenTickerPriority: TokenTickerPriority,
+  strategies: ProposedStrategy[],
+): ProposedStrategy[]
 function sortStrategiesByPriority(
   chainIdPriority: ChainIdPriority,
   tokenTickerPriority: TokenTickerPriority,
   strategies: Strategy[],
-): Strategy[] {
-  return strategies.sort((a, b) => {
-    const aChainId = a.tokenTransfer.token.chainId;
-    const bChainId = b.tokenTransfer.token.chainId;
-    const aPriority = chainIdPriority[aChainId] ?? Number.NEGATIVE_INFINITY;
-    const bPriority = chainIdPriority[bChainId] ?? Number.NEGATIVE_INFINITY;
-    if (aPriority === bPriority) {
-      const aTicker = a.tokenTransfer.token.ticker;
-      const bTicker = b.tokenTransfer.token.ticker;
-      const aTickerPriority = tokenTickerPriority[aTicker] ?? Number.NEGATIVE_INFINITY;
-      const bTickerPriority = tokenTickerPriority[bTicker] ?? Number.NEGATIVE_INFINITY;
-      return bTickerPriority - aTickerPriority;
-    } else return bPriority - aPriority;
-  });
-}
-
-// TODO unify sortStrategiesByPriority and sortProposedStrategiesByPriority instead of just copying the code?
-function sortProposedStrategiesByPriority(
+): Strategy[]
+function sortStrategiesByPriority(
   chainIdPriority: ChainIdPriority,
   tokenTickerPriority: TokenTickerPriority,
-  proposedStrategies: ProposedStrategy[],
-): ProposedStrategy[] {
-  return proposedStrategies.sort((a, b) => {
-    const aChainId = a.receiverProposedTokenTransfer.token.chainId;
-    const bChainId = b.receiverProposedTokenTransfer.token.chainId;
+  strategies: Strategy[] | ProposedStrategy[],
+): Strategy[] | ProposedStrategy[]
+function sortStrategiesByPriority(
+  chainIdPriority: ChainIdPriority,
+  tokenTickerPriority: TokenTickerPriority,
+  strategies: Strategy[] | ProposedStrategy[],
+): Strategy[] | ProposedStrategy[] {
+  return strategies.sort((a, b) => {
+    const aChainId = 'tokenTransfer' in a ? a.tokenTransfer.token.chainId : a.proposedTokenTransfer.token.chainId;
+    const bChainId = 'tokenTransfer' in b ? b.tokenTransfer.token.chainId : b.proposedTokenTransfer.token.chainId;
     const aPriority = chainIdPriority[aChainId] ?? Number.NEGATIVE_INFINITY;
     const bPriority = chainIdPriority[bChainId] ?? Number.NEGATIVE_INFINITY;
     if (aPriority === bPriority) {
-      const aTicker = a.receiverProposedTokenTransfer.token.ticker;
-      const bTicker = b.receiverProposedTokenTransfer.token.ticker;
+      const aTicker = 'tokenTransfer' in a ? a.tokenTransfer.token.ticker : a.proposedTokenTransfer.token.ticker;
+      const bTicker = 'tokenTransfer' in b ? b.tokenTransfer.token.ticker : b.proposedTokenTransfer.token.ticker;
       const aTickerPriority = tokenTickerPriority[aTicker] ?? Number.NEGATIVE_INFINITY;
       const bTickerPriority = tokenTickerPriority[bTicker] ?? Number.NEGATIVE_INFINITY;
       return bTickerPriority - aTickerPriority;
