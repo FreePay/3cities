@@ -31,14 +31,22 @@ const keyDerivationAlgorithm = 'PBKDF2'; // PBKDF2 is widely supported and recom
 const hashFunction = 'SHA-256'; // SHA-256 offers a good balance of speed and security.
 const signatureAlgorithm = 'HMAC'; // HMAC is widely supported and provides strong security.
 const encryptionAlgorithm = 'AES-GCM'; // AES-GCM is recommended for symmetric encryption.
-const saltOrIvByteLength = 32; // 32 bytes is a good default for PBKDF2.
-const iterations = 2000000; // 2 million is recommended for strong security as of 2022. WARNING: Lowering this number reduces security.
+const saltLength = 16; // 16 bytes salt length is recommended for PBKDF2. https://en.wikipedia.org/wiki/PBKDF2#cite_note-8
+const ivLength = 12; // 12 bytes iv length is recommended for AES-GCM. https://developer.mozilla.org/en-US/docs/Web/API/AesGcmParams
+const iterations = 1_000_000; // 1 million is recommended for strong security as of 2023. WARNING: Lowering this number reduces security.
 
-// makeSaltOrIv is a convenience function that may be used to create
-// secure parameter values for salt and iv parameters required by other
-// public APIs in this library.
-export async function makeSaltOrIv(): Promise<Uint8Array> {
-  return crypto.getRandomValues(new Uint8Array(saltOrIvByteLength));
+// makeSalt is a convenience function that may be used to create secure
+// parameter values for salt required by other public APIs in this
+// library.
+export function makeSalt(): Uint8Array {
+  return crypto.getRandomValues(new Uint8Array(saltLength));
+}
+
+// makeIv is a convenience function that may be used to create secure
+// parameter values for iv required by other public APIs in this
+// library.
+export function makeIv(): Uint8Array {
+  return crypto.getRandomValues(new Uint8Array(ivLength));
 }
 
 type ImportKeyParams = ['raw', Uint8Array, string, boolean, 'deriveKey'[]];
@@ -71,11 +79,12 @@ function buildDeriveKeyParamsForSignature(baseKey: CryptoKey, salt: Uint8Array, 
 
 // generateSignature returns a signature for the passed data secured by
 // the passed password and salt. The passed salt may be created with
-// makeSaltOrIv. Later, verify the signature using verifySignature.
-export async function generateSignature(data: Uint8Array, password: string, salt: Uint8Array): Promise<ArrayBuffer> {
+// makeSalt. Later, verify the signature using verifySignature.
+export async function generateSignature(data: Uint8Array, password: string, salt: Uint8Array): Promise<Uint8Array> {
+  if (password.length < 1) throw new Error('generateSignature: password must not be empty');
   const baseKey = await crypto.subtle.importKey(...buildImportKeyParams(password));
   const derivedKey = await crypto.subtle.deriveKey(...buildDeriveKeyParamsForSignature(baseKey, salt, 'sign'));
-  return crypto.subtle.sign(signatureAlgorithm, derivedKey, data);
+  return new Uint8Array(await crypto.subtle.sign(signatureAlgorithm, derivedKey, data));
 }
 
 // verifySignature verifies that the passed data was signed with the
@@ -105,19 +114,57 @@ function buildDeriveKeyParamsForEncryption(baseKey: CryptoKey, salt: Uint8Array,
 }
 
 // encrypt returns the encryption of the passed data using the passed
-// password, salt, and iv. makeSaltOrIv may be used to create values for
-// salt and iv.
-export async function encrypt(data: Uint8Array, password: string, salt: Uint8Array, iv: Uint8Array): Promise<ArrayBuffer> {
+// password, salt, and iv. makeSalt and makeIv may be used to create
+// values for salt and iv.
+export async function encrypt(data: Uint8Array, password: string, salt: Uint8Array, iv: Uint8Array): Promise<Uint8Array> {
+  if (password.length < 1) throw new Error('encrypt: password must not be empty');
   const baseKey = await crypto.subtle.importKey(...buildImportKeyParams(password));
   const derivedKey = await crypto.subtle.deriveKey(...buildDeriveKeyParamsForEncryption(baseKey, salt, 'encrypt'));
-  return crypto.subtle.encrypt({ name: encryptionAlgorithm, iv: iv }, derivedKey, data);
+  return new Uint8Array(await crypto.subtle.encrypt({ name: encryptionAlgorithm, iv: iv }, derivedKey, data));
 }
 
 // decrypt returns the decryption of the passed data using the passed
 // pasword, salt, and iv. The data must have been encrypted using
 // encrypt.
-export async function decrypt(data: ArrayBuffer, password: string, salt: Uint8Array, iv: Uint8Array): Promise<ArrayBuffer> {
+export async function decrypt(data: Uint8Array, password: string, salt: Uint8Array, iv: Uint8Array): Promise<Uint8Array> {
   const baseKey = await crypto.subtle.importKey(...buildImportKeyParams(password));
   const derivedKey = await crypto.subtle.deriveKey(...buildDeriveKeyParamsForEncryption(baseKey, salt, 'decrypt'));
-  return crypto.subtle.decrypt({ name: encryptionAlgorithm, iv: iv }, derivedKey, data);
+  return new Uint8Array(await crypto.subtle.decrypt({ name: encryptionAlgorithm, iv: iv }, derivedKey, data));
 }
+
+// *************************************************
+// BEGIN -- tests for encrypt/decrypt
+// *************************************************
+
+// const runCryptoTest = async (testData: string, password: string) => {
+//   const textEncoder = new TextEncoder();
+//   const textDecoder = new TextDecoder();
+//   const salt = crypto.getRandomValues(new Uint8Array(saltOrIvByteLength));
+//   const iv = crypto.getRandomValues(new Uint8Array(saltOrIvByteLength));
+//   const data = textEncoder.encode(testData);
+//   const encryptedData = await encrypt(data, password, salt, iv);
+//   const decryptedData = await decrypt(encryptedData, password, salt, iv);
+//   const decryptedText = textDecoder.decode(decryptedData);
+
+//   const passed = decryptedText === testData;
+//   if (!passed) {
+//     console.log(`test failed, expected: ${testData}, actual: ${decryptedText}`);
+//   } else console.log(`test passed, expected: ${testData}, actual: ${decryptedText}`);
+// };
+
+// // Run tests
+// (async () => {
+//   await runCryptoTest('Hello, world!', 'password123');
+//   await runCryptoTest('', 'password123');
+//   await runCryptoTest('!@#$%^&*()', 'password123');
+//   await runCryptoTest('1234567890', 'password123');
+//   await runCryptoTest('Hello, world!', 'a'.repeat(100));
+//   await runCryptoTest('Unicode: 😃👍🏼🚀', 'password123');
+//   await runCryptoTest('Long text', 'a'.repeat(10000));
+//   await runCryptoTest('Case sensitivity', 'Password123');
+//   await runCryptoTest('Empty password', '');
+// })();
+
+// *************************************************
+// END -- tests for encrypt/decrypt
+// *************************************************
