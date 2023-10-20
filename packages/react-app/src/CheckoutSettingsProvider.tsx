@@ -1,9 +1,11 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Outlet, useMatches, useSearchParams } from "react-router-dom";
 import { CheckoutSettings } from "./CheckoutSettings";
-import { CheckoutSettingsContext } from "./CheckoutSettingsContext";
-import { deserializeCheckoutSettings } from "./serialize";
+import { CheckoutSettingsContext, CheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
+import { MaybeCheckoutSettings, deserializeCheckoutSettingsUnknownMessageType, deserializeCheckoutSettingsWithEncryption, deserializeCheckoutSettingsWithSignature } from "./serialize";
 import { useEffectSkipFirst } from "./useEffectSkipFirst";
+
+// TODO for 'CheckoutSettingsHasSignatureToVerify', the benefit of signatures vs encryption is that the cleartext CheckoutSettings is included in the CheckoutSettingsSigned. So, we might leverage that cleartext eg. by showing certain unverified payment details before the password is typed in. Or perhaps to bypass the password and see Pay screen with a big red "UNVERIFIED PAY LINK". One way to do this is to have MaybeCheckoutSettings return something like `type CheckoutSettingsUnverified = { checkoutSettings: CheckoutSettings }` instead of `CheckoutSettingsHasSignatureToVerify` and then the downstream CheckoutSettingsRequiresPassword could have something like `requirement: { kind: 'needToDecrypt' } | { kind: 'needToVerifySignature'; skipVerification: () => void; }` and then the client could call skipVerification. And then for Pay to detect skipped verification and show a warning banner, CheckoutSettingsContext could have `CheckoutSettings | CheckoutSettingsRequiresPassword | CheckoutSettingsUnverified`
 
 // Design goals of CheckoutSettingsProvider (which were achieved)
 //   1. centralize deserialization of CheckoutSettings, as it's a general payload required by various routes.
@@ -35,7 +37,9 @@ import { useEffectSkipFirst } from "./useEffectSkipFirst";
 // to be fetched before the initial render, so it's not beneficial to
 // us.
 
-const checkoutSettingsGlobalCache: { [serialized: string]: CheckoutSettings } = {}; // a global cache of (serialized CheckoutSettings -> deserialized CheckoutSettings) to prevent redundant deserializations. This is efficient enough because serialized CheckoutSettings are relatively short (today ranging from ~45 chars to 100s of chars)
+const checkoutSettingsGlobalCache: { [serialized: string]: Exclude<MaybeCheckoutSettings, undefined> } = {}; // a global cache of (serialized CheckoutSettings -> deserialized CheckoutSettings OR an indication this serialization is encrypted and requires a password to decrypt) to prevent redundant deserializations. This is efficient enough because serialized CheckoutSettings are relatively short (today ranging from ~30 chars to 100s of chars)
+
+const checkoutSettingsEncryptedOrSignedGlobalCache: { [checkoutSettingsEncryptedSerialized: string]: CheckoutSettings } = {}; // a global cache of (serialized CheckoutSettingsEncrypted or CheckoutSettingsSigned (ie. the protobuf types) -> decrypted or verified deserialized CheckoutSettings) to prevent redundant decryptions/deserializations/signature verifications. This is efficient enough because serialized CheckoutSettings are relatively short (today ranging from ~30 chars to 100s of chars)
 
 type Props = {
   elementForPathIfCheckoutSettingsNotFound: { [path: string]: React.ReactNode }; // fallback element per react router path to render if CheckoutSettings couldn't be deserialized
@@ -53,13 +57,13 @@ export function CheckoutSettingsProvider(props: Props): React.ReactNode {
   const [searchParams] = useSearchParams();
   const serializedCheckoutSettings = searchParams.get(serializedCheckoutSettingsUrlParam);
 
-  const doDeserialize = useCallback((): CheckoutSettings | undefined => {
+  const doDeserialize = useCallback((): MaybeCheckoutSettings => {
     // console.log("doDeserialize start");
     if (serializedCheckoutSettings === null) return undefined;
     else {
       if (!checkoutSettingsGlobalCache[serializedCheckoutSettings]) {
         // console.log("doDeserialize cache miss");
-        const cs = deserializeCheckoutSettings(serializedCheckoutSettings);
+        const cs = deserializeCheckoutSettingsUnknownMessageType(serializedCheckoutSettings);
         if (cs) checkoutSettingsGlobalCache[serializedCheckoutSettings] = cs;
       } else {
         // console.log("doDeserialize cache hit");
@@ -68,17 +72,45 @@ export function CheckoutSettingsProvider(props: Props): React.ReactNode {
     }
   }, [serializedCheckoutSettings]);
 
-  const [checkoutSettings, setCheckoutSettings] = useState<CheckoutSettings | undefined>(doDeserialize);
+  const [checkoutSettings, setCheckoutSettings] = useState<MaybeCheckoutSettings>(doDeserialize);
+
+  const [password, setPassword] = useState<undefined | string>(undefined);
 
   useEffectSkipFirst(() => {
-    // console.log("redo doDeserialize");
+    let isMounted = true;
+    (async () => { // decrypt or verify checkout settings
+      if (serializedCheckoutSettings !== null && password && (checkoutSettings === 'CheckoutSettingsIsEncrypted' || checkoutSettings === 'CheckoutSettingsHasSignatureToVerify')) {
+        if (!checkoutSettingsEncryptedOrSignedGlobalCache[serializedCheckoutSettings]) {
+          // console.log("checkoutSettingsEncryptedOrSignedGlobalCache cache miss", checkoutSettings);
+          const cs: CheckoutSettings | undefined = checkoutSettings === 'CheckoutSettingsIsEncrypted' ?
+            await deserializeCheckoutSettingsWithEncryption(serializedCheckoutSettings, password)
+            : await deserializeCheckoutSettingsWithSignature(serializedCheckoutSettings, password);
+          if (cs) checkoutSettingsEncryptedOrSignedGlobalCache[serializedCheckoutSettings] = cs;
+        } else {
+          // console.log("checkoutSettingsEncryptedOrSignedGlobalCache cache hit");
+        }
+        if (isMounted && checkoutSettingsEncryptedOrSignedGlobalCache[serializedCheckoutSettings]) setCheckoutSettings(checkoutSettingsEncryptedOrSignedGlobalCache[serializedCheckoutSettings]); // here we call setCheckoutSettings iff decryption or verification was successful. This is because if decryption or verification was unsuccessful, we want to maintain the current checkoutSettings value so that the downstream client can detect that the password was incorrect and handle appropriately
+      }
+    })();
+    return () => { isMounted = false };
+  }, [serializedCheckoutSettings, checkoutSettings, setCheckoutSettings, password]);
+
+  useEffectSkipFirst(() => { // redo deserialization iff serializedCheckoutSettings changes after the initial render (ie. serializedCheckoutSettings is a dep of doDeserialize)
     setCheckoutSettings(doDeserialize());
   }, [doDeserialize, setCheckoutSettings]);
 
-  if (checkoutSettings) {
-    return <CheckoutSettingsContext.Provider value={checkoutSettings}>
+  const providedValue: CheckoutSettings | CheckoutSettingsRequiresPassword | undefined = useMemo(() => {
+    if ((checkoutSettings === 'CheckoutSettingsIsEncrypted' || checkoutSettings === 'CheckoutSettingsHasSignatureToVerify')) return {
+      requirementType: checkoutSettings === 'CheckoutSettingsIsEncrypted' ? 'needToDecrypt' : 'needToVerifySignature',
+      setPassword,
+    }; else if (checkoutSettings) return checkoutSettings;
+    else return undefined;
+  }, [checkoutSettings])
+
+  if (providedValue) {
+    return <CheckoutSettingsContext.Provider value={providedValue}>
       <Outlet />
-    </CheckoutSettingsContext.Provider>;
+    </CheckoutSettingsContext.Provider>
   } else {
     // checkoutSettings couldn't be deserialized, so we'll render a fallback element. The fallback element is configured per current route matches:
     let elForPath: React.ReactNode | undefined;
