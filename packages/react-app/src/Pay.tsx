@@ -304,7 +304,6 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       <span className="font-bold text-lg text-right"><RenderLogicalAssetAmount
         logicalAssetTicker={proposedPaymentWithFixedAmount.logicalAssetTicker}
         amountAsBigNumberHexString={proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString}
-        showAllZeroesAfterDecimal={true}
       /></span>
     </div>
     {bestStrategy !== undefined && <div className="py-4 w-full">
@@ -373,7 +372,6 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       return `Hey, I paid you ${renderLogicalAssetAmount({
         logicalAssetTicker: proposedPaymentWithFixedAmount.logicalAssetTicker,
         amountAsBigNumberHexString: proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString,
-        showAllZeroesAfterDecimal: true,
       })}${checkoutSettings.note ? ` for ${checkoutSettings.note}` : ''} using 3cities.xyz`;
     } else return ' ';
   })();

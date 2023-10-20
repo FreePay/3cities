@@ -276,7 +276,6 @@ export const RequestMoney: React.FC = () => {
   const renderedLogicalAssetAmount: string | undefined = checkoutSettings && isProposedPaymentWithFixedAmount(checkoutSettings.proposedPayment) ? renderLogicalAssetAmount({ // TODO support PayWhatYouWant
     logicalAssetTicker: checkoutSettings.proposedPayment.logicalAssetTicker,
     amountAsBigNumberHexString: checkoutSettings.proposedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString,
-    showAllZeroesAfterDecimal: true,
   }) : undefined;
 
   const checkoutTextToShare: string = (() => {
