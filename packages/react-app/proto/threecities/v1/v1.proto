@@ -24,16 +24,16 @@ message CheckoutSettings {
     // of flags are: 1) isDynamicPricingEnabled is true iff 3cities
     // should try to suggest different amounts to pay based on the net
     // worth of the sender's connected wallet (eg. rich wallets get
-    // suggested to pay more), 2) canPayAnyAsset is true iff the
-    // sender may pay any token in any amount, bypassing the usual
-    // need to pay in the receiver's specified logical asset. Using this
-    // enum to bitpack makes these flags consume a total of 2 bytes if
-    // any flags are set or 0 bytes if none are set. Using regular bools
-    // consumes 2 bytes per bool. Up to 6 flags can be included in this
-    // enum without widening it from 2 bytes to 3 bytes because any
-    // value from 0 to 127 (2^7) takes only 2 bytes, but we reserve 0
-    // for unspecified, and so we can only fit 6 flags because we need
-    // 128 values to fit a full 7 but we have only 127 values since 0 is
+    // suggested to pay more), 2) canPayAnyAsset is true iff the sender
+    // may pay any token in any amount, bypassing the usual need to pay
+    // in the receiver's specified logical asset. Using this enum to
+    // bitpack makes these flags consume a total of 2 bytes if any flags
+    // are set or 0 bytes if none are set. Using regular bools consumes
+    // 2 bytes per bool. Up to 6 flags can be included in this enum
+    // without widening it from 2 bytes to 3 bytes because any value
+    // from 0 to 127 (2^7) takes only 2 bytes, but we reserve 0 for
+    // unspecified, and so we can only fit 6 flags because we need 128
+    // values to fit a full 7 but we have only 127 values since 0 is
     // reserved.
     enum PayWhatYouWantFlags {
       PAY_WHAT_YOU_WANT_FLAGS_UNSPECIFIED = 0;
@@ -57,12 +57,12 @@ message CheckoutSettings {
   // (optional mode), or must provide a note (required mode).
   enum SenderNoteSettingsMode {
     SENDER_NOTE_SETTINGS_MODE_UNSPECIFIED = 0;
-    // NB we omit the case where mode is "none" because by
-    // convention, we indicate this case by by omitting this enum
-    // value during serialization, and during deserialization,
-    // assuming that the zero value of UNSPECIFIED implies mode is
-    // "none". This saves 2 bytes in the binary serialization when
-    // mode is "none" which is expected to be the modal case.
+    // NB we omit the case where mode is "none" because by convention,
+    // we indicate this case by by omitting this enum value during
+    // serialization, and during deserialization, assuming that the zero
+    // value of UNSPECIFIED implies mode is "none". This saves 2 bytes
+    // in the binary serialization when mode is "none" which is expected
+    // to be the modal case.
     SENDER_NOTE_SETTINGS_MODE_OPTIONAL = 1;
     SENDER_NOTE_SETTINGS_MODE_REQUIRED = 2;
   }
@@ -111,13 +111,32 @@ message CheckoutSettings {
   string webhook_url = 19; // optional. Webhook URL to call when checkout events occur, eg. on checkout success. Deserialized as CheckoutSettings.webhookUrl
 }
 
+// MessageType is an enum to help clients differentiate between
+// top-level message types given an anonymous binary message
+// serialization. CheckoutSettings, as by far the most popular message
+// type, omits MessageType to reduce binary serialization size, and so
+// binary serializations are of type CheckoutSettings iff they omit a
+// MessageType field, which must always use field number 2047. Ie.
+// `MessageType message_type = 2047;` must appear in all top-level
+// message types except CheckoutSettings. Field number 2047 chosen as
+// it's the largest field number whose tag has a 2-byte overhead. Only
+// field numbers <=15 have a 1-byte overhead, so we don't want to
+// reserve one of those scarce fields for this type.
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  MESSAGE_TYPE_CHECKOUT_SETTINGS_SIGNED = 1;
+  MESSAGE_TYPE_CHECKOUT_SETTINGS_ENCRYPTED = 2;
+}
+
 // CheckoutSettingsSigned is an envelope for a cryptographically signed
 // CheckoutSettings to help prevent phishing attempts. WARNING
 // signatures protect only against modifications to the CheckoutSettings
 // and not against the 3cities app being phished.
 message CheckoutSettingsSigned {
   CheckoutSettings checkout_settings = 1; // required. The CheckoutSettings that has been cryptographically signed
-  uint64 signature_and_salt = 2; // required. The cryptographic signature and salt that, together with a password (held separately), are needed to verify the signature and ensure the CheckoutSettings has not been modified (eg. by a phishing attempt)
+  bytes salt = 2; // required. The cryptographic salt that, together with the signature (in this message) and a password (held separately), are needed to verify the signature and ensure the CheckoutSettings has not been modified (eg. by a phishing attempt)
+  bytes signature = 3; // required. The cryptographic signature, together with the salt (in this message) a password (held separately), are needed to verify the signature and ensure the CheckoutSettings has not been modified (eg. by a phishing attempt)
+  MessageType message_type = 2047; // required. Must be set to MESSAGE_TYPE_CHECKOUT_SETTINGS_SIGNED. See note on MessageType
 }
 
 // CheckoutSettingsEncrypted is an envelope for an encrypted
@@ -127,7 +146,9 @@ message CheckoutSettingsSigned {
 // and not against the 3cities app being phished.
 message CheckoutSettingsEncrypted {
   bytes encrypted_checkout_settings = 1; // required. The CheckoutSettings that has been encrypted
-  uint64 salt_and_iv = 2; // required. The cryptographic salt and iv that, together with a password (held separately), are needed to decrypt the CheckoutSettings
+  bytes salt = 2; // required. The cryptographic salt that, together with the iv (in this message) and a password (held separately), are needed to decrypt the CheckoutSettings
+  bytes iv = 3; // required. The cryptographic iv that, together with the salt (in this message) and a password (held separately), are needed to decrypt the CheckoutSettings
+  MessageType message_type = 2047; // required. Must be set to MESSAGE_TYPE_CHECKOUT_SETTINGS_ENCRYPTED. See note on MessageType
 }
 
 /*

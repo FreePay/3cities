@@ -4,7 +4,7 @@
 // @ts-nocheck
 
 import type { BinaryReadOptions, FieldList, JsonReadOptions, JsonValue, PartialMessage, PlainMessage } from "@bufbuild/protobuf";
-import { Message, proto3, protoInt64 } from "@bufbuild/protobuf";
+import { Message, proto3 } from "@bufbuild/protobuf";
 
 /**
  * LogicalAssetTicker is the set of all logical asset tickers we
@@ -47,6 +47,44 @@ proto3.util.setEnumType(LogicalAssetTicker, "threecities.v1.LogicalAssetTicker",
   { no: 2, name: "LOGICAL_ASSET_TICKER_USD" },
   { no: 3, name: "LOGICAL_ASSET_TICKER_EUR" },
   { no: 4, name: "LOGICAL_ASSET_TICKER_CAD" },
+]);
+
+/**
+ * MessageType is an enum to help clients differentiate between
+ * top-level message types given an anonymous binary message
+ * serialization. CheckoutSettings, as by far the most popular message
+ * type, omits MessageType to reduce binary serialization size, and so
+ * binary serializations are of type CheckoutSettings iff they omit a
+ * MessageType field, which must always use field number 2047. Ie.
+ * `MessageType message_type = 2047;` must appear in all top-level
+ * message types except CheckoutSettings. Field number 2047 chosen as
+ * it's the largest field number whose tag has a 2-byte overhead. Only
+ * field numbers <=15 have a 1-byte overhead, so we don't want to
+ * reserve one of those scarce fields for this type.
+ *
+ * @generated from enum threecities.v1.MessageType
+ */
+export enum MessageType {
+  /**
+   * @generated from enum value: MESSAGE_TYPE_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: MESSAGE_TYPE_CHECKOUT_SETTINGS_SIGNED = 1;
+   */
+  CHECKOUT_SETTINGS_SIGNED = 1,
+
+  /**
+   * @generated from enum value: MESSAGE_TYPE_CHECKOUT_SETTINGS_ENCRYPTED = 2;
+   */
+  CHECKOUT_SETTINGS_ENCRYPTED = 2,
+}
+// Retrieve enum metadata with: proto3.getEnumType(MessageType)
+proto3.util.setEnumType(MessageType, "threecities.v1.MessageType", [
+  { no: 0, name: "MESSAGE_TYPE_UNSPECIFIED" },
+  { no: 1, name: "MESSAGE_TYPE_CHECKOUT_SETTINGS_SIGNED" },
+  { no: 2, name: "MESSAGE_TYPE_CHECKOUT_SETTINGS_ENCRYPTED" },
 ]);
 
 /**
@@ -247,12 +285,12 @@ export enum CheckoutSettings_SenderNoteSettingsMode {
   UNSPECIFIED = 0,
 
   /**
-   * NB we omit the case where mode is "none" because by
-   * convention, we indicate this case by by omitting this enum
-   * value during serialization, and during deserialization,
-   * assuming that the zero value of UNSPECIFIED implies mode is
-   * "none". This saves 2 bytes in the binary serialization when
-   * mode is "none" which is expected to be the modal case.
+   * NB we omit the case where mode is "none" because by convention,
+   * we indicate this case by by omitting this enum value during
+   * serialization, and during deserialization, assuming that the zero
+   * value of UNSPECIFIED implies mode is "none". This saves 2 bytes
+   * in the binary serialization when mode is "none" which is expected
+   * to be the modal case.
    *
    * @generated from enum value: SENDER_NOTE_SETTINGS_MODE_OPTIONAL = 1;
    */
@@ -323,16 +361,16 @@ export class CheckoutSettings_PayWhatYouWant extends Message<CheckoutSettings_Pa
  * of flags are: 1) isDynamicPricingEnabled is true iff 3cities
  * should try to suggest different amounts to pay based on the net
  * worth of the sender's connected wallet (eg. rich wallets get
- * suggested to pay more), 2) canPayAnyAsset is true iff the
- * sender may pay any token in any amount, bypassing the usual
- * need to pay in the receiver's specified logical asset. Using this
- * enum to bitpack makes these flags consume a total of 2 bytes if
- * any flags are set or 0 bytes if none are set. Using regular bools
- * consumes 2 bytes per bool. Up to 6 flags can be included in this
- * enum without widening it from 2 bytes to 3 bytes because any
- * value from 0 to 127 (2^7) takes only 2 bytes, but we reserve 0
- * for unspecified, and so we can only fit 6 flags because we need
- * 128 values to fit a full 7 but we have only 127 values since 0 is
+ * suggested to pay more), 2) canPayAnyAsset is true iff the sender
+ * may pay any token in any amount, bypassing the usual need to pay
+ * in the receiver's specified logical asset. Using this enum to
+ * bitpack makes these flags consume a total of 2 bytes if any flags
+ * are set or 0 bytes if none are set. Using regular bools consumes
+ * 2 bytes per bool. Up to 6 flags can be included in this enum
+ * without widening it from 2 bytes to 3 bytes because any value
+ * from 0 to 127 (2^7) takes only 2 bytes, but we reserve 0 for
+ * unspecified, and so we can only fit 6 flags because we need 128
+ * values to fit a full 7 but we have only 127 values since 0 is
  * reserved.
  *
  * @generated from enum threecities.v1.CheckoutSettings.PayWhatYouWant.PayWhatYouWantFlags
@@ -390,11 +428,25 @@ export class CheckoutSettingsSigned extends Message<CheckoutSettingsSigned> {
   checkoutSettings?: CheckoutSettings;
 
   /**
-   * required. The cryptographic signature and salt that, together with a password (held separately), are needed to verify the signature and ensure the CheckoutSettings has not been modified (eg. by a phishing attempt)
+   * required. The cryptographic salt that, together with the signature (in this message) and a password (held separately), are needed to verify the signature and ensure the CheckoutSettings has not been modified (eg. by a phishing attempt)
    *
-   * @generated from field: uint64 signature_and_salt = 2;
+   * @generated from field: bytes salt = 2;
    */
-  signatureAndSalt = protoInt64.zero;
+  salt = new Uint8Array(0);
+
+  /**
+   * required. The cryptographic signature, together with the salt (in this message) a password (held separately), are needed to verify the signature and ensure the CheckoutSettings has not been modified (eg. by a phishing attempt)
+   *
+   * @generated from field: bytes signature = 3;
+   */
+  signature = new Uint8Array(0);
+
+  /**
+   * required. Must be set to MESSAGE_TYPE_CHECKOUT_SETTINGS_SIGNED. See note on MessageType
+   *
+   * @generated from field: threecities.v1.MessageType message_type = 2047;
+   */
+  messageType = MessageType.UNSPECIFIED;
 
   constructor(data?: PartialMessage<CheckoutSettingsSigned>) {
     super();
@@ -405,7 +457,9 @@ export class CheckoutSettingsSigned extends Message<CheckoutSettingsSigned> {
   static readonly typeName = "threecities.v1.CheckoutSettingsSigned";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "checkout_settings", kind: "message", T: CheckoutSettings },
-    { no: 2, name: "signature_and_salt", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 2, name: "salt", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 3, name: "signature", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 2047, name: "message_type", kind: "enum", T: proto3.getEnumType(MessageType) },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CheckoutSettingsSigned {
@@ -443,11 +497,25 @@ export class CheckoutSettingsEncrypted extends Message<CheckoutSettingsEncrypted
   encryptedCheckoutSettings = new Uint8Array(0);
 
   /**
-   * required. The cryptographic salt and iv that, together with a password (held separately), are needed to decrypt the CheckoutSettings
+   * required. The cryptographic salt that, together with the iv (in this message) and a password (held separately), are needed to decrypt the CheckoutSettings
    *
-   * @generated from field: uint64 salt_and_iv = 2;
+   * @generated from field: bytes salt = 2;
    */
-  saltAndIv = protoInt64.zero;
+  salt = new Uint8Array(0);
+
+  /**
+   * required. The cryptographic iv that, together with the salt (in this message) and a password (held separately), are needed to decrypt the CheckoutSettings
+   *
+   * @generated from field: bytes iv = 3;
+   */
+  iv = new Uint8Array(0);
+
+  /**
+   * required. Must be set to MESSAGE_TYPE_CHECKOUT_SETTINGS_ENCRYPTED. See note on MessageType
+   *
+   * @generated from field: threecities.v1.MessageType message_type = 2047;
+   */
+  messageType = MessageType.UNSPECIFIED;
 
   constructor(data?: PartialMessage<CheckoutSettingsEncrypted>) {
     super();
@@ -458,7 +526,9 @@ export class CheckoutSettingsEncrypted extends Message<CheckoutSettingsEncrypted
   static readonly typeName = "threecities.v1.CheckoutSettingsEncrypted";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
     { no: 1, name: "encrypted_checkout_settings", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
-    { no: 2, name: "salt_and_iv", kind: "scalar", T: 4 /* ScalarType.UINT64 */ },
+    { no: 2, name: "salt", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 3, name: "iv", kind: "scalar", T: 12 /* ScalarType.BYTES */ },
+    { no: 2047, name: "message_type", kind: "enum", T: proto3.getEnumType(MessageType) },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CheckoutSettingsEncrypted {
