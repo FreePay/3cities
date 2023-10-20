@@ -423,10 +423,11 @@ export const RequestMoney: React.FC = () => {
           disabledClassName="text-gray-200 pointer-events-none"
           loadingSpinnerClassName="text-gray-200 fill-primary"
         />
-        {recentlyUsedReceivers.map((r, i) => <button key={i} className="flex-none flex items-center gap-2 rounded-md px-3 py-1 text-xs font-medium focus:outline-none bg-primary sm:enabled:hover:bg-primary-darker enabled:active:scale-95 text-white" onClick={() => setRawReceiver(r)}><span>{isAddress(r) ? truncateEthAddressVeryShort(r) : r}</span><FaTimesCircle onClick={(evt) => {
+        {recentlyUsedReceivers.map((r, i) => <button key={i} className="flex-none flex items-center gap-2 rounded-md px-3 py-1 text-xs font-medium focus:outline-none bg-primary sm:enabled:hover:bg-primary-darker enabled:active:scale-95 text-white" onClick={() => setRawReceiver(r)}><span>{isAddress(r) ? truncateEthAddressVeryShort(r) : r}</span><span className="p-0.5" onClick={(evt) => {
           evt.stopPropagation(); // stop event from bubbling which would cause the parent button onClick to fire
           removeFromRecentlyUsed(recentlyUsedReceiversKey, r).then(recacheRecentlyUsedReceivers);
-        }} /></button>)}
+        }}><FaTimesCircle /></span>
+        </button>)}
       </div>
     </div>}
     <div className="w-full flex flex-wrap justify-start items-center gap-2 mt-4">
