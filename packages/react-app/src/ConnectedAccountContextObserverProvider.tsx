@@ -6,8 +6,8 @@ import { AddressContext, emptyAddressContext } from './AddressContext';
 import { ConnectedAccountContextObserverContext } from './ConnectedAccountContextObserverContext';
 import { NativeCurrency, Token } from './Token';
 import { TokenBalance, isDust } from './TokenBalance';
-import { useLiveNativeCurrencyBalance } from './hooks/useLiveNativeCurrencyBalance';
-import { useLiveTokenBalance } from './hooks/useLiveTokenBalance';
+import { useLiveNativeCurrencyBalance } from './useLiveNativeCurrencyBalance';
+import { useLiveTokenBalance } from './useLiveTokenBalance';
 import { ObservableValue, ObservableValueUpdater, makeObservableValue } from './observer';
 import { getTokenKey, nativeCurrencies, tokens } from './tokens';
 
