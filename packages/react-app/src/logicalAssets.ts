@@ -109,6 +109,19 @@ export function getDecimalsToRenderForLogicalAssetTicker(lat: LogicalAssetTicker
   }
 }
 
+// getDefaultTruncateTrailingZeroesForLogicalAssetTicker returns the
+// default value for whether or not logical asset values should have
+// trailing zeroes truncated. See FormatFloatOpts.
+export function getDefaultTruncateTrailingZeroesForLogicalAssetTicker(lat: LogicalAssetTicker): boolean {
+  switch (lat) {
+    case 'ETH': return true; // by default, we truncate trailing zeroes such that values like "0.0500" ETH are rendered as "0.05"
+    // by default, we don't truncate trailing zeroes on allfiat currencies, so that "$1.20" stays rendered as "$1.20" instead of "$1.2"
+    case 'USD': return false;
+    case 'CAD': return false;
+    case 'EUR': return false;
+  }
+}
+
 // addSymbolToLogicalAssetValue takes the passed human-readable logical
 // asset value and applies its logical asset symbol to the value.
 // Example input: "5.35", example output: "$5.35".

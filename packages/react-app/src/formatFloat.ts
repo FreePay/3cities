@@ -1,7 +1,7 @@
 import { commify } from "./commify";
 
 export type FormatFloatOpts = {
-  showAllZeroesAfterDecimal?: boolean; // iff true, a number ending in all zeroes after the decimal point will retain the zeroes (eg. "1.00"), otherwise they are truncated by default (eg. 1.00 -> "1")
+  truncateTrailingZeroes?: boolean; // iff true, any zeroes (after the decimal point AND after the last significant digit that wasn't rounded) will be truncated
 }
 
 // formatFloat formats the passed float to make it suitable to display
@@ -14,7 +14,7 @@ export function formatFloat(
   // invariant: decimals integer && decimals > -1
   const f: number = typeof float === 'string' ? Number.parseFloat(float) : float;
   const fRounded: string = f.toFixed(decimals); // eg. output is "1.00" or "1234.40"
-  const fRoundedAndTrimmed: string = (opts?.showAllZeroesAfterDecimal !== true && fRounded.endsWith(`.${"0".repeat(decimals)}`)) ? fRounded.substring(0, fRounded.length - 1 - decimals) : fRounded; // if all zeroes after decimal, remove the zeroes
+  const fRoundedAndTrimmed: string = (opts?.truncateTrailingZeroes === true) ? fRounded.replace(/(\.\d*?[1-9])0+$/, '$1').replace(/\.0+$/, '') : fRounded;
   const commified = commify(fRoundedAndTrimmed);
   return commified;
 }
