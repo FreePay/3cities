@@ -1,55 +1,150 @@
-import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaEye } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
 import { useAccount } from "wagmi";
-import { ActiveDemoAccountContext } from "./ActiveDemoAccountContext";
+import { CheckoutSettings } from "./CheckoutSettings";
+import { CheckoutSettingsRequiresPassword, isCheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
 import { ConnectWalletButton } from "./ConnectWalletButton";
+import { Payment, ProposedPaymentWithFixedAmount, ProposedPaymentWithReceiverAddress, acceptProposedPayment, isProposedPaymentWithFixedAmount } from "./Payment";
 import QRCode from "./QRCode";
 import { RenderLogicalAssetAmount, renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
 import { RenderTokenBalance } from "./RenderTokenBalance";
 import { RenderTokenTransfer } from "./RenderTokenTransfer";
-import { ReceiverProposedPayment, acceptReceiverProposedPayment, isReceiverProposedPayment } from "./agreements";
+import { ToggleSwitch } from "./ToggleSwitch";
 import { getBlockExplorerUrlForAddress, getBlockExplorerUrlForTransaction } from "./blockExplorerUrls";
 import { getChain, getSupportedChainName } from "./chains";
-import { useConnectedWalletAddressContext } from "./connectedWalletContextProvider";
-import { Strategy, getProposedStrategiesForProposedAgreement, getStrategiesForAgreement } from "./strategies";
+import { Strategy, getProposedStrategiesForProposedPayment, getStrategiesForPayment } from "./strategies";
+import { TokenTransfer } from "./tokenTransfer";
 import { getTokenKey } from "./tokens";
 import { ExecuteTokenTransferButton, ExecuteTokenTransferButtonStatus, TransactionFeeUnaffordableError } from "./transactions";
-import { useAddressOrENS } from "./useAddressOrENS";
+import { truncateEnsAddress, truncateEthAddress } from "./truncateAddress";
+import { useActiveDemoAccount } from "./useActiveDemoAccount";
 import { useBestStrategy } from "./useBestStrategy";
 import { useCheckoutSettings } from "./useCheckoutSettings";
-import { useEnsName } from "./useEnsName";
+import { useConnectedAccountContext } from "./useConnectedAccountContext";
+import { useInput } from "./useInput";
+import { useProposedPaymentReceiverAddressAndEnsName } from "./useProposedPaymentReceiverAddressAndEnsName";
 
 // TODO add a big "continue" button at bottom of "select payment method" because if you don't want to change the method, it's unclear that you have to click on the current method. --> see the "continue" button at bottom of Amazon's payment method selection during mobile checkout.
 
+// TODO support Payment.paymentMode.PayWhatYouWant. A design idea to here is for the root Payment (with pay what you want mode) to be passed into getStrategiesForPayment normally, and for getStrategiesForPayment to take a new parameter indicating the buyer's preferences of what they want to pay, and then during strategy generation, derived/synthetic Payment(s) are generated in fixed amounts and those synthetic payments are recursively fed into getStrategiesForPayment, and the resulting strategies for all synthetic payments are returned as a single collection. This takes advantage of the fact that Strategy.payment does not have to be the root payment, ie. the strategies can have a diversity of payments. --> a possible scenario to handle is that today, when the sender's wallet is disconnected, we display the accepted tokens and chains by extracting them from proposed strategies, so we'd want to ensure that proposed strategies for "pay what you want" mode still facilitate this, which can be done by eg. defaulting to synthetic payments craeted created from PayWhatYouWant.suggestedLogicalAssetAmountsAsBigNumberHexStrings and if that's empty, a default list of suggetsed amounts. --> WARNING when refactoring the code to support "pay what you want mode", we'll have to handle the fact that some Pay features assume that the passed proposedPayment is the same payment that ended up being settled for this checkout, but that assumption is no longer true in "pay what you want mode". For example, paymentSuccessfulBaseText extracts the logical amount from proposedPayment, but during "pay what you want mode", the logical amount paid will depend on which synthetic payment was chosen for settlement.
+
 export const Pay: React.FC = () => {
-  const { isConnected, address } = useAccount();
-  const checkout = useCheckoutSettings();
+  const cs: CheckoutSettings | CheckoutSettingsRequiresPassword = useCheckoutSettings();
+  if (isCheckoutSettingsRequiresPassword(cs)) return <PayNeedsPassword csrp={cs} />;
+  else return <PayInner checkoutSettings={cs} />;
+}
 
-  if (!isReceiverProposedPayment(checkout.proposedAgreement)) throw new Error(`checkout wasn't a receiverProposedPayment`); // TODO support more checkout types than just receiverProposedPayment
-  const rpp: ReceiverProposedPayment = checkout.proposedAgreement;
+type PayNeedsPasswordProps = {
+  csrp: CheckoutSettingsRequiresPassword;
+}
 
-  const ac = useConnectedWalletAddressContext();
+const PayNeedsPassword: React.FC<PayNeedsPasswordProps> = ({ csrp }) => {
+  const [isPasswordIncorrect, setIsPasswordIncorrect] = useState<boolean | 'loading'>(false);
+
+  const rawSetPassword = csrp.setPassword; // local var so hook can depend only on csrp.setPassword
+  const setPassword = useCallback((password: string) => {
+    setIsPasswordIncorrect('loading');
+    rawSetPassword(password);
+  }, [rawSetPassword]);
+
+  useEffect(() => { // after the user submits the password, we'll allow a short duration for upstream to process the checkout settings and redirect away from this password submission page, after which we'll assume the password as incorrect and show an error
+    let timerId: NodeJS.Timeout | undefined = undefined;
+    if (isPasswordIncorrect === 'loading') {
+      timerId = setTimeout(() => setIsPasswordIncorrect(true), 250);
+    }
+    return () => clearTimeout(timerId);
+  });
+
+  const [showPassword, setShowPassword] = useState(false);
+
+  const [password, passwordInput] = useInput("", {
+    name: "password",
+    type: showPassword ? "text" : "password",
+    className: "w-full rounded-md border px-3.5 py-2 leading-6",
+    placeholder: "Password",
+    autoComplete: "off",
+  }, {
+    onEnterKeyPress() { setPassword(password) },
+  });
+
+  return (
+    <div className="flex flex-col justify-center w-full py-6 gap-4">
+      <h1 className="text-xl">{(() => {
+        switch (csrp.requirementType) {
+          case 'needToDecrypt': return 'Pay Link is encrypted';
+          case 'needToVerifySignature': return 'Pay Link anti-phishing enabled';
+        }
+      })()}</h1>
+      {passwordInput}
+      {isPasswordIncorrect === true && <div className="text-red-600">Wrong password</div>}
+      <div className="w-full flex justify-start items-center gap-2">
+        <span>Show password</span>
+        <ToggleSwitch initialIsOn={showPassword} onToggle={setShowPassword} offClassName="text-gray-500" className="font-bold text-2xl" />
+      </div>
+      <button
+        type="button"
+        className="rounded-md p-3.5 font-medium bg-primary text-white sm:hover:bg-primary-darker sm:hover:cursor-pointer w-full"
+        onClick={() => setPassword(password)}
+      >
+        Submit
+      </button>
+    </div>
+  );
+};
+
+type PayInnerProps = {
+  checkoutSettings: CheckoutSettings;
+}
+
+const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
+  const { isConnected, address: connectedAddress } = useAccount();
+
+  const proposedPaymentWithFixedAmount: ProposedPaymentWithFixedAmount = (() => { // NB no useMemo is needed here because we are copying checkoutSettings.proposedPayment into proposedPaymentWithFixedAmount and this object reference is stable across renders because checkoutSettings is stable across renders
+    if (isProposedPaymentWithFixedAmount(checkoutSettings.proposedPayment)) return checkoutSettings.proposedPayment;
+    else throw new Error("unexpected proposed payment with 'pay what you want' mode"); // TODO support 'pay what you want' mode
+  })();
+
+  const { receiverAddress, receiverEnsName, receiverAddressIsLoading } = useProposedPaymentReceiverAddressAndEnsName(checkoutSettings.proposedPayment);
+
+  const proposedPaymentWithReceiverAddress = useMemo<ProposedPaymentWithReceiverAddress | undefined>(() => {
+    if (receiverAddress === undefined) return undefined;
+    else return Object.assign({}, checkoutSettings.proposedPayment, {
+      receiver: { address: receiverAddress },
+    });
+  }, [checkoutSettings.proposedPayment, receiverAddress]);
+
+  const ac = useConnectedAccountContext();
+
+  const [isDuringConnectedAccountContextInitialLoadGracePeriod, setIsDuringConnectedAccountContextInitialLoadGracePeriod] = useState(true); // isDuringConnectedAccountContextInitialLoadGracePeriod enables us to differentiate between the case where no payment methods are found because the connected account context is still loading and there's not yet sufficent data vs the account context (likely) finished loading and there are no payment methods
+  useEffect(() => {
+    let timerId: NodeJS.Timeout | undefined = undefined;
+    if (connectedAddress) {
+      setIsDuringConnectedAccountContextInitialLoadGracePeriod(true);
+      timerId = setTimeout(() => setIsDuringConnectedAccountContextInitialLoadGracePeriod(false), 500); // if this timeout is too short, then this grace period feature doesn't fulfill its intended function of preventing "no payment methods" from flashing on the screen when the sender has payment methods but they are still initially loading. If this timeout is too long, then the screen will appear to hang with "pay now - loading" before resolving to "no payment methods" when the sender has no payment methods
+    } else setIsDuringConnectedAccountContextInitialLoadGracePeriod(false);
+    return () => clearTimeout(timerId);
+  }, [setIsDuringConnectedAccountContextInitialLoadGracePeriod, connectedAddress]);
+
+  const payment = useMemo<Payment | undefined>(() => proposedPaymentWithReceiverAddress && ac && acceptProposedPayment(ac.address, proposedPaymentWithReceiverAddress), [ac, proposedPaymentWithReceiverAddress]);
 
   const [status, setStatus] = useState<ExecuteTokenTransferButtonStatus | undefined>(undefined);
+  const statusIsError = status?.isError === true; // local var for use as a hook dependency to prevent unnecessary rerenders when this bool goes from undefined to false
+  const statusIsSuccess = status?.isSuccess === true; // local var for use as a hook dependency to prevent unnecessary rerenders when this bool goes from undefined to false
 
-  const activeDemoAccount: string | undefined = useContext(ActiveDemoAccountContext);
-
-  useEffect(() => { // if activeDemoAccount is defined, then we're in demo mode, the demo account has no provider, and the Pay Now button can't work and will error on usePrepareContractWrite, so below, we disable the Pay Now button, and here we clear any status that might have been set by the button, especially because certain features default to running based on status.activeTokenTransfer, which isn't being updated if the status is undefined.
-    if (status && activeDemoAccount) setStatus(undefined);
-  }, [status, activeDemoAccount]);
-
+  const sr = status?.reset; // local var to have this useCallback depend only on status.reset
   const doReset = useCallback(() => {
-    status?.reset();
-  }, [status]);
+    if (sr) sr();
+  }, [sr]);
+  // @eslint-no-use-below[sr]
 
-  const errMsgToCopyAnonymized = (() => {
+  const errMsgToCopyAnonymized: string = (() => {
     if (status?.isError) {
-      const errString = `${status.error} ${JSON.stringify(status.error)}`.replace(new RegExp(rpp.toAddress, 'gi'), '<redacted recipient address>');
-      if (address === undefined) return errString;
-      else return errString.replace(new RegExp(address, 'gi'), '<redacted connected wallet address>');
+      const errString = `${status.error} ${JSON.stringify(status.error)}`.replace(checkoutSettings.proposedPayment.receiver.address ? new RegExp(checkoutSettings.proposedPayment.receiver.address, 'gi') : new RegExp(checkoutSettings.proposedPayment.receiver.ensName, 'gi'), `<redacted receiver ${checkoutSettings.proposedPayment.receiver.address ? 'address' : 'ens name'}>`);
+      if (connectedAddress === undefined) return errString;
+      else return errString.replace(new RegExp(connectedAddress, 'gi'), '<redacted connected wallet address>');
     } else return ' ';
   })();
 
@@ -58,31 +153,27 @@ export const Pay: React.FC = () => {
   });
 
   // TODO find a long-term solution instead of this retry button. Or maybe the long-term solution is a more polished retry button?
-  const retryButton = status?.isError ? <div className="grid grid-cols-1 w-full gap-4">
+  const retryButton = useMemo(() => statusIsError ? <div className="grid grid-cols-1 w-full gap-4">
     <div className="mt-4 grid grid-cols-2 w-full gap-4">
       <button className="bg-primary sm:hover:bg-primary-darker sm:hover:cursor-pointer text-white font-bold py-2 px-4 rounded" onClick={doReset}>Retry</button>
       <button className="bg-primary sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer text-white font-bold py-2 px-4 rounded" disabled={isErrorCopied} onClick={setCopied}>{isErrorCopied ? 'Copied. DM to @3cities_xyz' : 'Copy Error'}</button>
     </div>
     <span className="text-sm text-center">Please <span className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker" onClick={setCopied}>copy error</span> and<br />paste in a DM to <a href="https://twitter.com/3cities_xyz" target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker">@3cities_xyz</a></span>
-  </div> : undefined;
+  </div> : undefined, [statusIsError, doReset, isErrorCopied, setCopied]);
 
   const strategies = useMemo<Strategy[] | undefined>(() => {
-    if (checkout !== undefined && ac !== undefined && isReceiverProposedPayment(checkout.proposedAgreement)) return getStrategiesForAgreement(checkout.strategyPreferences, acceptReceiverProposedPayment(ac.address, checkout.proposedAgreement), ac);
+    if (payment && ac) return getStrategiesForPayment(checkoutSettings.receiverStrategyPreferences, payment, ac);
     else return undefined;
-  }, [checkout, ac]);
+  }, [checkoutSettings.receiverStrategyPreferences, payment, ac]);
 
   const { bestStrategy, otherStrategies, disableStrategy, selectStrategy } = useBestStrategy(strategies);
 
-  const recipientAddressBlockExplorerLink: string | undefined = (() => {
-    return getBlockExplorerUrlForAddress((status?.activeTokenTransfer || bestStrategy?.tokenTransfer)?.token.chainId, rpp.toAddress);
+  const receiverAddressBlockExplorerLink: string | undefined = (() => {
+    if (proposedPaymentWithReceiverAddress) return getBlockExplorerUrlForAddress((status?.activeTokenTransfer || bestStrategy?.tokenTransfer)?.token.chainId, proposedPaymentWithReceiverAddress.receiver.address);
+    else return undefined;
   })();
 
-  const [showFullRecipientAddress, setShowFullRecipientAddress] = useState(false);
-
-  const { ensName: recipientEnsName } = useEnsName(rpp.toAddress);
-
-  const recipientAddressOrEnsName: string = useAddressOrENS(rpp.toAddress,
-    { truncated: !showFullRecipientAddress });
+  const [showFullReceiverAddress, setShowFullReceiverAddress] = useState(false);
 
   const [nextStrategyWasSelectedByTheUser, setNextStrategyWasSelectedByTheUser] = useState(false); // true iff the next `bestStrategy` was selected manually by the user. Ie. set to true only if selectStrategy has been called due to user selecting a new payment method. Used to prevent a jarring UX where if user selects a new payment method and that payment method is immediately determined to be unaffordable, we want to show feedback to the user.
   const [userSelectedCurrentStrategy, setUserSelectedCurrentStrategy] = useState(false); // true iff the current `bestStrategy` was selected manually by the user from the list of payment methods. Used to prevent a jarring UX where if user selects a new payment method and that payment method is immediately determined to be unaffordable, we want to show feedback to the user.
@@ -133,53 +224,88 @@ export const Pay: React.FC = () => {
     ) setSelectingPaymentMethod(false); // then we'll close the payment select view
   }, [setSelectingPaymentMethod, selectingPaymentMethod, canSelectNewStrategy, otherStrategies]);
 
-  const paymentScreen: false | JSX.Element = !status?.isSuccess && <div className={`${selectingPaymentMethod ? 'hidden' : '' /* WARNING here we hide the payment screen when selecting payment method instead of destroying it. This avoids an ExecuteTokenTransferButton remount each time the payment method changes, which is a mechanism to test reset logic and code paths. */}`}>
+  const checkoutReadinessState:
+    'receiverAddressLoading' // the CheckoutSettings.proposedPayment used an ens name for the receiver, and resolving this ens name into an address is in progress
+    | 'receiverAddressCouldNotBeDetermined' // the CheckoutSettings.proposedPayment used an ens name for the receiver, and resolving this ens name into an address failed
+    | 'senderAccountNotConnected' // ie. this page is has no wallet connected
+    | 'senderAddressContextLoading' // this page has a wallet connected, but the connected wallet's AddressContext is still loading
+    | 'senderHasNoPaymentOptions' // based on the connected wallet's address context, the sender has no payment options
+    | 'ready'
+    = (() => {
+      if (receiverAddressIsLoading) return 'receiverAddressLoading';
+      else if (receiverAddress === undefined) return 'receiverAddressCouldNotBeDetermined';
+      else if (!isConnected) return 'senderAccountNotConnected';
+      else if (ac === undefined || (bestStrategy === undefined && isDuringConnectedAccountContextInitialLoadGracePeriod)) return 'senderAddressContextLoading';
+      else if (ac !== undefined && bestStrategy === undefined) return 'senderHasNoPaymentOptions';
+      else return 'ready';
+    })();
+
+  const activeDemoAccount: string | undefined = useActiveDemoAccount();
+
+  const makeExecuteTokenTransferButton = useCallback((tt: TokenTransfer | undefined) => <div className="relative"><ExecuteTokenTransferButton
+    tt={tt}
+    autoReset={true}
+    loadForeverOnTransactionFeeUnaffordableError={true}
+    label="Pay Now"
+    successLabel="Paid ✅"
+    className="rounded-md p-3.5 font-medium bg-primary sm:enabled:hover:bg-primary-darker focus:outline-none active:scale-95 w-full"
+    disabledClassName="text-gray-200 pointer-events-none"
+    enabledClassName="text-white"
+    errorClassName="text-red-600"
+    warningClassName="text-black"
+    loadingSpinnerClassName="text-gray-200 fill-primary"
+    {...(activeDemoAccount === undefined && { setStatus })}
+    {...(activeDemoAccount !== undefined && { disabled: true })}
+  />
+    {!retryButton && activeDemoAccount && (
+      <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-tertiary-darker-2 text-sm whitespace-nowrap text-center">
+        disabled when<br />impersonating
+      </span>
+    )}
+    {retryButton}
+  </div>, [activeDemoAccount, retryButton]);
+
+  const paymentScreen: false | JSX.Element = useMemo(() => !statusIsSuccess && <div className={`${selectingPaymentMethod ? 'hidden' : '' /* WARNING here we hide the payment screen when selecting payment method instead of destroying it. This avoids an ExecuteTokenTransferButton remount each time the payment method changes, which is a mechanism to test reset logic and code paths. */}`}>
     <div className="w-full py-6">
       {(() => {
-        if (!isConnected) return <ConnectWalletButton disconnectedLabel="Connect Wallet to Pay" />;
-        else if (bestStrategy === undefined) return <button
-          type="button"
-          className="rounded-md p-3.5 bg-tertiary text-black pointer-events-none w-full"
-        >
-          Connected wallet has no payment options
-        </button>;
-        else return <div className="relative"><ExecuteTokenTransferButton
-          tt={bestStrategy.tokenTransfer}
-          autoReset={true}
-          loadForeverOnTransactionFeeUnaffordableError={true}
-          label="Pay Now"
-          successLabel="Paid ✅"
-          className="rounded-md p-3.5 font-medium bg-primary sm:enabled:hover:bg-primary-darker focus:outline-none active:scale-95 w-full"
-          disabledClassName="text-gray-200 pointer-events-none"
-          enabledClassName="text-white"
-          errorClassName="text-red-600"
-          warningClassName="text-black"
-          loadingSpinnerClassName="text-gray-200 fill-primary"
-          setStatus={setStatus}
-          {...(activeDemoAccount !== undefined && { disabled: true })}
-        />
-          {!retryButton && activeDemoAccount && (
-            <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-tertiary-darker-2 text-sm whitespace-nowrap text-center">
-              disabled when<br />impersonating
-            </span>
-          )}
-          {retryButton}
-        </div>
+        if (!isConnected) return <ConnectWalletButton disconnectedLabel="Connect Wallet to Pay" />; // TODO replace this with ConnectWalletButtonCustom where the styling props passed are from local variables shared with ExecuteTokenTransferButton. This ensures the styles of the two buttons are exactly the same (whereas today, they are only coincidentally the same), preventing UI jank after connecting wallet
+        else switch (checkoutReadinessState) {
+          case 'receiverAddressCouldNotBeDetermined': return <button
+            type="button"
+            className="rounded-md p-3.5 bg-tertiary text-black pointer-events-none w-full"
+          >
+            Receiver ENS name has no address
+          </button>
+          case 'senderAccountNotConnected': throw new Error("expected checkoutReadinessState to not be receiverAddressReadyButSenderAccountNotConnected when sender account is connected"); // here we never expect receiverAddressReadyButSenderAccountNotConnected because this switch statement is `else isConnected`
+          case 'senderHasNoPaymentOptions': return <button
+            type="button"
+            className="rounded-md p-3.5 bg-tertiary text-black pointer-events-none w-full"
+          >
+            Connected wallet has no payment options
+          </button>;
+          case 'receiverAddressLoading': return makeExecuteTokenTransferButton(undefined);
+          case 'senderAddressContextLoading': return makeExecuteTokenTransferButton(undefined);
+          case 'ready': if (bestStrategy === undefined) throw new Error("expected bestStrategy to be defined when checkoutReadinessState is 'ready'"); else return makeExecuteTokenTransferButton(bestStrategy.tokenTransfer);
+        }
       })()}
     </div>
     <div className="p-4 flex items-center gap-4 justify-between w-full border border-gray-300 bg-white rounded-t-md">
       <span>To:</span>
       <span className="font-bold inline-flex gap-1 place-content-between" style={{ overflowWrap: 'anywhere' }}>
-        <span>{!showFullRecipientAddress && recipientAddressOrEnsName}{showFullRecipientAddress && rpp.toAddress} {showFullRecipientAddress && recipientEnsName && `(${recipientEnsName})`} {showFullRecipientAddress && recipientAddressBlockExplorerLink && <a href={recipientAddressBlockExplorerLink} target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker ml-1">explorer</a>}</span>
-        <span className="flex place-items-center"><FaEye onClick={() => setShowFullRecipientAddress(v => !v)} className="w-4 sm:hover:text-gray-500 sm:hover:cursor-pointer" /></span>
+        <span>{!showFullReceiverAddress && (truncateEnsAddress(receiverEnsName) || truncateEthAddress(receiverAddress))}{showFullReceiverAddress && receiverAddress && `${receiverAddress}${receiverEnsName ? ` (${receiverEnsName})` : ''}`}{showFullReceiverAddress && !receiverAddress && receiverEnsName}{showFullReceiverAddress && receiverAddressBlockExplorerLink && <a href={receiverAddressBlockExplorerLink} target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker ml-1">explorer</a>}</span>
+        <span className="flex place-items-center"><FaEye onClick={() => setShowFullReceiverAddress(v => !v)} className="w-4 sm:hover:text-gray-500 sm:hover:cursor-pointer" /></span>
       </span>
     </div>
-    {checkout.proposedAgreement.note !== undefined && <div className="p-4 flex items-center w-full border-b border-x border-gray-300 bg-white">
-      <span className="text-left">{checkout.proposedAgreement.note}</span>
+    {checkoutSettings.note !== undefined && <div className="p-4 flex items-center w-full border-b border-x border-gray-300 bg-white">
+      <span className="text-left">{checkoutSettings.note}</span>
     </div>}
     <div className="p-4 grid grid-cols-2 w-full border-b border-x border-gray-300 bg-white rounded-b-md">
       <span className="font-bold text-lg">Total:</span>
-      <span className="font-bold text-lg text-right"><RenderLogicalAssetAmount {...checkout.proposedAgreement} showAllZeroesAfterDecimal={true} /></span>
+      <span className="font-bold text-lg text-right"><RenderLogicalAssetAmount
+        logicalAssetTicker={proposedPaymentWithFixedAmount.logicalAssetTicker}
+        amountAsBigNumberHexString={proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString}
+        showAllZeroesAfterDecimal={true}
+      /></span>
     </div>
     {bestStrategy !== undefined && <div className="py-4 w-full">
       <div className="font-bold text-lg">Payment method</div>
@@ -191,19 +317,16 @@ export const Pay: React.FC = () => {
           type="button"
         >
           change
-          {activeDemoAccount && <span className="absolute bottom-[-1.4em] left-1/2 transform -translate-x-1/2 text-tertiary-darker-2 text-sm font-bold whitespace-nowrap">
-            click ⬆️
-          </span>}
         </button>({otherStrategies.length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment methods)</span>}
       </div>
     </div>}
-  </div>;
+  </div>, [isConnected, checkoutSettings.note, proposedPaymentWithFixedAmount.logicalAssetTicker, proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod]);
 
-  const acceptedTokensAndChainsBox: false | JSX.Element = ac !== undefined && bestStrategy === undefined && <div className="w-full">
+  const acceptedTokensAndChainsBox: false | JSX.Element = useMemo(() => checkoutReadinessState === 'senderHasNoPaymentOptions' && <div className="w-full">
     {(() => {
-      const pss = getProposedStrategiesForProposedAgreement(checkout.strategyPreferences, checkout.proposedAgreement);
-      const allStrategiesTokenTickers: string[] = [... new Set(pss.map(ps => ps.receiverProposedTokenTransfer.token.ticker))];
-      const allStrategiesChainIds: number[] = [... new Set(pss.map(ps => ps.receiverProposedTokenTransfer.token.chainId))];
+      const pss = getProposedStrategiesForProposedPayment(checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment);
+      const allStrategiesTokenTickers: string[] = [... new Set(pss.map(ps => ps.proposedTokenTransfer.token.ticker))];
+      const allStrategiesChainIds: number[] = [... new Set(pss.map(ps => ps.proposedTokenTransfer.token.chainId))];
       return <>
         <div className="pt-4 font-bold text-lg">Tokens accepted</div>
         <div className="p-2 border border-gray-300 bg-white rounded-b-md">{allStrategiesTokenTickers.join(", ")}</div>
@@ -211,9 +334,9 @@ export const Pay: React.FC = () => {
         <div className="p-2 border border-gray-300 bg-white rounded-b-md">{allStrategiesChainIds.map(getSupportedChainName).join(", ")}</div>
       </>;
     })()}
-  </div>;
+  </div>, [checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment, checkoutReadinessState]);
 
-  const selectPaymentMethodScreen: false | JSX.Element = bestStrategy !== undefined && otherStrategies !== undefined && otherStrategies.length > 0 && <div className={`grid grid-cols-1 w-full items-center py-6 ${selectingPaymentMethod ? '' : 'hidden'}`}>
+  const selectPaymentMethodScreen: false | JSX.Element = useMemo(() => bestStrategy !== undefined && otherStrategies !== undefined && otherStrategies.length > 0 && <div className={`grid grid-cols-1 w-full items-center py-6 ${selectingPaymentMethod ? '' : 'hidden'}`}>
     <div className="font-bold text-2xl">Select a payment method</div>
     <div className="py-2 flex items-end justify-between">
       <div className="font-bold text-lg">Pay with</div>
@@ -238,7 +361,7 @@ export const Pay: React.FC = () => {
         {ac !== undefined && tb && <span className="text-right"> <RenderTokenBalance tb={tb} opts={{ hideChainSeparator: true, hideChain: true }} /></span>}
       </div>
     })}
-  </div>;
+  </div>, [ac, bestStrategy, otherStrategies, canSelectNewStrategy, selectStrategy, selectingPaymentMethod]);
 
   const paymentSuccessfulBlockExplorerReceiptLink: string | undefined = (() => {
     if (!status?.isSuccess) return undefined;
@@ -247,7 +370,11 @@ export const Pay: React.FC = () => {
 
   const paymentSuccessfulBaseText: string = (() => {
     if (status?.isSuccess) {
-      return `Hey, I paid you ${renderLogicalAssetAmount({ ...checkout.proposedAgreement, showAllZeroesAfterDecimal: true })}${rpp.note ? ` for ${rpp.note}` : ''} using https://3cities.xyz.`;
+      return `Hey, I paid you ${renderLogicalAssetAmount({
+        logicalAssetTicker: proposedPaymentWithFixedAmount.logicalAssetTicker,
+        amountAsBigNumberHexString: proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString,
+        showAllZeroesAfterDecimal: true,
+      })}${checkoutSettings.note ? ` for ${checkoutSettings.note}` : ''} using 3cities.xyz`;
     } else return ' ';
   })();
 
@@ -266,9 +393,15 @@ export const Pay: React.FC = () => {
   })();
 
   const [isPaymentSuccessfulShareCopied, setIsPaymentSuccessfulShareCopied] = useClipboard(paymentSuccessfulTextWithLinkToShare, {
-    successDuration: 10000, // `isCopied` will go back to `false` after 10000ms
+    successDuration: 2000, // `isCopied` will go back to `false` after 2000ms
   });
 
+  const toShare = {
+    // title: "Money sent", // we omit title because some share contexts include it, some omit it, and we prefer our share content to be minimalist and consistently include no title
+    text: paymentSuccessfulTextNoLinkToShare,
+    ...(paymentSuccessfulBlockExplorerReceiptLink && { url: paymentSuccessfulBlockExplorerReceiptLink }),
+  };
+  const canShare: boolean = navigator.canShare && navigator.canShare(toShare); // test the Web Share API on desktop by enabling this flag chrome://flags/#web-share
   const paymentSuccessfulScreen: JSX.Element | undefined = status?.isSuccess ? <div className="grid grid-cols-1 w-full items-center pt-6 gap-6">
     <button
       type="button"
@@ -280,20 +413,14 @@ export const Pay: React.FC = () => {
       type="button"
       className="rounded-md p-3.5 font-medium bg-primary text-white sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer w-full"
       disabled={isPaymentSuccessfulShareCopied} onClick={() => {
-        const toShare = {
-          // title: "Money sent", // we omit title because some share contexts include it, some omit it, and we prefer our share content to be minimalist and consistently include no title
-          text: paymentSuccessfulTextNoLinkToShare,
-          ...(paymentSuccessfulBlockExplorerReceiptLink && { url: paymentSuccessfulBlockExplorerReceiptLink }),
-        };
-        if (navigator.canShare && navigator.canShare(toShare)) { // test the Web Share API on desktop by enabling this flag chrome://flags/#web-share
-          navigator.share(toShare).catch(e => console.warn(e));
-        } else setIsPaymentSuccessfulShareCopied();
+        if (canShare) navigator.share(toShare).catch(e => console.warn(e));
+        else setIsPaymentSuccessfulShareCopied();
       }}>
-      {isPaymentSuccessfulShareCopied ? 'Receipt Copied' : 'Let them know you paid'}
+      {isPaymentSuccessfulShareCopied ? 'Copied!' : `${canShare ? 'Share' : 'Copy'} Receipt`}
     </button>
     {paymentSuccessfulBlockExplorerReceiptLink && <div className="flex flex-col justify-center items-center gap-2">
       <QRCode data={paymentSuccessfulBlockExplorerReceiptLink} />
-      <span>Scan for <a href={paymentSuccessfulBlockExplorerReceiptLink} target="_blank" rel="noopener noreferrer" className="text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer"> receipt</a></span>
+      <span>Scan code for <a href={paymentSuccessfulBlockExplorerReceiptLink} target="_blank" rel="noopener noreferrer" className="text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer"> receipt</a></span>
     </div>}
     <div className="grid grid-cols-1 w-full items-center gap-4">
       <Link to="/pay-link">
