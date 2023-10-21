@@ -53,7 +53,7 @@ const PayNeedsPassword: React.FC<PayNeedsPasswordProps> = ({ csrp }) => {
   useEffect(() => { // after the user submits the password, we'll allow a short duration for upstream to process the checkout settings and redirect away from this password submission page, after which we'll assume the password as incorrect and show an error
     let timerId: NodeJS.Timeout | undefined = undefined;
     if (isPasswordIncorrect === 'loading') {
-      timerId = setTimeout(() => setIsPasswordIncorrect(true), 250);
+      timerId = setTimeout(() => setIsPasswordIncorrect(true), 500);
     }
     return () => clearTimeout(timerId);
   });
