@@ -221,6 +221,16 @@ export const RequestMoney: React.FC = () => {
   const successRedirectUrlInputOpts = useMemo<Parameters<typeof useInput>[2]>(() => ({ onEnterKeyPress: (e) => e.currentTarget.blur() }), []);
   const [successRedirectUrl, successRedirectUrlInput, setSuccessRedirectUrl] = useInput("", successRedirectUrlInputAttrs, successRedirectUrlInputOpts);
 
+  const webhookUrlInputAttrs = useMemo<Parameters<typeof useInput>[1]>(() => ({
+    name: "webhookUrl",
+    type: "text",
+    className: "w-full rounded-md border px-3.5 py-2 leading-6",
+    placeholder: "Webhook URL",
+    autoComplete: "off",
+  }), []);
+  const webhookUrlInputOpts = useMemo<Parameters<typeof useInput>[2]>(() => ({ onEnterKeyPress: (e) => e.currentTarget.blur() }), []);
+  const [webhookUrl, webhookUrlInput, setWebhookUrl] = useInput("", webhookUrlInputAttrs, webhookUrlInputOpts);
+
   useEffect(() => { // reset advanced options to defaults when advanced options are hidden. If we don't, then eg. user will turn advanced options off and send link, and not realize they sent an encrypted link because they had turned encryption before turning advanced options off
     if (!showAdvancedOptions) {
       setPrivacyAndSecurityMode('standard');
@@ -228,8 +238,9 @@ export const RequestMoney: React.FC = () => {
       setPassword('');
       setSuccessRedirectOpenInNewTab(true);
       setSuccessRedirectUrl('');
+      setWebhookUrl('');
     }
-  }, [showAdvancedOptions, setPrivacyAndSecurityMode, setShowPassword, setPassword, setSuccessRedirectUrl]);
+  }, [showAdvancedOptions, setPrivacyAndSecurityMode, setShowPassword, setPassword, setSuccessRedirectUrl, setWebhookUrl]);
 
   const checkoutSettings = useMemo<CheckoutSettings | undefined>(() => {
     if (
@@ -254,10 +265,10 @@ export const RequestMoney: React.FC = () => {
             openInNewTab: successRedirectOpenInNewTab,
           },
         }),
-        // TODO support webhookUrl
+        ...(webhookUrl.length > 0 && { webhookUrl }),
       } satisfies CheckoutSettings;
     } else return undefined;
-  }, [logicalAssetTicker, amount, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password, successRedirectUrl, successRedirectOpenInNewTab]);
+  }, [logicalAssetTicker, amount, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password, successRedirectUrl, successRedirectOpenInNewTab, webhookUrl]);
 
   const { value: serializedCheckoutSettings, isLoading: serializedCheckoutSettingsIsLoading } = useAsyncMemo<string | undefined>(async () => {
     if (checkoutSettings) {
@@ -536,6 +547,10 @@ export const RequestMoney: React.FC = () => {
           <span className="grow">Redirect in new tab</span>
           <ToggleSwitch initialIsOn={successRedirectOpenInNewTab} onToggle={setSuccessRedirectOpenInNewTab} offClassName="text-gray-500" className="font-bold text-2xl" />
         </div>
+      </div>
+      <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-4">
+        <span className="w-full">Webhook after paying</span>
+        {webhookUrlInput}
       </div>
     </>
     }

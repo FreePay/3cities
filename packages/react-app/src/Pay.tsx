@@ -134,12 +134,36 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   const statusIsError = status?.isError === true; // local var for use as a hook dependency to prevent unnecessary rerenders when this bool goes from undefined to false
   const statusIsSuccess = status?.isSuccess === true; // local var for use as a hook dependency to prevent unnecessary rerenders when this bool goes from undefined to false
 
-  useEffect(() => { // redirect on success iff checkoutSettings is setup to redirect
+  useEffect(() => { // redirect on success iff checkoutSettings is setup to redirect. TODO support pass-through url params where arbitrary url params on the pay link are auto-forwarded to the redirect url
     if (statusIsSuccess && checkoutSettings.successRedirect) {
       if (checkoutSettings.successRedirect.openInNewTab) window.open(checkoutSettings.successRedirect.url, '_blank');
       else window.location.href = checkoutSettings.successRedirect.url;
     }
   }, [checkoutSettings.successRedirect, statusIsSuccess]);
+
+  useEffect(() => { // call webhook on success iff checkoutSettings has a webhook
+    if (statusIsSuccess && checkoutSettings.webhookUrl
+      && status?.activeTokenTransfer?.token.chainId // TODO chainId should be defined unconditionally once we source it from status.successData.tokenTransfer.token.chainId, and then this condition can be removed
+    ) {
+      fetch(checkoutSettings.webhookUrl, { // TODO support pass-through url params where arbitrary url params on the pay link are auto-forwarded to the webhook url
+        method: 'POST',
+        mode: 'no-cors', // here we use no-cors to obviate any CORS policy concerns, at the cost of being unable to access the webhook response, which we discard anyway
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          event: 'success',
+          // TODO status.successData should be a product type that includes the token transfer for the successful transfer, the transaction receipt, and perhaps other data. status.successData.tokenTransfer should be used here instead of activeTokenTransfer
+          chainId: status?.activeTokenTransfer?.token.chainId,
+          transactionHash: status.successData.transactionHash,
+          // TODO sender/buyer note
+          // TODO checkoutSettings.reference
+          // TODO the pay link itself?
+        }),
+      })/*.then(data => console.info("success webhook response", data))*/ // NB due to no-cors mode the response is opaque and we can't access any response data, including response status
+        .catch(e => console.error("success webhook error", e));
+    }
+  }, [checkoutSettings.webhookUrl, statusIsSuccess, status?.successData, status?.activeTokenTransfer?.token.chainId]);
 
   const sr = status?.reset; // local var to have this useCallback depend only on status.reset
   const doReset = useCallback(() => {
