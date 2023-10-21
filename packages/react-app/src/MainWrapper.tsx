@@ -1,10 +1,11 @@
 import React, { useContext } from "react";
-import { FaHandHoldingUsd, FaHome, FaTwitter, FaUserCircle } from "react-icons/fa";
+import { FaHandHoldingUsd, FaHome, FaQuestionCircle } from "react-icons/fa";
+import { FaTelegram, FaTwitter } from "react-icons/fa6";
 import { NavLink, NavLinkProps, Outlet } from "react-router-dom";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
 import { HideFooterOnMobileContext } from "./HideFooter";
-import { useGoBackWithFallback } from "./useGoBackWithFallback";
 import { Wordmark } from "./Wordmark";
+import { useGoBackWithFallback } from "./useGoBackWithFallback";
 
 const headerFooterFont = "text-black font-bold";
 
@@ -49,9 +50,9 @@ const Header: React.FC = () => {
         <OurNavLink to="/pay-link" className="flex flex-col items-center text-center rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10">
           <span className="text-sm">Send Pay Link</span>
         </OurNavLink>
-        {/* <OurNavLink to="/me" className="flex flex-col items-center text-center w-14 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10">
-          <span className="text-sm">Me</span>
-        </OurNavLink> */}
+        <OurNavLink to="/about" className="flex flex-col items-center text-center w-14 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10">
+          <span className="text-sm">About</span>
+        </OurNavLink>
       </div>
       <div className="flex flex-none items-center justify-end">
         <div className="max-sm:min-w-[46vw] max-sm:max-w-32 lg:w-48">
@@ -81,18 +82,18 @@ const Footer: React.FC = () => {
           <FaHandHoldingUsd />
           <span className="text-sm">Send Pay Link</span>
         </OurNavLink>
-        <OurNavLink to="/me" className="sm:hidden flex flex-col items-center text-center w-10">
-          <FaUserCircle />
-          <span className="text-sm">Me</span>
-        </OurNavLink>
-        <OurNavLink to="/faq" className="hidden sm:flex flex-none w-12 flex-col items-center text-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center">
-          <span className="text-sm">FAQ</span>
-        </OurNavLink>
-        <OurNavLink to="/about" className="hidden sm:flex flex-none flex-col items-center text-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center">
+        <OurNavLink to="/about" className="sm:hidden flex flex-col items-center text-center w-10">
+          <FaQuestionCircle />
           <span className="text-sm">About</span>
         </OurNavLink>
-        <a href="https://twitter.com/3cities_xyz" target="_blank" rel="noreferrer" className="hidden sm:flex flex-none w-12 items-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center">
+        {/* <OurNavLink to="/about" className="hidden sm:flex flex-none flex-col items-center text-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center">
+          <span className="text-sm">About</span>
+        </OurNavLink> */}
+        <a href="https://twitter.com/3cities_xyz" target="_blank" rel="noreferrer" className="hidden sm:flex flex-none w-12 items-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center text-lg">
           <FaTwitter />
+        </a>
+        <a href="https://t.me/+aMJE0gxJg9c2NWNh" target="_blank" rel="noreferrer" className="hidden sm:flex flex-none w-12 items-center gap-1 rounded-md px-2.5 py-1.5 transition sm:hover:bg-black sm:hover:bg-opacity-10 justify-center text-lg">
+          <FaTelegram />
         </a>
       </div>
     </footer>
