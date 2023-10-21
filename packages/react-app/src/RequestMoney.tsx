@@ -48,6 +48,15 @@ const amountInputWidthDefault = 1; // width to fit amountRawDefault
 
 const recentlyUsedReceiversKey = "receivers";
 
+(async () => { // showcase feature to seed an initial example recently used receiver
+  const key = "receiversExample";
+  const d = await getMostRecentlyUsed(key);
+  if (d.length < 1) {
+    addToRecentlyUsed(recentlyUsedReceiversKey, "example.eth");
+    addToRecentlyUsed(key, "set"); // sentinel value to indicate that defaults were seeded and shouldn't be seeded again
+  }
+})();
+
 export const RequestMoney: React.FC = () => {
   const [logicalAssetTicker, setLogicalAssetTicker] = useState<LogicalAssetTicker>('USD');
   const logicalAsset = logicalAssetsByTicker[logicalAssetTicker];
