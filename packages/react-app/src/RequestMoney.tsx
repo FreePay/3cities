@@ -151,48 +151,97 @@ export const RequestMoney: React.FC = () => {
 
   const [strategyPreferences, setStrategyPreferences] = useImmer<StrategyPreferences | undefined>(undefined);
 
-  // TODO consider deleting strategyPreferences.acceptedTokenTickers when logicalAsset changes. Currently, this is disabled because it's a polish feature and would be incorrect if we add forex payments (eg. pay ETH to settle USD payment). Here is code to do this:
-  // useEffect(() => { // delete token strategy preferences when the logical asset changes because the old token preferences aren't relevant to the new logical asset because we currently support settling a payment only with tokens supported by the payment's logical asset (eg. you can't currently pay an ETH token to settle a USD payment), so each logical asset's supported tokens are disjoint
-  //   setStrategyPreferences(draft => {
-  //     if (draft) delete draft['acceptedTokenTickers'];
-  //   });
-  // }, [setStrategyPreferences, logicalAssetTicker])
+  useEffect(() => { // delete token strategy preferences when the logical asset changes because the old token preferences aren't relevant to the new logical asset because we currently support settling a payment only with tokens supported by the payment's logical asset (eg. you can't currently pay an ETH token to settle a USD payment), so each logical asset's supported tokens are disjoint. TODO reconsider this when we add forex payments
+    setStrategyPreferences(draft => {
+      if (draft) delete draft.acceptedTokenTickers;
+    });
+  }, [setStrategyPreferences, logicalAssetTicker])
+
+  const [acceptedTokenTickersState, setAcceptedTokenTickersState] = useState<'denylist' | 'allowlist'>('denylist'); // WARNING normally, we can use strategyPreferences.acceptedTokenTickers.allowlist/denylist to determine if we're in allowlist or denylist mode. However, when building these lists, when toggling between allowlist to denylist mode, the default state for each list is to be empty, and when the list is empty we set acceptedTokenTickers to undefined (and disallow empty sets), and so we need a way to determine whether an undefined acceptedTokenTickers represents an empty allowlist or denylist. acceptedTokenTickersState determines that, and it must be properly kept in sync such that the invariant `acceptedTokenTickersState === 'denylist' && (acceptedTokenTickers === undefined || acceptedTokenTickers.denylist !== undefined)` holds, and vice-versa for 'allowlist'.
+
+  const toggleBetweenAcceptedTokenTickersAllowlistAndDenylist = useCallback(() => {
+    setStrategyPreferences(draft => {
+      if (draft === undefined) {
+        console.error("toggleBetweenAcceptedTokenTickersAllowlistAndDenylist: strategyPreferences unexpectedly undefined");
+      } else if (draft.acceptedTokenTickers === undefined) switch (acceptedTokenTickersState) {
+        case 'denylist': setAcceptedTokenTickersState('allowlist'); break;
+        case 'allowlist': setAcceptedTokenTickersState('denylist'); break;
+      } else if (draft.acceptedTokenTickers.denylist) {
+        delete draft.acceptedTokenTickers;
+        setAcceptedTokenTickersState('allowlist');
+      } else {
+        delete draft.acceptedTokenTickers;
+        setAcceptedTokenTickersState('denylist');
+      }
+    });
+  }, [setStrategyPreferences, acceptedTokenTickersState, setAcceptedTokenTickersState]);
+
+  const [acceptedChainIdsState, setAcceptedChainIdsState] = useState<'denylist' | 'allowlist'>('denylist'); // WARNING normally, we can use strategyPreferences.acceptedChainIds.allowlist/denylist to determine if we're in allowlist or denylist mode. However, when building these lists, when toggling between allowlist to denylist mode, the default state for each list is to be empty, and when the list is empty we set acceptedChainIds to undefined (and disallow empty sets), and so we need a way to determine whether an undefined acceptedChainIds represents an empty allowlist or denylist. acceptedChainIdsState determines that, and it must be properly kept in sync such that the invariant `acceptedChainIdsState === 'denylist' && (acceptedChainIds === undefined || acceptedChainIds.denylist !== undefined)` holds, and vice-versa for 'allowlist'.
+
+  const toggleBetweenAcceptedChainIdsAllowlistAndDenylist = useCallback(() => {
+    setStrategyPreferences(draft => {
+      if (draft === undefined) {
+        console.error("toggleBetweenAcceptedChainIdsAllowlistAndDenylist: strategyPreferences unexpectedly undefined");
+      } else if (draft.acceptedChainIds === undefined) switch (acceptedChainIdsState) {
+        case 'denylist': setAcceptedChainIdsState('allowlist'); break;
+        case 'allowlist': setAcceptedChainIdsState('denylist'); break;
+      } else if (draft.acceptedChainIds.denylist) {
+        delete draft.acceptedChainIds;
+        setAcceptedChainIdsState('allowlist');
+      } else {
+        delete draft.acceptedChainIds;
+        setAcceptedChainIdsState('denylist');
+      }
+    });
+  }, [setStrategyPreferences, acceptedChainIdsState, setAcceptedChainIdsState]);
 
   const toggleTokenTickerForStrategyPreferences = useCallback((tt: string) => {
-    // TODO support allowlist
     setStrategyPreferences(draft => {
       if (draft === undefined) {
         console.error("toggleTokenTickerForStrategyPreferences: strategyPreferences unexpectedly undefined");
-      } else if (draft.acceptedTokenTickers?.denylist === undefined) draft.acceptedTokenTickers = { denylist: new Set([tt]) };
-      else {
+      } else if (draft.acceptedTokenTickers === undefined) draft.acceptedTokenTickers = acceptedTokenTickersState === 'denylist' ? { denylist: new Set([tt]) } : { allowlist: new Set([tt]) };
+      else if (draft.acceptedTokenTickers.denylist) {
         if (draft.acceptedTokenTickers.denylist.has(tt)) {
           draft.acceptedTokenTickers.denylist.delete(tt);
           if (draft.acceptedTokenTickers.denylist.size === 0) delete draft.acceptedTokenTickers;
         }
         else draft.acceptedTokenTickers.denylist.add(tt);
+      } else if (draft.acceptedTokenTickers.allowlist) {
+        if (draft.acceptedTokenTickers.allowlist.has(tt)) {
+          draft.acceptedTokenTickers.allowlist.delete(tt);
+          if (draft.acceptedTokenTickers.allowlist.size === 0) delete draft.acceptedTokenTickers;
+        }
+        else draft.acceptedTokenTickers.allowlist.add(tt);
       }
     });
-  }, [setStrategyPreferences]);
+  }, [setStrategyPreferences, acceptedTokenTickersState]);
 
   const toggleChainIdForStrategyPreferences = useCallback((cid: number) => {
-    // TODO support allowlist
     setStrategyPreferences(draft => {
       if (draft === undefined) {
         console.error("toggleChainIdForStrategyPreferences: strategyPreferences unexpectedly undefined");
-      } else if (draft.acceptedChainIds?.denylist === undefined) draft.acceptedChainIds = { denylist: new Set([cid]) };
-      else {
+      } else if (draft.acceptedChainIds === undefined) draft.acceptedChainIds = acceptedChainIdsState === 'denylist' ? { denylist: new Set([cid]) } : { allowlist: new Set([cid]) };
+      else if (draft.acceptedChainIds.denylist) {
         if (draft.acceptedChainIds.denylist.has(cid)) {
           draft.acceptedChainIds.denylist.delete(cid);
           if (draft.acceptedChainIds.denylist.size === 0) delete draft.acceptedChainIds;
         } else draft.acceptedChainIds.denylist.add(cid);
+      } else if (draft.acceptedChainIds.allowlist) {
+        if (draft.acceptedChainIds.allowlist.has(cid)) {
+          draft.acceptedChainIds.allowlist.delete(cid);
+          if (draft.acceptedChainIds.allowlist.size === 0) delete draft.acceptedChainIds;
+        } else draft.acceptedChainIds.allowlist.add(cid);
       }
     });
-  }, [setStrategyPreferences]);
+  }, [setStrategyPreferences, acceptedChainIdsState]);
 
   const toggleUseOfStrategyPreferences = useCallback((isOnAndNotUsingStrategyPrefs: boolean) => {
-    if (isOnAndNotUsingStrategyPrefs) setStrategyPreferences(undefined);
-    else setStrategyPreferences({});
-  }, [setStrategyPreferences]);
+    if (isOnAndNotUsingStrategyPrefs) {
+      setStrategyPreferences(undefined);
+      setAcceptedTokenTickersState('denylist');
+      setAcceptedChainIdsState('denylist');
+    } else setStrategyPreferences({});
+  }, [setStrategyPreferences, setAcceptedTokenTickersState]);
 
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
 
@@ -478,23 +527,69 @@ export const RequestMoney: React.FC = () => {
       <span className="grow">Default tokens and chains (recommended)</span>
       <ToggleSwitch initialIsOn={strategyPreferences === undefined} onToggle={toggleUseOfStrategyPreferences} offClassName="text-gray-500" className="font-bold text-3xl" />
     </div>
-    {strategyPreferences !== undefined && <div className="flex flex-wrap w-full mt-2 gap-x-2 gap-y-1">
-      {allTokenTickers.filter(isTokenTickerSupportedByLogicalAsset.bind(null, logicalAssetTicker)).map(tt => <div key={tt}>
-        <ToggleSwitch
-          offLabel={tt}
-          className="gap-0.5"
-          initialIsOn={strategyPreferences.acceptedTokenTickers?.denylist === undefined || !strategyPreferences.acceptedTokenTickers.denylist.has(tt) /* TODO support allowlist */}
-          onToggle={toggleTokenTickerForStrategyPreferences.bind(null, tt)}
-        />
-      </div>)}
-      {allSupportedChainIds.map(cid => <div key={cid}>
-        <ToggleSwitch
-          offLabel={getSupportedChainName(cid)}
-          className="gap-0.5"
-          initialIsOn={strategyPreferences.acceptedChainIds?.denylist === undefined || !strategyPreferences.acceptedChainIds.denylist.has(cid) /* TODO support allowlist */}
-          onToggle={toggleChainIdForStrategyPreferences.bind(null, cid)}
-        />
-      </div>)}
+    {strategyPreferences !== undefined && <div className="w-full flex flex-col justify-between items-center gap-2 mt-2">
+      <div className="w-full flex justify-between gap-4">
+        <button
+          type="button"
+          disabled={(strategyPreferences.acceptedTokenTickers === undefined && acceptedTokenTickersState === 'denylist') || strategyPreferences.acceptedTokenTickers?.denylist !== undefined}
+          className="focus:outline-none rounded-md px-2 py-1 font-medium border border-primary enabled:active:scale-95 enabled:bg-white enabled:text-primary sm:enabled:hover:bg-primary sm:enabled:hover:text-white disabled:bg-primary disabled:text-white disabled:cursor-not-allowed"
+          onClick={toggleBetweenAcceptedTokenTickersAllowlistAndDenylist}
+        >
+          Token Denylist
+        </button>
+        <button
+          type="button"
+          disabled={(strategyPreferences.acceptedTokenTickers === undefined && acceptedTokenTickersState === 'allowlist') || strategyPreferences.acceptedTokenTickers?.allowlist !== undefined}
+          className="focus:outline-none rounded-md px-2 py-1 font-medium border border-primary enabled:active:scale-95 enabled:bg-white enabled:text-primary sm:enabled:hover:bg-primary sm:enabled:hover:text-white disabled:bg-primary disabled:text-white disabled:cursor-not-allowed"
+          onClick={toggleBetweenAcceptedTokenTickersAllowlistAndDenylist}
+        >
+          Token Allowlist
+        </button>
+      </div>
+      <div className="w-full flex justify-between gap-4">
+        <button
+          type="button"
+          disabled={(strategyPreferences.acceptedChainIds === undefined && acceptedChainIdsState === 'denylist') || strategyPreferences.acceptedChainIds?.denylist !== undefined}
+          className="focus:outline-none rounded-md px-2 py-1 font-medium border border-primary enabled:active:scale-95 enabled:bg-white enabled:text-primary sm:enabled:hover:bg-primary sm:enabled:hover:text-white disabled:bg-primary disabled:text-white disabled:cursor-not-allowed"
+          onClick={toggleBetweenAcceptedChainIdsAllowlistAndDenylist}
+        >
+          Chain Denylist
+        </button>
+        <button
+          type="button"
+          disabled={(strategyPreferences.acceptedChainIds === undefined && acceptedChainIdsState === 'allowlist') || strategyPreferences.acceptedChainIds?.allowlist !== undefined}
+          className="focus:outline-none rounded-md px-2 py-1 font-medium border border-primary enabled:active:scale-95 enabled:bg-white enabled:text-primary sm:enabled:hover:bg-primary sm:enabled:hover:text-white disabled:bg-primary disabled:text-white disabled:cursor-not-allowed"
+          onClick={toggleBetweenAcceptedChainIdsAllowlistAndDenylist}
+        >
+          Chain Allowlist
+        </button>
+      </div>
+      <div className="flex flex-wrap w-full gap-x-2 gap-y-1">
+        {allTokenTickers.filter(isTokenTickerSupportedByLogicalAsset.bind(null, logicalAssetTicker)).map(tt => <div key={`${tt}-${acceptedTokenTickersState}` /* WARNING here we use a key that changes when toggling between allowlist and denylist, forcing recreation of ToggleSwitch. This is needed because today, ToggleSwitch doesn't support programmatic setting of its value, and so our only way to ensure ToggleSwitch stays synced with allowlist/denylist is via initialIsOn, so we recreate these ToggleSwitches so they pick up their latest value of initialIsOn */}>
+          <ToggleSwitch
+            offLabel={tt}
+            className="gap-0.5"
+            initialIsOn={Boolean(
+              (strategyPreferences.acceptedTokenTickers === undefined && acceptedTokenTickersState === 'denylist')
+              || strategyPreferences.acceptedTokenTickers?.denylist && !strategyPreferences.acceptedTokenTickers?.denylist.has(tt)
+              || strategyPreferences.acceptedTokenTickers?.allowlist && strategyPreferences.acceptedTokenTickers?.allowlist.has(tt)
+            ) /* here, a toggle being turned on represents the receiver accepting that token whether using allowlists or denylists. With denylist, all toggles default to on so as to have an empty denylist by default (at least to reduce serialization size and probably because it's better to let the user build their own list), whereas with allowlist, all toggles default to off so as to have an empty allowlist by default (at least to reduce serialization size and probably because it's better to let the user build their own list). */}
+            onToggle={toggleTokenTickerForStrategyPreferences.bind(null, tt)}
+          />
+        </div>)}
+        {allSupportedChainIds.map(cid => <div key={`${cid}-${acceptedChainIdsState}` /* WARNING here we use a key that changes when toggling between allowlist and denylist, forcing recreation of ToggleSwitch. This is needed because today, ToggleSwitch doesn't support programmatic setting of its value, and so our only way to ensure ToggleSwitch stays synced with allowlist/denylist is via initialIsOn, so we recreate these ToggleSwitches so they pick up their latest value of initialIsOn */}>
+          <ToggleSwitch
+            offLabel={getSupportedChainName(cid)}
+            className="gap-0.5"
+            initialIsOn={Boolean(
+              (strategyPreferences.acceptedChainIds === undefined && acceptedChainIdsState === 'denylist')
+              || strategyPreferences.acceptedChainIds?.denylist && !strategyPreferences.acceptedChainIds?.denylist.has(cid)
+              || strategyPreferences.acceptedChainIds?.allowlist && strategyPreferences.acceptedChainIds?.allowlist.has(cid)
+            ) /* here, a toggle being turned on represents the receiver accepting that chain whether using allowlists or denylists. With denylist, all toggles default to on so as to have an empty denylist by default (at least to reduce serialization size and probably because it's better to let the user build their own list), whereas with allowlist, all toggles default to off so as to have an empty allowlist by default (at least to reduce serialization size and probably because it's better to let the user build their own list). */}
+            onToggle={toggleChainIdForStrategyPreferences.bind(null, cid)}
+          />
+        </div>)}
+      </div>
     </div>}
     <div className="mt-4 w-full flex justify-between items-center gap-4">
       <span className="grow">Basic settings</span>

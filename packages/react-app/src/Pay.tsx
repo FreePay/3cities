@@ -134,6 +134,8 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   const statusIsError = status?.isError === true; // local var for use as a hook dependency to prevent unnecessary rerenders when this bool goes from undefined to false
   const statusIsSuccess = status?.isSuccess === true; // local var for use as a hook dependency to prevent unnecessary rerenders when this bool goes from undefined to false
 
+  // NB when using redirect URLs and webhooks, there are at least three reasonable ways to help a receiver/seller distinguish distinct senders/buyers using the same pay link: 1. pass-through url params, 2. checkoutSettings.reference, 3. embedded pay link using iframe message passing to receive the host page url and including it here (and then the host page url would need to have uniquely identifiable information for the distinct sender/buyer). And if the receiver/seller uses one pay link per buyer, the seller can then store the pay links in a DB and we can submit the pay link.
+
   useEffect(() => { // redirect on success iff checkoutSettings is setup to redirect. TODO support pass-through url params where arbitrary url params on the pay link are auto-forwarded to the redirect url
     if (statusIsSuccess && checkoutSettings.successRedirect) {
       if (checkoutSettings.successRedirect.openInNewTab) window.open(checkoutSettings.successRedirect.url, '_blank');
@@ -152,13 +154,15 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          event: 'success',
+          event: 'success', // TODO call webhookUrl for more checkout lifecycle events
           // TODO status.successData should be a product type that includes the token transfer for the successful transfer, the transaction receipt, and perhaps other data. status.successData.tokenTransfer should be used here instead of activeTokenTransfer
           chainId: status?.activeTokenTransfer?.token.chainId,
           transactionHash: status.successData.transactionHash,
           // TODO sender/buyer note
-          // TODO checkoutSettings.reference
           // TODO the pay link itself?
+          // TODO block explorer url and/or 3cities in-app receipt url
+          // TODO if this pay link uses modal embed, we can use iframe message passing to let 3cities know the url of the host page, and include it here
+          // TODO checkoutSettings.reference
         }),
       })/*.then(data => console.info("success webhook response", data))*/ // NB due to no-cors mode the response is opaque and we can't access any response data, including response status
         .catch(e => console.error("success webhook error", e));
