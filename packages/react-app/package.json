@@ -5,8 +5,9 @@
   "browserslist": {
     "production": [
       "supports bigint",
-      "supports textencoder",
       "supports cryptography",
+      "supports fetch",
+      "supports textencoder",
       "not dead"
     ],
     "development": [
