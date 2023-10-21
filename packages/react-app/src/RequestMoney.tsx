@@ -703,7 +703,7 @@ const SharePayLinkModalContent: React.FC<SharePayLinkModalContentProps> = ({ che
     <span className="text-center w-full text-2xl">Share link to get paid</span>
     <div className="flex flex-col items-center justify-center">
       <QRCode data={checkoutLink} />
-      <span className="text-center w-full">Scan code in their mobile wallet</span>
+      {/* <span className="text-center w-full">Scan code in their mobile wallet</span> */ /* TODO Coinbase Wallet doesn't actually let you scan URLs to open in in-app browser, the scanner is just for addresses and wallet connection. What about MetaMask mobile? */}
     </div>
     <div className="w-full flex gap-4">
       <button
