@@ -13,14 +13,14 @@ export const Home: React.FC = () => {
           Try Sending a Pay Link
         </button>
       </Link>
-      <Link to="/pay-link">
+      <a href="https://staging.3cities.xyz/#/pay?c=Egdmb28uZXRoGAEiAgPo" target="_blank" rel="noreferrer">
         <button
           type="button"
           className="mt-4 w-full focus:outline-none rounded-md p-3.5 font-medium bg-primary sm:hover:bg-primary-darker active:scale-95 text-white"
         >
           Try a Testnet Pay Link
         </button>
-      </Link>
+      </a>
     </div>
   </div>;
 };
