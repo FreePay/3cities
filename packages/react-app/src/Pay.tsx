@@ -176,7 +176,10 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   const { bestStrategy, otherStrategies, disableStrategy, selectStrategy } = useBestStrategy(strategies);
 
   const receiverAddressBlockExplorerLink: string | undefined = (() => {
-    if (proposedPaymentWithReceiverAddress) return getBlockExplorerUrlForAddress((status?.activeTokenTransfer || bestStrategy?.tokenTransfer)?.token.chainId, proposedPaymentWithReceiverAddress.receiver.address);
+    if (proposedPaymentWithReceiverAddress) {
+      const pss = getProposedStrategiesForProposedPayment(checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment);
+      return getBlockExplorerUrlForAddress((status?.activeTokenTransfer || bestStrategy?.tokenTransfer || pss[0]?.proposedTokenTransfer)?.token.chainId, proposedPaymentWithReceiverAddress.receiver.address); // the idea here is we'll show an explorer link for the chain that's most relevant to the payment
+    }
     else return undefined;
   })();
 
