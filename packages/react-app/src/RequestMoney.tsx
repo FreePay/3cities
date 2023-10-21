@@ -402,7 +402,7 @@ export const RequestMoney: React.FC = () => {
 
   const { modal: privacyAndSecurityInfoModal, showModal: showPrivacyAndSecurityInfoModal } = useModal(<div className="w-full h-fit flex flex-col items-center justify-center gap-6">
     <span className="text-left w-full text-xl">Privacy & Security Options</span>
-    <span className="text-left w-full text-lg"><span className="font-bold">Standard Security</span> - Pay Link details stored offchain, visible only through shared link.</span>
+    <span className="text-left w-full text-lg"><span className="font-bold">Standard Security</span> - Pay Link details stored only in shared link.</span>
     <span className="text-left w-full text-lg"><span className="font-bold">Encrypted</span> - Like Standard Security, but details encrypted. Share password separately.</span>
     <span className="text-left w-full text-lg"><span className="font-bold">Anti-phishing</span> - Like Standard Security, not encrypted, but tamper-proof. Share password separately.</span>
   </div>);
