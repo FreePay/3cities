@@ -210,13 +210,26 @@ export const RequestMoney: React.FC = () => {
   const passwordInputOpts = useMemo<Parameters<typeof useInput>[2]>(() => ({ onEnterKeyPress: (e) => e.currentTarget.blur() }), []);
   const [password, passwordInput, setPassword] = useInput("", passwordInputAttrs, passwordInputOpts);
 
+  const [successRedirectOpenInNewTab, setSuccessRedirectOpenInNewTab] = useState(true);
+  const successRedirectUrlInputAttrs = useMemo<Parameters<typeof useInput>[1]>(() => ({
+    name: "successRedirectUrl",
+    type: "text",
+    className: "w-full rounded-md border px-3.5 py-2 leading-6",
+    placeholder: "Redirect URL",
+    autoComplete: "off",
+  }), []);
+  const successRedirectUrlInputOpts = useMemo<Parameters<typeof useInput>[2]>(() => ({ onEnterKeyPress: (e) => e.currentTarget.blur() }), []);
+  const [successRedirectUrl, successRedirectUrlInput, setSuccessRedirectUrl] = useInput("", successRedirectUrlInputAttrs, successRedirectUrlInputOpts);
+
   useEffect(() => { // reset advanced options to defaults when advanced options are hidden. If we don't, then eg. user will turn advanced options off and send link, and not realize they sent an encrypted link because they had turned encryption before turning advanced options off
     if (!showAdvancedOptions) {
       setPrivacyAndSecurityMode('standard');
       setShowPassword(false);
       setPassword('');
+      setSuccessRedirectOpenInNewTab(true);
+      setSuccessRedirectUrl('');
     }
-  }, [showAdvancedOptions, setPrivacyAndSecurityMode, setShowPassword, setPassword]);
+  }, [showAdvancedOptions, setPrivacyAndSecurityMode, setShowPassword, setPassword, setSuccessRedirectUrl]);
 
   const checkoutSettings = useMemo<CheckoutSettings | undefined>(() => {
     if (
@@ -235,11 +248,16 @@ export const RequestMoney: React.FC = () => {
         receiverStrategyPreferences: strategyPreferences || {},
         ...(note && { note: note.trim() }),
         senderNoteSettings: { mode: 'NONE' }, // TODO support senderNoteSettings
-        // TODO support successRedirect
+        ...(successRedirectUrl.length > 0 && {
+          successRedirect: {
+            url: successRedirectUrl,
+            openInNewTab: successRedirectOpenInNewTab,
+          },
+        }),
         // TODO support webhookUrl
       } satisfies CheckoutSettings;
     } else return undefined;
-  }, [logicalAssetTicker, amount, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password]);
+  }, [logicalAssetTicker, amount, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password, successRedirectUrl, successRedirectOpenInNewTab]);
 
   const { value: serializedCheckoutSettings, isLoading: serializedCheckoutSettingsIsLoading } = useAsyncMemo<string | undefined>(async () => {
     if (checkoutSettings) {
@@ -507,9 +525,17 @@ export const RequestMoney: React.FC = () => {
         {privacyAndSecurityMode !== 'standard' && passwordInput}
         {showPasswordRequiredWarning && <span className="text-red-600">(password required)</span>}
         {privacyAndSecurityMode !== 'standard' && <div className="w-full flex justify-start items-center gap-2">
-          <span>Show password</span>
+          <span className="grow">Show password</span>
           <ToggleSwitch initialIsOn={showPassword} onToggle={setShowPassword} offClassName="text-gray-500" className="font-bold text-2xl" />
         </div>}
+      </div>
+      <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-4">
+        <span className="w-full">Redirect after paying</span>
+        {successRedirectUrlInput}
+        <div className="w-full flex justify-start items-center gap-2">
+          <span className="grow">Redirect in new tab</span>
+          <ToggleSwitch initialIsOn={successRedirectOpenInNewTab} onToggle={setSuccessRedirectOpenInNewTab} offClassName="text-gray-500" className="font-bold text-2xl" />
+        </div>
       </div>
     </>
     }

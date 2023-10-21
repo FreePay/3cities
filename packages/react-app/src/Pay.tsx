@@ -134,6 +134,13 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   const statusIsError = status?.isError === true; // local var for use as a hook dependency to prevent unnecessary rerenders when this bool goes from undefined to false
   const statusIsSuccess = status?.isSuccess === true; // local var for use as a hook dependency to prevent unnecessary rerenders when this bool goes from undefined to false
 
+  useEffect(() => { // redirect on success iff checkoutSettings is setup to redirect
+    if (statusIsSuccess && checkoutSettings.successRedirect) {
+      if (checkoutSettings.successRedirect.openInNewTab) window.open(checkoutSettings.successRedirect.url, '_blank');
+      else window.location.href = checkoutSettings.successRedirect.url;
+    }
+  }, [checkoutSettings.successRedirect, statusIsSuccess]);
+
   const sr = status?.reset; // local var to have this useCallback depend only on status.reset
   const doReset = useCallback(() => {
     if (sr) sr();
