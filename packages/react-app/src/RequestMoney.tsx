@@ -488,7 +488,7 @@ export const RequestMoney: React.FC = () => {
             spellCheck={false}>
           </input>
           <div className={`absolute top-1/2 transform -translate-y-1/2 right-1 flex justify-right items-center ${computedReceiver ? '' : 'hidden'}`}>
-            {addressForDebouncedRawReceiverEnsName && <span className="text-gray-600">{truncateEthAddress(computedReceiver?.address) /* here we know computedReceiver.address is defined because it was used to successfully fetch addressForDebouncedRawReceiverEnsName */}</span>}
+            {addressForDebouncedRawReceiverEnsName && <span className="text-gray-600">{truncateEthAddress(addressForDebouncedRawReceiverEnsName)}</span>}
             <div className="z-10 bg-white px-2"><FaCheckCircle className="text-primary" /></div>
           </div>
           <div className={`absolute top-1/2 transform -translate-y-1/2 right-1 text-red-500 ${debouncedRawReceiver.length > 0 && !computedReceiver && !addressForDebouncedRawReceiverEnsNameIsLoading ? '' : 'hidden'}`}>
