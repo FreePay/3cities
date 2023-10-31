@@ -4,5 +4,11 @@
 // false negatives can occur, and so isLikelyAnEnsName is only suitable
 // for optimistic detection and not for verification.
 export function isLikelyAnEnsName(maybeEnsName: string | undefined): boolean {
-  return maybeEnsName !== undefined && maybeEnsName.toLowerCase().endsWith('.eth');
+  if (maybeEnsName === undefined) return false;
+  else {
+    const l = maybeEnsName.toLowerCase();
+    return l.endsWith('.eth')
+      || l.endsWith('.cb.id') // Coinbase's ENS namespace. Every Coinbase Wallet user automatically has one of these names
+      ;
+  }
 }
