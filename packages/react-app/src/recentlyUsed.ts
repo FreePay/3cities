@@ -1,4 +1,5 @@
 import localForage from "localforage";
+import { queuePromise } from "./queuePromise";
 
 // recentlyUsed maintains local caches of recently used items. For
 // example, to keep track of a user's recent preferences.
@@ -8,18 +9,34 @@ import localForage from "localforage";
 const recentlyUsedMaxItems = 10;
 
 export async function addToRecentlyUsed<T>(key: string, t: T): Promise<void> {
-  const ru: T[] = await getMostRecentlyUsed(key);
-  const ru2 = [t, ...ru.filter(x => x !== t)].slice(0, recentlyUsedMaxItems);
-  await localForage.setItem(key, ru2);
+  return queuePromise(key, async () => {
+    const ru: T[] = await getMostRecentlyUsedSkipQueue(key); // WARNING here we must use getMostRecentlyUsedSkipQueue to skip the promise queue, or else we'll deadlock the promise queue as this promise depends on the subsequentedly queued getMostRecentlyUsed promise to settle. Note that skipping the queue here is correct behavior as queuePromise guarantees that any potentially conflicting changes have already settled before this promise runs
+    const ru2 = [t, ...ru.filter(x => x !== t)].slice(0, recentlyUsedMaxItems);
+    await localForage.setItem(key, ru2);
+  });
 }
 
 export async function removeFromRecentlyUsed<T>(key: string, t: T): Promise<void> {
-  const ru: T[] = await getMostRecentlyUsed(key);
-  const ru2 = ru.filter(x => x !== t);
-  await localForage.setItem(key, ru2);
+  return queuePromise(key, async () => {
+    const ru: T[] = await getMostRecentlyUsedSkipQueue(key); // WARNING here we must use getMostRecentlyUsedSkipQueue to skip the promise queue, or else we'll deadlock the promise queue as this promise depends on the subsequentedly queued getMostRecentlyUsed promise to settle. Note that skipping the queue here is correct behavior as queuePromise guarantees that any potentially conflicting changes have already settled before this promise runs
+    const ru2 = ru.filter(x => x !== t);
+    await localForage.setItem(key, ru2);
+  });
+}
+
+export async function clearRecentlyUsed(key: string): Promise<void> {
+  return queuePromise(key, async () => {
+    await localForage.setItem(key, []);
+  });
 }
 
 export async function getMostRecentlyUsed<T>(key: string): Promise<T[]> {
+  return queuePromise(key, async () => {
+    return getMostRecentlyUsedSkipQueue(key);
+  });
+}
+
+async function getMostRecentlyUsedSkipQueue<T>(key: string): Promise<T[]> {
   const ru: T[] | null = await localForage.getItem<T[]>(key);
   if (ru === null) return [];
   else return ru;
