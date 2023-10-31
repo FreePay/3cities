@@ -1,8 +1,6 @@
-import { isAddress } from "@ethersproject/address";
 import React from "react";
 import { Outlet } from "react-router-dom";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
-import { truncateEthAddressVeryShort } from "./truncateAddress";
 import { useActiveDemoAccount } from "./useActiveDemoAccount";
 
 function ConversionHeader() {
@@ -20,7 +18,7 @@ function ConversionHeader() {
               enabledClassName="text-quaternary"
               loadingSpinnerClassName="text-quaternary-darker fill-white"
             />
-            {activeDemoAccount && <div className="absolute bottom-[-1.5em] right-1/2 transform translate-x-1/2 whitespace-nowrap z-1 text-tertiary-darker-2 text-sm">impersonating {isAddress(activeDemoAccount) ? truncateEthAddressVeryShort(activeDemoAccount) : activeDemoAccount} </div>}
+            {activeDemoAccount && <div className="absolute bottom-[-1.5em] right-1/2 transform translate-x-1/2 whitespace-nowrap z-1 text-black text-sm">demo account</div>}
           </div>
         </div>
       </div>
