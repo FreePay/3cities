@@ -614,11 +614,11 @@ export const RequestMoney: React.FC = () => {
     </div>
     {showAdvancedOptions && <>
       <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-4">
-        <div className="flex justify-start items-center gap-1">
-          <span className="w-full" onClick={showPrivacyAndSecurityInfoModal}>Privacy &amp; Security</span>
-          <FaRegQuestionCircle className="text-lg" />
-          {privacyAndSecurityInfoModal}
+        <div className="flex justify-start items-center gap-1" onClick={showPrivacyAndSecurityInfoModal}>
+          <span className="w-full">Privacy &amp; Security</span>
+          <FaRegQuestionCircle className="text-lg sm:hover:text-gray-500 sm:hover:cursor-pointer" />
         </div>
+        {privacyAndSecurityInfoModal}
         <div className="grow flex justify-between gap-4">
           <button
             type="button"
