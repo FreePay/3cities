@@ -48,14 +48,16 @@ const amountInputWidthDefault = 1; // width to fit amountRawDefault
 
 const recentlyUsedReceiversKey = "receivers";
 
-(async () => { // showcase feature to seed an initial example recently used receiver
-  const key = "receiversExample";
-  const d = await getMostRecentlyUsed(key);
-  if (d.length < 1) {
-    addToRecentlyUsed(recentlyUsedReceiversKey, "example.eth");
-    addToRecentlyUsed(key, "set"); // sentinel value to indicate that defaults were seeded and shouldn't be seeded again
-  }
-})();
+async function seedRecentlyUsedReceiversExamples(): Promise<"examples-were-seeded" | undefined> { // a showcase feature to seed initial example recently used receivers
+  const sentinelKey = "receiversExample";
+  // await clearRecentlyUsed(sentinelKey); // development feature: uncomment this line to clear the sentinel value and reinitialize your local examples
+  if ((await getMostRecentlyUsed(sentinelKey)).length < 1) {
+    await addToRecentlyUsed(recentlyUsedReceiversKey, "example.eth");
+    await addToRecentlyUsed(recentlyUsedReceiversKey, "brian.cb.id");
+    await addToRecentlyUsed(sentinelKey, "set"); // sentinel value to indicate that defaults were seeded and shouldn't be seeded again
+    return "examples-were-seeded";
+  } else return undefined;
+}
 
 export const RequestMoney: React.FC = () => {
   const [logicalAssetTicker, setLogicalAssetTicker] = useState<LogicalAssetTicker>('USD');
@@ -359,6 +361,12 @@ export const RequestMoney: React.FC = () => {
   }, [setShowModalNonce, checkoutSettings]);
 
   const { value: recentlyUsedReceivers, forceRecache: recacheRecentlyUsedReceivers } = useAsyncMemo(() => getMostRecentlyUsed<string>(recentlyUsedReceiversKey), [], []);
+
+  useEffect(() => {
+    let isMounted = true;
+    seedRecentlyUsedReceiversExamples().then((r) => { if (isMounted && r === "examples-were-seeded") recacheRecentlyUsedReceivers(); });
+    return () => { isMounted = false; };
+  }, [recacheRecentlyUsedReceivers]);
 
   const renderedLogicalAssetAmount: string | undefined = checkoutSettings && isProposedPaymentWithFixedAmount(checkoutSettings.proposedPayment) ? renderLogicalAssetAmount({ // TODO support PayWhatYouWant
     logicalAssetTicker: checkoutSettings.proposedPayment.logicalAssetTicker,
