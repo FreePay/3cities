@@ -296,8 +296,8 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     {...(activeDemoAccount !== undefined && { disabled: true })}
   />
     {!retryButton && activeDemoAccount && (
-      <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-tertiary-darker-2 text-sm whitespace-nowrap text-center">
-        disabled when<br />impersonating
+      <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-black text-sm whitespace-nowrap text-center">
+        disconnect demo<br />account to pay
       </span>
     )}
     {retryButton}

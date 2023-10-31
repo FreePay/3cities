@@ -8,17 +8,17 @@ export const Home: React.FC = () => {
       <Link to="/pay-link">
         <button
           type="button"
-          className="mt-4 w-full focus:outline-none rounded-md p-3.5 font-medium bg-primary sm:hover:bg-primary-darker active:scale-95 text-white"
+          className="mt-4 w-40 focus:outline-none rounded-md p-3.5 font-medium bg-primary sm:hover:bg-primary-darker active:scale-95 text-white"
         >
-          Try Sending a Pay Link
+          Send Pay Link
         </button>
       </Link>
-      <a href="https://staging.3cities.xyz/#/pay?c=Egdmb28uZXRoGAEiAgPo" target="_blank" rel="noreferrer">
+      <a href="https://staging.3cities.xyz/#/pay?c=Egdmb28uZXRoGAEiAgPo&demoAccount=0xac0d7753EA2816501b57fae9ad665739018384b3" target="_blank" rel="noreferrer">
         <button
           type="button"
-          className="mt-4 w-full focus:outline-none rounded-md p-3.5 font-medium bg-primary sm:hover:bg-primary-darker active:scale-95 text-white"
+          className="mt-4 w-40 focus:outline-none rounded-md p-3.5 font-medium bg-primary sm:hover:bg-primary-darker active:scale-95 text-white"
         >
-          Try a Testnet Pay Link
+          Demo
         </button>
       </a>
     </div>
