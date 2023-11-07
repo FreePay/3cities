@@ -3017,9 +3017,9 @@
     "@babel/types" "^7.0.0"
 
 "@types/babel__traverse@*", "@types/babel__traverse@^7.0.4", "@types/babel__traverse@^7.0.6":
-  version "7.20.2"
-  resolved "https://registry.yarnpkg.com/@types/babel__traverse/-/babel__traverse-7.20.2.tgz#4ddf99d95cfdd946ff35d2b65c978d9c9bf2645d"
-  integrity sha512-ojlGK1Hsfce93J0+kn3H5R73elidKUaZonirN33GSmgTUMpzI/MIFfSpF3haANe3G1bEBS9/9/QEqwTzwqFsKw==
+  version "7.20.4"
+  resolved "https://registry.yarnpkg.com/@types/babel__traverse/-/babel__traverse-7.20.4.tgz#ec2c06fed6549df8bc0eb4615b683749a4a92e1b"
+  integrity sha512-mSM/iKUk5fDDrEV/e83qY+Cr3I1+Q3qqTuEn++HAWYjEa1+NxZr6CNrcJGf2ZTnq4HoFGC3zaTPZTobCzCFukA==
   dependencies:
     "@babel/types" "^7.20.7"
 
