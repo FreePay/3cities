@@ -42,27 +42,9 @@ module.exports = {
         "build/",
     ],
     "rules": {
-        "rulesdir/no-instanceof-ChainMismatchError": [
-            "warn",
-        ],
-        "rulesdir/no-conditional-returns": [
-            "warn",
-        ],
-        "rulesdir/no-use-below": [
-            "error",
-        ],
         "@typescript-eslint/switch-exhaustiveness-check": "error",
         "@typescript-eslint/no-empty-function": "off",
         "@typescript-eslint/no-inferrable-types": "off",
-        "react-hooks/exhaustive-deps": [
-            "warn",
-            {
-                "additionalHooks": "useEffectSkipFirst*",
-            },
-        ],
-        "no-shadow": [
-            "error",
-        ],
         "eqeqeq": [
             "error",
         ],
@@ -91,6 +73,27 @@ module.exports = {
                     },
                 ],
             },
+        ],
+        "no-shadow": [
+            "error",
+        ],
+        "no-unreachable": [
+            "error",
+        ],
+        "react-hooks/exhaustive-deps": [
+            "warn",
+            {
+                "additionalHooks": "useEffectSkipFirst*",
+            },
+        ],
+        "rulesdir/no-instanceof-ChainMismatchError": [
+            "warn",
+        ],
+        "rulesdir/no-conditional-returns": [
+            "warn",
+        ],
+        "rulesdir/no-use-below": [
+            "error",
         ],
     },
 };
