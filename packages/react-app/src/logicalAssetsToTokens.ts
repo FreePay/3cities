@@ -11,7 +11,8 @@ import { tokensByTicker } from "./tokens";
 // definition don't actually have to exist in our token registry and be
 // supported by our system; if a token ticker doesn't exist, it'll be
 // ignored silently at runtime.
-const logicalAssetsToSupportedTokenTickers: Readonly<{ [lat in LogicalAssetTicker]: Readonly<{[tokenTicker: Uppercase<string>]: true }> }> = {
+const logicalAssetsToSupportedTokenTickers: Readonly<{ [lat in LogicalAssetTicker]: Readonly<{ [tokenTicker: Uppercase<string>]: true }> }> = {
+  // WARNING here the illegal state is representable where a token ticker should be supported by at most one currency but the data structure allows token tickers to appear in multiple currencies --> one way to attempt to fix this is to define the mapping in its natural form as Readonly<{ [tt: Uppercase<string>]: LogicalAssetTicker }>, but clients want supported tokens indexed by logical asset tickers, and the reverse mapping is impossible to generate dynamically in typescript without casts (because the mapped type `{ [lat in LogicalAssetTicker]: true }` requires the codomain to be the complete set of all LogicalAssetTickers, and that can't be constructed dynamically). TODO consider using casts to eliminate this representable illegal state
   'ETH': {
     'ETH': true,
     'WETH': true,
@@ -30,6 +31,17 @@ const logicalAssetsToSupportedTokenTickers: Readonly<{ [lat in LogicalAssetTicke
     'EURT': true,
   },
 };
+
+(() => { // here we verify that the logicalAssetsToSupportedTokenTickers representable illegal state of token tickers being supported by more than one currency doesn't occur
+  const tokenTickerSupportCheck = new Map<string, string>();
+  Object.entries(logicalAssetsToSupportedTokenTickers).forEach(([logicalAssetTicker, tokens]) => {
+    Object.keys(tokens).forEach(tokenTicker => {
+      if (tokenTickerSupportCheck.has(tokenTicker)) {
+        console.error(`illegal logicalAssetsToSupportedTokenTickers: token ticker '${tokenTicker}' is supported by more than one logical asset: '${logicalAssetTicker}' and '${tokenTickerSupportCheck.get(tokenTicker)}'.`);
+      } else tokenTickerSupportCheck.set(tokenTicker, logicalAssetTicker);
+    });
+  });
+})();
 
 // isTokenTickerSupportedByLogicalAsset returns true iff the passed
 // logical asset (as identified by the passed logical asset ticker)
