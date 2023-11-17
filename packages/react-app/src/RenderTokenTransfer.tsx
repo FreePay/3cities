@@ -1,10 +1,9 @@
 import { formatUnits } from "@ethersproject/units";
 import React from "react";
 import { getSupportedChainName } from "./chains";
-import { formatFloat } from "./formatFloat";
-import { ProposedTokenTransfer } from "./strategies";
-import { getDecimalsToRenderForTokenTicker } from "./tokens";
-import { TokenTransfer } from "./tokenTransfer";
+import { FormatFloatOpts, formatFloat } from "./formatFloat";
+import { getDecimalsToRenderForTokenTicker, getDefaultTruncateTrailingZeroesForTokenTicker } from "./logicalAssetsToTokens";
+import { ProposedTokenTransfer, TokenTransfer } from "./tokenTransfer";
 
 type RenderTokenTransferProps = {
   tt: TokenTransfer;
@@ -14,6 +13,7 @@ type RenderTokenTransferProps = {
     hideTicker?: true; // iff true, the ticker won't be rendered.
     hideChainSeparator?: true; // iff true, the separator between the ticker and chain won't be rendered (ie hides the word "on").
     hideChain?: true; // iff true, the chain won't be rendered.
+    truncateTrailingZeroes?: boolean; // iff true, any zeroes (after the decimal point AND after the last significant digit that wasn't rounded) will be truncated. Iff undefined, the passed ticker's default truncateTrailingZeroes will be used.
   }
 }
 
@@ -21,8 +21,11 @@ type RenderTokenTransferProps = {
 // render the passed token transfer.
 export const RenderTokenTransfer: React.FC<RenderTokenTransferProps> = ({ tt, opts }) => {
   const t = tt.token;
+  const formatFloatOpts: FormatFloatOpts = {
+    truncateTrailingZeroes: opts?.truncateTrailingZeroes !== undefined ? opts.truncateTrailingZeroes : getDefaultTruncateTrailingZeroesForTokenTicker(t.ticker),
+  };
   // TODO it'd be nice to show the token image instead of the ticker (eg. USDC icon instead of "USDC"), and the same for the chain --> some apps have adopted the convention of showing a little chain icon in the top left of the token icon... maybe I should do that? where's the open-source code and assets to do so?
-  return <span>{opts?.hideAmount !== true && formatFloat(formatUnits(tt.amountAsBigNumberHexString, t.decimals), getDecimalsToRenderForTokenTicker(t.ticker))}{opts?.hideTicker !== true && ` ${t.ticker}`}{opts?.hideChainSeparator !== true && ' on'}{opts?.hideChain !== true && ` ${getSupportedChainName(t.chainId)}`}</span>;
+  return <span>{opts?.hideAmount !== true && formatFloat(formatUnits(tt.amountAsBigNumberHexString, t.decimals), getDecimalsToRenderForTokenTicker(t.ticker), formatFloatOpts)}{opts?.hideTicker !== true && ` ${t.ticker}`}{opts?.hideChainSeparator !== true && ' on'}{opts?.hideChain !== true && ` ${getSupportedChainName(t.chainId)}`}</span>;
 }
 
 type RenderProposedTokenTransferProps = {

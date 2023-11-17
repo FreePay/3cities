@@ -1,4 +1,5 @@
 import { isAddress } from "@ethersproject/address";
+import { BigNumber } from "@ethersproject/bignumber";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CurrencyInput from "react-currency-input-field";
 import { FaCheckCircle, FaExclamationCircle, FaRegCopy, FaRegQuestionCircle, FaTimesCircle } from "react-icons/fa";
@@ -9,10 +10,12 @@ import { useAccount, useDisconnect } from "wagmi";
 import { CheckoutSettings } from "./CheckoutSettings";
 import { serializedCheckoutSettingsUrlParam } from "./CheckoutSettingsProvider";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
+import { ExchangeRates, convert } from "./ExchangeRates";
 import { Modal, useModal } from "./Modal";
 import { ProposedPayment, isProposedPaymentWithFixedAmount } from "./Payment";
+import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import QRCode from "./QRCode";
-import { renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
+import { RenderLogicalAssetAmount, renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
 import { Spinner } from "./Spinner";
 import { StrategyPreferences } from "./StrategyPreferences";
 import { ToggleSwitch } from "./ToggleSwitch";
@@ -29,6 +32,7 @@ import { useAsyncMemo } from "./useAsyncMemo";
 import useDebounce from "./useDebounce";
 import { useEnsAddress } from "./useEnsAddress";
 import { useEnsName } from "./useEnsName";
+import { useExchangeRates } from "./useExchangeRates";
 import { useInput } from "./useInput";
 
 // TODO consider converting manual <input>s into useInput --> I started trying to do this for the receiver input, but encountered a challenge and abandoned the effort. The problem is that there's a use-before-declare circular dependency rawReceiver->computedReceiver/addressForDebouncedRawReceiverEnsName->rawReceiverInputParams->circular. In the current impl with an inline <input>, this circular dependency is resolved by adding a layer of indirection where the input's inline onChange sets the rawReceiver, so rawReceiver can be defined above the input. But with the useInput hook, the hook returns the actual current value (as opposed to setting it indirectly in a callback), so in order to use the useInput hooks, a bit more work is needed, and/or perhaps a modification to useInput API. Here was my work in progress:
@@ -60,11 +64,20 @@ async function seedRecentlyUsedReceiversExamples(): Promise<"examples-were-seede
 }
 
 export const RequestMoney: React.FC = () => {
-  const [logicalAssetTicker, setLogicalAssetTicker] = useState<LogicalAssetTicker>('USD');
-  const logicalAsset = logicalAssetsByTicker[logicalAssetTicker];
+  const [primaryLogicalAssetTicker, setPrimaryLogicalAssetTicker] = useState<LogicalAssetTicker>('USD');
+  const primaryLogicalAsset = logicalAssetsByTicker[primaryLogicalAssetTicker];
+
+  const [secondaryLogicalAssetTickers, setSecondaryLogicalAssetTickers] = useImmer<Set<LogicalAssetTicker>>(new Set(['USD', 'ETH'])); // the set of secondary logical asset tickers also accepted for payment. WARNING may include primaryLogicalAssetTicker and must be removed before ProposedPayment constructor. Default to USD and ETH because those are expected to be the most popular secondaries to accept
+
+  const toggleSecondaryLogicalAssetTicker = useCallback((lat: LogicalAssetTicker) => {
+    setSecondaryLogicalAssetTickers(draft => {
+      if (draft.has(lat)) draft.delete(lat);
+      else draft.add(lat);
+    });
+  }, [setSecondaryLogicalAssetTickers]);
 
   const [amountInputWidth, setAmountInputWidth] = useState(amountInputWidthDefault);
-  const amountInputDecimalsLimit = getDecimalsToRenderForLogicalAssetTicker(logicalAssetTicker); // specify the currency input to have as many decimals as we'd canonically render for a given currency. For example, two decimals for USD ($2.04) and four decimals for ETH (0.1256e)
+  const amountInputDecimalsLimit = getDecimalsToRenderForLogicalAssetTicker(primaryLogicalAssetTicker); // specify the currency input to have as many decimals as we'd canonically render for a given currency. For example, two decimals for USD ($2.04) and four decimals for ETH (0.1256e)
   const [amountRaw, setAmountRaw] = useState<string | undefined>(amountRawDefault);
   const amount: number | undefined = useMemo(() => {
     if (amountRaw === undefined) return undefined;
@@ -82,8 +95,10 @@ export const RequestMoney: React.FC = () => {
     // CurrencyInput.transformRawValue is called on each keystroke, and we take advantage of that by using this callback to dynamically update the width of the CurrencyInput container so that its width always corresponds to the length of the current value, including decimal places and commas. The reason we have to do this is because if we don't explicitly set the width of CurrencyInput, its child <input> seems to default to a strange static max width. Other methods attempted here included styles like w-min, w-max, w-fit, min-width, and max-width, but none of those actually changed the default width of the input element. It seems to be necessary to explicitly set the width of the <input>. So, we do this by setting it to `w-full` and then dynamically varying the width of the parent container div. Note that our dynamic width implementation sets the width using an inline style instead of with tailing classes because tailwind styles are JIT-compiled so one can't dynamically generate custom tailwind styles at runtime (eg. you can't dynamically generate w-[8ch]).
 
     const sRaw: string = (() => { // here we transform sRawInput based on a static list of UX edge cases
-      if (sRawInput.startsWith('.') && sRawInput.length === 2) return `0${sRawInput}`; // sRawInput can of the form ".<digit>" iff the user (repeatedly) hits backspace to fully clear the input and then initially types a period followed by a digit. If instead the user hits the "X" to clear the input amount or the input has initially loaded, then the amount is set to the default 0, and if the user then types a period, that period will be appended to the 0, resulting in an sRawInput value of "0.", which does not trigger the edge case here. But in this edge case of sRawInput being ".<digit>", CurrencyInput postprocess prepends a 0 and renders "0.<digit>", resulting in an incorrect render width because the width was calculated here using ".<digit>". So in this case we prepend the 0 before calculating render width
-      else return sRawInput;
+      const droppedInvalidChars = sRawInput.replace(/[^\d.,]/g, ''); // sRawInput may contain up to one invalid chars (eg. if the person is mashing the keyboard). Valid chars are digits, decimals, and commas
+      // @eslint-no-use-below[sRawInput] -- sRawInput was mapped to dropInvalidChars
+      if (droppedInvalidChars.startsWith('.') && droppedInvalidChars.length === 2) return `0${droppedInvalidChars}`; // sRawInput can of the form ".<digit>" iff the user (repeatedly) hits backspace to fully clear the input and then initially types a period followed by a digit. If instead the user hits the "X" to clear the input amount or the input has initially loaded, then the amount is set to the default 0, and if the user then types a period, that period will be appended to the 0, resulting in an sRawInput value of "0.", which does not trigger the edge case here. But in this edge case of sRawInput being ".<digit>", CurrencyInput postprocess prepends a 0 and renders "0.<digit>", resulting in an incorrect render width because the width was calculated here using ".<digit>". So in this case we prepend the 0 before calculating render width
+      else return droppedInvalidChars;
     })();
 
     // The weird idea here is that we need to calculate the true render width using the passed sRaw, noting that the true on-screen render width that we'll calculate may often be different than a naive sRaw.length sRaw because the (unmodified) sRaw returned by this function will then have its length modified via being postprocessed by CurrencyInput. For example, if the user clears the input and then types "05", the passed sRaw will be "05" but CurrencyInput postprocess will correctly render only "5" (without the preceding "0"), and our rules here need to calculate the true render width of 1 character for the "5". This gives us the strange rules below:
@@ -120,7 +135,7 @@ export const RequestMoney: React.FC = () => {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- here we don't want to rerun the effect if amountRaw changes, only if the currency changes (or other definitional/callback deps)
-  }, [setAmountRaw, logicalAssetTicker, amountInputDecimalsLimit, recalculateWidthFromAmountInputTransformRawValue]);
+  }, [setAmountRaw, primaryLogicalAssetTicker, amountInputDecimalsLimit, recalculateWidthFromAmountInputTransformRawValue]);
 
   const [note, setNote] = useState<string>('');
 
@@ -162,11 +177,11 @@ export const RequestMoney: React.FC = () => {
 
   const [strategyPreferences, setStrategyPreferences] = useImmer<StrategyPreferences | undefined>(undefined);
 
-  useEffect(() => { // delete token strategy preferences when the logical asset changes because the old token preferences aren't relevant to the new logical asset because we currently support settling a payment only with tokens supported by the payment's logical asset (eg. you can't currently pay an ETH token to settle a USD payment), so each logical asset's supported tokens are disjoint. TODO reconsider this when we add forex payments
+  useEffect(() => { // delete token strategy preferences when the primary or secondaries logical assets change because not doing so can lead to strategy preferences containing acceptedTokenTickers that are supported by a logical accept that is no longer accepted for payment, which creates longer pay links than necessary and may look like a bug to end-users see a token ticker for a currency that's not accepted. TODO an alternative this is to filter acceptedTokenTickers for only those supported by the logicalAssetTickers during CheckoutSettings construction --> consider doing this. That way, token strategy preferences wouldn't need to be redone when changing secondaries.
     setStrategyPreferences(draft => {
       if (draft) delete draft.acceptedTokenTickers;
     });
-  }, [setStrategyPreferences, logicalAssetTicker])
+  }, [setStrategyPreferences, primaryLogicalAssetTicker, secondaryLogicalAssetTickers]);
 
   const [acceptedTokenTickersState, setAcceptedTokenTickersState] = useState<'denylist' | 'allowlist'>('denylist'); // WARNING normally, we can use strategyPreferences.acceptedTokenTickers.allowlist/denylist to determine if we're in allowlist or denylist mode. However, when building these lists, when toggling between allowlist to denylist mode, the default state for each list is to be empty, and when the list is empty we set acceptedTokenTickers to undefined (and disallow empty sets), and so we need a way to determine whether an undefined acceptedTokenTickers represents an empty allowlist or denylist. acceptedTokenTickersState determines that, and it must be properly kept in sync such that the invariant `acceptedTokenTickersState === 'denylist' && (acceptedTokenTickers === undefined || acceptedTokenTickers.denylist !== undefined)` holds, and vice-versa for 'allowlist'.
 
@@ -206,7 +221,7 @@ export const RequestMoney: React.FC = () => {
     });
   }, [setStrategyPreferences, acceptedChainIdsState, setAcceptedChainIdsState]);
 
-  const toggleTokenTickerForStrategyPreferences = useCallback((tt: string) => {
+  const toggleTokenTickerForStrategyPreferences = useCallback((tt: Uppercase<string>) => {
     setStrategyPreferences(draft => {
       if (draft === undefined) {
         console.error("toggleTokenTickerForStrategyPreferences: strategyPreferences unexpectedly undefined");
@@ -310,7 +325,7 @@ export const RequestMoney: React.FC = () => {
     ) {
       return {
         proposedPayment: { // TODO perhaps this ProposedPayment literal should be constructed in a centralized function to ensure that it's done correctly and consistently everywhere (but I think these literals are built nowhere else right now)
-          logicalAssetTicker,
+          logicalAssetTickers: new PrimaryWithSecondaries(primaryLogicalAssetTicker, Array.from(secondaryLogicalAssetTickers).filter(t => t !== primaryLogicalAssetTicker)), // WARNING here we must filter out primaryLogicalAssetTicker from secondaryLogicalAssetTickers as by our definition it may be included
           paymentMode: { // TODO support PayWhatYouWant
             logicalAssetAmountAsBigNumberHexString: parseLogicalAssetAmount(amount.toString()).toHexString(),
           },
@@ -328,7 +343,7 @@ export const RequestMoney: React.FC = () => {
         ...(webhookUrl.length > 0 && { webhookUrl }),
       } satisfies CheckoutSettings;
     } else return undefined;
-  }, [logicalAssetTicker, amount, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password, successRedirectUrl, successRedirectOpenInNewTab, webhookUrl]);
+  }, [primaryLogicalAssetTicker, secondaryLogicalAssetTickers, amount, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password, successRedirectUrl, successRedirectOpenInNewTab, webhookUrl]);
 
   const { value: serializedCheckoutSettings, isLoading: serializedCheckoutSettingsIsLoading } = useAsyncMemo<string | undefined>(async () => {
     if (checkoutSettings) {
@@ -369,7 +384,7 @@ export const RequestMoney: React.FC = () => {
   }, [recacheRecentlyUsedReceivers]);
 
   const renderedLogicalAssetAmount: string | undefined = checkoutSettings && isProposedPaymentWithFixedAmount(checkoutSettings.proposedPayment) ? renderLogicalAssetAmount({ // TODO support PayWhatYouWant
-    logicalAssetTicker: checkoutSettings.proposedPayment.logicalAssetTicker,
+    logicalAssetTicker: checkoutSettings.proposedPayment.logicalAssetTickers.primary,
     amountAsBigNumberHexString: checkoutSettings.proposedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString,
   }) : undefined;
 
@@ -415,14 +430,26 @@ export const RequestMoney: React.FC = () => {
     <span className="text-left w-full text-lg"><span className="font-bold">Anti-phishing</span> - Like Standard Security, not encrypted, but tamper-proof. Share password separately.</span>
   </div>);
 
+  const er: ExchangeRates | undefined = useExchangeRates();
+
+  const amountUsdEquivalent: bigint | undefined = useMemo(() => {
+    return amount && er && primaryLogicalAssetTicker !== 'USD' ? convert({
+      fromTicker: primaryLogicalAssetTicker,
+      toTicker: 'USD',
+      fromAmount: parseLogicalAssetAmount(amount.toString()).toBigInt(),
+      er,
+    }) : undefined;
+  }, [primaryLogicalAssetTicker, amount, er]);
+
   return <div className="mt-[3vh] w-full max-w-sm mx-auto flex flex-col items-center justify-center">
     <div className="w-full flex justify-start items-center gap-1">
-      <span>Amount</span>
+      <span className="font-semibold">Amount</span>
       {showAmountRequiredWarning && <span className="text-red-600">(required)</span>}
     </div>
     {/* TODO extract this into a useCurrencyAmountInput hook similar to useInput (also see "convert manual <input>s into useInput" note at top of this file): */}
-    <div className="flex items-center justify-center">
-      <label className={`flex-none text-6xl font-medium text-black ${logicalAsset.symbol.prefix ? '' : 'invisible pl-6'}`} htmlFor={amountInputId}>{logicalAsset.symbol.prefix}{logicalAsset.symbol.suffix}</label>
+    <div className="relative flex items-center justify-center">
+      {amountUsdEquivalent ? <span className="absolute bottom-[-1.5em] w-fit text-lg text-gray-500"><RenderLogicalAssetAmount logicalAssetTicker={"USD"} amountAsBigNumberHexString={BigNumber.from(amountUsdEquivalent).toHexString()} /></span> : undefined}
+      <label className={`flex-none text-6xl font-medium text-black ${primaryLogicalAsset.symbol.prefix ? '' : 'invisible pl-6'}`} htmlFor={amountInputId}>{primaryLogicalAsset.symbol.prefix}{primaryLogicalAsset.symbol.suffix}</label>
       <div className="text-6xl font-bold" style={amountInputContainerStyle}>
         <CurrencyInput
           ref={currencyInputRef}
@@ -440,8 +467,8 @@ export const RequestMoney: React.FC = () => {
           onValueChange={(vs) => setAmountRaw(vs)}
         />
       </div>
-      <label className={`flex-none text-6xl font-medium text-black ${logicalAsset.symbol.suffix ? '' : 'hidden'}`} htmlFor={amountInputId}>{logicalAsset.symbol.prefix}{logicalAsset.symbol.suffix}</label>
-      <div className={`self-start p-1 ${logicalAsset.symbol.suffix ? 'pr-0' : 'pr-3'} text-xl`} onClick={() => {
+      <label className={`flex-none text-6xl font-medium text-black ${primaryLogicalAsset.symbol.suffix ? '' : 'hidden'}`} htmlFor={amountInputId}>{primaryLogicalAsset.symbol.prefix}{primaryLogicalAsset.symbol.suffix}</label>
+      <div className={`self-start p-1 ${primaryLogicalAsset.symbol.suffix ? 'pr-0' : 'pr-3'} text-xl`} onClick={() => {
         setAmountRaw(amountRawDefault);
         setAmountInputWidth(amountInputWidthDefault); // here we must manually reset amountInputWidth as it's only automatically updated on CurrencyInput keystrokes or other CurrencyInput internal state changes
         const inputElement = document.getElementById(amountInputId);
@@ -452,21 +479,21 @@ export const RequestMoney: React.FC = () => {
       </div>
     </div>
     <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-4">
-      <span className="w-full">Currency</span>
+      <span className="w-full font-semibold">Currency</span>
       <div className="grow flex justify-between gap-4">
         {(['USD', 'ETH', 'EUR'] satisfies LogicalAssetTicker[]).map((t: LogicalAssetTicker) => logicalAssetsByTicker[t]).map(la => <button
           key={la.ticker}
           type="button"
-          disabled={la.ticker === logicalAssetTicker}
+          disabled={la.ticker === primaryLogicalAssetTicker}
           className="focus:outline-none rounded-md px-2 py-1 font-medium border border-primary enabled:active:scale-95 enabled:bg-white enabled:text-primary sm:enabled:hover:bg-primary sm:enabled:hover:text-white disabled:bg-primary disabled:text-white disabled:cursor-not-allowed"
-          onClick={() => setLogicalAssetTicker(la.ticker)}
+          onClick={() => setPrimaryLogicalAssetTicker(la.ticker)}
         >
           {la.shortDescription}
         </button>)}
       </div>
     </div>
     <div className="w-full flex justify-start items-center gap-1 mt-4">
-      <span>Receive at</span>
+      <span className="font-semibold">Receive at</span>
       {showReceiverRequiredWarning && <span className="text-red-600">(required)</span>}
     </div>
     {connectedWalletAddress && isConnected && <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-2">
@@ -524,8 +551,17 @@ export const RequestMoney: React.FC = () => {
         </button>)}
       </div>
     </div>}
+    <div className="w-full flex justify-between items-center gap-2 mt-4">
+      <span className="font-semibold">Also accept currency</span>
+      <div className="flex justify-end items-center gap-3">
+        {(['USD', 'ETH'] satisfies LogicalAssetTicker[]).filter(t => t !== primaryLogicalAssetTicker).map(t => <div key={`${primaryLogicalAssetTicker}-${t}` /* WARNING here we use a key that changes when changing primaryLogicalAssetTicker. This is needed because today, ToggleSwitch doesn't support programmatic setting of its value, and so our only way to ensure these ToggleSwitches stay synced the fact that the primaryLogicalAssetTicker's ToggleSwitch may not be turned off (since it's the primary and not a valid secondary) is via initialIsOn, so we recreate these ToggleSwitches so they pick up their latest value of initialIsOn */} className="flex justify-center items-center gap-1">
+          <span>{t}</span>
+          <ToggleSwitch disabled={t === primaryLogicalAssetTicker} initialIsOn={t === primaryLogicalAssetTicker || secondaryLogicalAssetTickers.has(t)} onToggle={() => toggleSecondaryLogicalAssetTicker(t)} offClassName="text-gray-500" className="font-bold text-2xl" />
+        </div>)}
+      </div>
+    </div>
     <div className="w-full flex flex-wrap justify-start items-center gap-2 mt-4">
-      <span className="w-full">Note</span>
+      <span className="w-full font-semibold">Note</span>
       <input
         className="w-full rounded-md border px-3.5 py-2"
         id="note"
@@ -541,8 +577,8 @@ export const RequestMoney: React.FC = () => {
     </div>
     {/* TODO extract the strategy preferences editor into its own component. For example, it could be reused to set a user's default strategy preferences in the "Me" page. NB see all the ideas/todos in StrategyPreferences.ts */}
     <div className="mt-4 w-full flex justify-between items-center gap-4">
-      <span className="grow">Default tokens and chains (recommended)</span>
-      <ToggleSwitch initialIsOn={strategyPreferences === undefined} onToggle={toggleUseOfStrategyPreferences} offClassName="text-gray-500" className="font-bold text-3xl" />
+      <span className="grow font-semibold">Default tokens and chains (recommended)</span>
+      <ToggleSwitch initialIsOn={strategyPreferences === undefined} onToggle={toggleUseOfStrategyPreferences} offClassName="text-gray-500" className="font-bold text-2xl" />
     </div>
     {strategyPreferences !== undefined && <div className="w-full flex flex-col justify-between items-center gap-2 mt-2">
       <div className="w-full flex justify-between gap-4">
@@ -581,41 +617,45 @@ export const RequestMoney: React.FC = () => {
           Chain Allowlist
         </button>
       </div>
-      <div className="flex flex-wrap w-full gap-x-2 gap-y-1">
-        {allTokenTickers.filter(isTokenTickerSupportedByLogicalAsset.bind(null, logicalAssetTicker)).map(tt => <div key={`${tt}-${acceptedTokenTickersState}` /* WARNING here we use a key that changes when toggling between allowlist and denylist, forcing recreation of ToggleSwitch. This is needed because today, ToggleSwitch doesn't support programmatic setting of its value, and so our only way to ensure ToggleSwitch stays synced with allowlist/denylist is via initialIsOn, so we recreate these ToggleSwitches so they pick up their latest value of initialIsOn */}>
+      <div className="grid grid-cols-8 w-full items-center gap-x-0">
+        <span className="font-semibold text-left col-span-8 mt-1">Tokens</span>
+        {allTokenTickers.filter(tt => isTokenTickerSupportedByLogicalAsset(primaryLogicalAssetTicker, tt) || Array.from(secondaryLogicalAssetTickers).some(lat => isTokenTickerSupportedByLogicalAsset(lat, tt))).flatMap((tt, i) => [
+          <span key={`${tt}-${acceptedTokenTickersState}`} className={`${i % 2 === 0 ? ' col-span-2 text-left' : 'col-span-3 text-right'}`}>{tt}</span>,
           <ToggleSwitch
-            offLabel={tt}
-            className="gap-0.5"
+            key={`sw-${tt}-${acceptedTokenTickersState}` /* WARNING here we use a key that changes when toggling between allowlist and denylist, forcing recreation of ToggleSwitch. This is needed because today, ToggleSwitch doesn't support programmatic setting of its value, and so our only way to ensure ToggleSwitch stays synced with allowlist/denylist is via initialIsOn, so we recreate these ToggleSwitches so they pick up their latest value of initialIsOn */}
+            className={`text-2xl ${i % 2 === 0 ? 'col-span-2 justify-start' : 'justify-end'}`}
             initialIsOn={Boolean(
               (strategyPreferences.acceptedTokenTickers === undefined && acceptedTokenTickersState === 'denylist')
               || strategyPreferences.acceptedTokenTickers?.denylist && !strategyPreferences.acceptedTokenTickers?.denylist.has(tt)
               || strategyPreferences.acceptedTokenTickers?.allowlist && strategyPreferences.acceptedTokenTickers?.allowlist.has(tt)
             ) /* here, a toggle being turned on represents the receiver accepting that token whether using allowlists or denylists. With denylist, all toggles default to on so as to have an empty denylist by default (at least to reduce serialization size and probably because it's better to let the user build their own list), whereas with allowlist, all toggles default to off so as to have an empty allowlist by default (at least to reduce serialization size and probably because it's better to let the user build their own list). */}
             onToggle={toggleTokenTickerForStrategyPreferences.bind(null, tt)}
-          />
-        </div>)}
-        {allSupportedChainIds.map(cid => <div key={`${cid}-${acceptedChainIdsState}` /* WARNING here we use a key that changes when toggling between allowlist and denylist, forcing recreation of ToggleSwitch. This is needed because today, ToggleSwitch doesn't support programmatic setting of its value, and so our only way to ensure ToggleSwitch stays synced with allowlist/denylist is via initialIsOn, so we recreate these ToggleSwitches so they pick up their latest value of initialIsOn */}>
+          />,
+        ])}
+        <span className="font-semibold text-left col-span-8 mt-1">Chains</span>
+        {allSupportedChainIds.flatMap((cid, i) => [
+          <span key={`${cid}-${acceptedChainIdsState}`} className={`${i % 2 === 0 ? 'col-span-2 text-left' : 'col-span-3 text-right'}`}>{getSupportedChainName(cid)}</span>,
           <ToggleSwitch
-            offLabel={getSupportedChainName(cid)}
-            className="gap-0.5"
+            key={`sw-${cid}-${acceptedChainIdsState}` /* WARNING here we use a key that changes when toggling between allowlist and denylist, forcing recreation of ToggleSwitch. This is needed because today, ToggleSwitch doesn't support programmatic setting of its value, and so our only way to ensure ToggleSwitch stays synced with allowlist/denylist is via initialIsOn, so we recreate these ToggleSwitches so they pick up their latest value of initialIsOn */}
+            className={`text-2xl ${i % 2 === 0 ? 'col-span-2 justify-start' : 'justify-end'}`}
             initialIsOn={Boolean(
               (strategyPreferences.acceptedChainIds === undefined && acceptedChainIdsState === 'denylist')
               || strategyPreferences.acceptedChainIds?.denylist && !strategyPreferences.acceptedChainIds?.denylist.has(cid)
               || strategyPreferences.acceptedChainIds?.allowlist && strategyPreferences.acceptedChainIds?.allowlist.has(cid)
             ) /* here, a toggle being turned on represents the receiver accepting that chain whether using allowlists or denylists. With denylist, all toggles default to on so as to have an empty denylist by default (at least to reduce serialization size and probably because it's better to let the user build their own list), whereas with allowlist, all toggles default to off so as to have an empty allowlist by default (at least to reduce serialization size and probably because it's better to let the user build their own list). */}
             onToggle={toggleChainIdForStrategyPreferences.bind(null, cid)}
-          />
-        </div>)}
+          />,
+        ])}
       </div>
     </div>}
-    <div className="mt-4 w-full flex justify-between items-center gap-4">
-      <span className="grow">Basic settings</span>
-      <ToggleSwitch initialIsOn={!showAdvancedOptions} onToggle={(v) => setShowAdvancedOptions(!v)} offClassName="text-gray-500" className="font-bold text-3xl" />
+    <div className="mt-4 w-full flex justify-between items-center">
+      <span className="grow font-semibold">Basic settings</span>
+      <ToggleSwitch initialIsOn={!showAdvancedOptions} onToggle={(v) => setShowAdvancedOptions(!v)} offClassName="text-gray-500" className="font-bold text-2xl" />
     </div>
     {showAdvancedOptions && <>
       <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-4">
         <div className="flex justify-start items-center gap-1" onClick={showPrivacyAndSecurityInfoModal}>
-          <span className="w-full">Privacy &amp; Security</span>
+          <span className="w-full font-semibold">Privacy &amp; Security</span>
           <FaRegQuestionCircle className="text-lg sm:hover:text-gray-500 sm:hover:cursor-pointer" />
         </div>
         {privacyAndSecurityInfoModal}
@@ -653,15 +693,15 @@ export const RequestMoney: React.FC = () => {
         </div>}
       </div>
       <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-4">
-        <span className="w-full">Redirect after paying</span>
+        <span className="w-full font-semibold">Redirect after paying</span>
         {successRedirectUrlInput}
         <div className="w-full flex justify-start items-center gap-2">
-          <span className="grow">Redirect in new tab</span>
+          <span className="grow font-semibold">Redirect in new tab</span>
           <ToggleSwitch initialIsOn={successRedirectOpenInNewTab} onToggle={setSuccessRedirectOpenInNewTab} offClassName="text-gray-500" className="font-bold text-2xl" />
         </div>
       </div>
       <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-4">
-        <span className="w-full">Webhook after paying</span>
+        <span className="w-full font-semibold">Webhook after paying</span>
         {webhookUrlInput}
       </div>
     </>

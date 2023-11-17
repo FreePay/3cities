@@ -67,27 +67,29 @@ message CheckoutSettings {
     SENDER_NOTE_SETTINGS_MODE_REQUIRED = 2;
   }
 
+  uint32 checkout_settings_major_version = 1; // required. CheckoutSettings protobuf message major version. Must be set to 1 for all CheckoutSettings created from this protobuf package. Ie. this package is threecities.v1, corresponding to checkoutSettingsMajorVersion set to 1. checkout_settings_major_version helps clients differentiate between different CheckoutSettings major versions given an anonymous binary message serialization which is otherwise known to be a CheckoutSettings
+
   oneof proposed_payment_receiver { // required.
-    bytes proposed_payment_receiver_address = 1; // Big-endian binary encoding of Ethereum address of the payment receiver. Deserialized as CheckoutSettings.proposedPayment.receiver.address
-    string proposed_payment_receiver_ens_name = 2; // ENS name of the payment receiver. Deserialized as CheckoutSettings.proposedPayment.receiver.ensName
+    bytes proposed_payment_receiver_address = 2; // Big-endian binary encoding of Ethereum address of the payment receiver. Deserialized as CheckoutSettings.proposedPayment.receiver.address
+    string proposed_payment_receiver_ens_name = 3; // ENS name of the payment receiver. Deserialized as CheckoutSettings.proposedPayment.receiver.ensName
   }
 
-  LogicalAssetTicker proposed_payment_logical_asset_ticker = 3; // required. Ticker for logical asset in which payment is denominated. Deserialized as CheckoutSettings.proposedPayment.logicalAssetTicker
+  repeated LogicalAssetTicker proposed_payment_logical_asset_tickers = 4; // required. The first element is the required ticker for the primary logical asset in which the payment is denominated. Other elements are the optional prioritized secondary logical assets that are also accepted for payment. Eg. the 2nd element is a higher priority secondary logical asset than the 3rd element. Deserialized as CheckoutSettings.proposedPayment.logicalAssetTickers
   oneof proposed_payment_payment_mode { // required.
-    bytes proposed_payment_payment_mode_logical_asset_amount = 4; // Big-endian binary encoding of payment logical asset amount. Deserialized as CheckoutSettings.proposedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString
-    PayWhatYouWant proposed_payment_payment_mode_pay_what_you_want = 5; // If oneof is this option, then this checkout is using "pay what you want" mode, which allows the sender to pay what they want within the constraints of these PayWhatYouWant details. Deserialized as CheckoutSettings.proposedPayment.paymentMode.payWhatYouWant
+    bytes proposed_payment_payment_mode_logical_asset_amount = 5; // Big-endian binary encoding of payment logical asset amount. Deserialized as CheckoutSettings.proposedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString
+    PayWhatYouWant proposed_payment_payment_mode_pay_what_you_want = 6; // If oneof is this option, then this checkout is using "pay what you want" mode, which allows the sender to pay what they want within the constraints of these PayWhatYouWant details. Deserialized as CheckoutSettings.proposedPayment.paymentMode.payWhatYouWant
   }
 
   oneof receiver_strategy_preferences_accepted_token_tickers { // optional. See comparative analysis below for why this design was chosen
-    string receiver_strategy_preferences_accepted_token_tickers_allowlist = 6; // space-delimited list of token tickers in which this checkout's payment must be received. Deserialized as CheckoutSettings.receiverStrategyPreferences.acceptedTokenTickers.allowlist
-    string receiver_strategy_preferences_accepted_token_tickers_denylist = 7; // space-delimited list of token tickers in which this checkout's payment must not be received. Deserialized as CheckoutSettings.receiverStrategyPreferences.acceptedTokenTickers.denylist
+    string receiver_strategy_preferences_accepted_token_tickers_allowlist = 7; // space-delimited list of token tickers in which this checkout's payment must be received. Deserialized as CheckoutSettings.receiverStrategyPreferences.acceptedTokenTickers.allowlist
+    string receiver_strategy_preferences_accepted_token_tickers_denylist = 8; // space-delimited list of token tickers in which this checkout's payment must not be received. Deserialized as CheckoutSettings.receiverStrategyPreferences.acceptedTokenTickers.denylist
   }
   oneof receiver_strategy_preferences_accepted_chain_ids { // optional. See comparative analysis below for why this design was chosen
-    bytes receiver_strategy_preferences_accepted_chain_ids_allowlist = 8; // byte-packed array of big-endian uint32 chain ids on which this checkout's payment must be received. Deserialized as CheckoutSettings.receiverStrategyPreferences.acceptedChainIds.allowlist
-    bytes receiver_strategy_preferences_accepted_chain_ids_denylist = 9; // byte-packed array of big-endian uint32 chain ids on which this checkout's payment must not be received. Deserialized as CheckoutSettings.receiverStrategyPreferences.acceptedChainIds.denylist
+    bytes receiver_strategy_preferences_accepted_chain_ids_allowlist = 9; // byte-packed array of big-endian uint32 chain ids on which this checkout's payment must be received. Deserialized as CheckoutSettings.receiverStrategyPreferences.acceptedChainIds.allowlist
+    bytes receiver_strategy_preferences_accepted_chain_ids_denylist = 10; // byte-packed array of big-endian uint32 chain ids on which this checkout's payment must not be received. Deserialized as CheckoutSettings.receiverStrategyPreferences.acceptedChainIds.denylist
   }
 
-  string note = 10; // optional. Human-readable note describing or contextualizing this checkout, intended to be read by the sender. Deserialized as CheckoutSettings.note
+  string note = 11; // optional. Human-readable note describing or contextualizing this checkout, intended to be read by the sender. Deserialized as CheckoutSettings.note
 
   // In proto3, field numbers 1 to 15 require 1 byte of field overhead,
   // and field numbers 16 to 2047 require 2 bytes of field overhead. So,
@@ -97,7 +99,6 @@ message CheckoutSettings {
   // eg. a DM instead of being hidden behind eg. a link shortener or <a>
   // tag.
 
-  // string reserved = 11; // RESERVED FOR FUTURE USE
   // string reserved = 12; // RESERVED FOR FUTURE USE
   // string reserved = 13; // RESERVED FOR FUTURE USE
   // string reserved = 14; // RESERVED FOR FUTURE USE

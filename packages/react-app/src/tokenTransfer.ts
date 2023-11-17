@@ -1,4 +1,6 @@
 import { Narrow } from "./Narrow";
+import { PartialFor } from "./PartialFor";
+import { AddressOrEnsName } from "./AddressOrEnsName";
 import { NativeCurrency, Token } from "./Token";
 
 // TokenTransfer represents a single token transfer of a native currency
@@ -26,4 +28,19 @@ export type TokenTransfer = TokenTransferForToken | TokenTransferForNativeCurren
 
 export function isTokenAndNotNativeCurrencyTransfer(tt: TokenTransfer): tt is TokenTransferForToken {
   return Object.prototype.hasOwnProperty.call(tt.token, "contractAddress");
+}
+
+// ProposedTokenTransfer is a token transfer to a specified receiver
+// that may be proposed to a sender who is not yet specified. The
+// proposed token transfer may include unresolved details that must be
+// resolved for the proposal to be "accepted" and "promoted" into a
+// (non-proposal) token transfer.
+export type ProposedTokenTransfer = Readonly<PartialFor<
+  Omit<TokenTransfer, 'receiverAddress'>,
+  'senderAddress'> & { // ProposedTokenTransfer allows the sender's address to be not yet specified because we define a proposed token transfer as a proposal to transfer tokens to a receiver before the sender may be known
+    receiver: AddressOrEnsName; // ProposedTokenTransfer allows the payment receiver to be specified as an ENS name or an address. The ENS name must be resolved into an address before the ProposedTokenTransfer can become a TokenTransfer
+  }>;
+
+export function isTokenTransfer(tt: TokenTransfer | ProposedTokenTransfer): tt is TokenTransfer {
+  return 'receiverAddress' in tt;
 }

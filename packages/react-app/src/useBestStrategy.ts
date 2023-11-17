@@ -1,62 +1,61 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useImmer } from "use-immer";
 import { Strategy } from "./strategies";
+import { getTokenKey } from "./tokens";
 
 // useBestStrategy filters and partitions the passed strategies into
-// "best" and "others" and provides the client an API to disable a
-// strategy from appearing as the best or in the others, useful eg. if
-// it has been determined to be unviable for the user (eg. they can't
-// afford the gas fee). useBestStrategy assumes the passed strategies
-// are sorted in the order of "best" to "worst". The returned
-// bestStrategy is equivalent to the passed strategies[i] for the min
-// index i where that strategies[i] hasn't been disabled by the client
-// calling disableStrategy(strategies[i]). useBestStrategy also
-// provides the client an API to select a specific strategy to
-// manually set as the best strategy. Note that disableStrategy takes
-// precedence over selectStrategy, so if a client calls both
-// selectStrategy(s) and disableStrategy(s), then s will be disabled
-// and not set as the best strategy.
+// "best" and "others" and provides the client an API to affect these
+// preferences. useBestStrategy assumes the passed strategies are sorted
+// in the order of "best" to "worst".
 export function useBestStrategy(strategies: Strategy[] | undefined): {
-  bestStrategy: Strategy | undefined;
-  otherStrategies: Strategy[] | undefined;
-  disableStrategy: (s: Strategy) => void;
-  selectStrategy: (s: Strategy) => void;
+  bestStrategy: Strategy | undefined; // the best strategy among the passed strategies. Eg. this is the strategy most suitable to plug into a 1-Click Pay Now button. If selectStrategy hasn't been called by the client, then bestStrategy is equivalent to the passed strategies[i] for the min index i where that strategies[i] hasn't been disabled by the client. NB disabling a strategy takes precedence over selecting a strategy, so if a strategy is selected but disabled, it will be disabled
+  otherStrategies: Strategy[] | undefined; // all strategies in the order they were passed, excluding bestStrategy and disabled strategies
+  disableAllStrategiesOriginatingFromChainId: (chainId: number) => void; // disable all strategies originating from the passed chainId
+  resetDisabledStrategiesOriginatingFromChainId: () => void; // reset disabled strategies
+  selectStrategy: (s: Strategy) => void; // select the passed strategy as the best strategy. The strategy's shape (currently TokenKey) will be stored internally, not the strategy itself, so if the passed strategies are regenerated and old strategies destroyed, useBestStrategy will attempt to find the same best strategy among the new strategies. For example, this stabilizes the selected strategy as exchange rates are regenerated
 } {
-  const [disabledStrategies, setDisabledStrategies] = useState<Map<Strategy, true>>(new Map());
-  const [disabledStrategiesNonce, setDisabledStrategiesNonce] = useState(0); // a nonce to trigger a rerender when we update the map valeus
-  const [selectedStrategy, setSelectedStrategy] = useState<Strategy | undefined>(undefined);
+  const [disabledChainIds, setDisabledChainIds] = useImmer<Set<number>>(new Set()); // strategies matching these chainIds will be disabled via excluding them from bestStrategy and otherStrategies
 
-  useEffect(() => {
-    setDisabledStrategies(new Map());
-    setSelectedStrategy(undefined)
-  }, [strategies, setDisabledStrategies, setSelectedStrategy]);
+  const [selectedStrategyKey, setSelectedStrategyKey] = useState<string | undefined>(undefined); // the selected strategy key is a string that uniquely identifies the shape of the client's selected strategy, allowing the selected strategy to be automatically reselected when strategies are regenerated. Example: user selects a strategy of paying ETH on zkSync, and then strategies regenerate so the selected Strategy is destroyed, and so the selectedStrategyKey will help find any new Strategy of paying ETH on zkSync, and this stabilizes the end-user UX so that their selected strategy doesn't change as strategies regenerate
 
-  const disableStrategy = useCallback<(s: Strategy) => void>((s: Strategy) => {
-    disabledStrategies.set(s, true);
-    setDisabledStrategiesNonce(n => n + 1);
-  }, [disabledStrategies, setDisabledStrategiesNonce]);
+  const doesStrategyMatchSelectedStrategyKey = useCallback<(s: Strategy) => boolean>((s: Strategy) => {
+    // WARNING this predicate and the selectedStrategyKey definition must be updated as we add new strategy types. For example, if the user selects an auto-bridging strategy, the selectedStrategyKey can't simply be the strategy's tokenKey as the tokenKey is for one token on one chain but an auto-bridging strategy is cross-chain and isn't uniquely identified by a single tokenKey
+    return getTokenKey(s.tokenTransfer.token) === selectedStrategyKey;
+  }, [selectedStrategyKey]);
 
   const bestStrategy = useMemo<Strategy | undefined>(() => {
-    if (strategies === undefined || disabledStrategiesNonce < 0) return undefined; // here we add the no-op "|| disabledStrategiesNonce < 0" to satisfy the react hook deps linter
-    else if (selectedStrategy !== undefined && !disabledStrategies.has(selectedStrategy)) return selectedStrategy;
-    else return strategies.find(s => !disabledStrategies.has(s));
-  }, [strategies, disabledStrategies, disabledStrategiesNonce, selectedStrategy]);
+    if (strategies === undefined) return undefined;
+    else {
+      const bestStrategyFromSelectedStrategyKey: Strategy | undefined = strategies.find((s) => doesStrategyMatchSelectedStrategyKey(s) && !disabledChainIds.has(s.tokenTransfer.token.chainId)); // in our API, disabling a strategy takes precedence over selecting one, and here we respect that
+      if (bestStrategyFromSelectedStrategyKey) return bestStrategyFromSelectedStrategyKey;
+      else return strategies.find((s) => !disabledChainIds.has(s.tokenTransfer.token.chainId));
+    }
+  }, [strategies, disabledChainIds, doesStrategyMatchSelectedStrategyKey]);
 
   const otherStrategies = useMemo<Strategy[] | undefined>(() => {
-    if (strategies === undefined || disabledStrategiesNonce < 0) return undefined; // here we add the no-op "|| disabledStrategiesNonce < 0" to satisfy the react hook deps linter
-    else return strategies.filter(s => s !== bestStrategy && !disabledStrategies.has(s));
-  }, [strategies, disabledStrategies, disabledStrategiesNonce, bestStrategy]);
+    if (strategies === undefined) return undefined;
+    else return strategies.filter(s => s !== bestStrategy && !disabledChainIds.has(s.tokenTransfer.token.chainId));
+  }, [strategies, disabledChainIds, bestStrategy]);
 
-  const selectStrategy = useCallback<(s: Strategy) => void>((s: Strategy) => {
-    setSelectedStrategy(s);
-  }, [setSelectedStrategy]);
+  const disableAllStrategiesOriginatingFromChainId = useCallback<(chainId: number) => void>((chainId: number) => {
+    setDisabledChainIds((draft) => draft.add(chainId));
+  }, [setDisabledChainIds]);
+
+  const resetDisabledStrategiesOriginatingFromChainId = useCallback<() => void>(() => {
+    setDisabledChainIds((draft) => draft.clear());
+  }, [setDisabledChainIds]);
+
+  const selectStrategy = useCallback<(s: Strategy) => void>((s: Strategy) => setSelectedStrategyKey(getTokenKey(s.tokenTransfer.token)), [setSelectedStrategyKey]); // WARNING see note in doesStrategyMatchSelectedStrategyKey on how the definition of selectedStrategyKey must be updated as we add new strategy types
 
   const ret = useMemo<ReturnType<typeof useBestStrategy>>(() => {
     return {
       bestStrategy,
       otherStrategies,
-      disableStrategy,
+      disableAllStrategiesOriginatingFromChainId,
+      resetDisabledStrategiesOriginatingFromChainId,
       selectStrategy,
     };
-  }, [bestStrategy, otherStrategies, disableStrategy, selectStrategy]);
+  }, [bestStrategy, otherStrategies, disableAllStrategiesOriginatingFromChainId, resetDisabledStrategiesOriginatingFromChainId, selectStrategy]);
+
   return ret;
 }

@@ -2,12 +2,14 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { CheckoutSettings, SenderNoteSettings } from "./CheckoutSettings";
 import { NonEmptyArray, ensureNonEmptyArray } from "./NonEmptyArray";
 import { PaymentMode, ProposedPayment } from "./Payment";
+import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import { StrategyPreferences } from "./StrategyPreferences";
 import { modifiedBase64Decode, modifiedBase64Encode } from "./base64";
 import { decrypt, encrypt, generateSignature, makeIv, makeSalt, verifySignature } from "./crypto";
 import { CheckoutSettingsEncrypted as CheckoutSettingsEncryptedPb, CheckoutSettings as CheckoutSettingsPb, CheckoutSettingsSigned as CheckoutSettingsSignedPb, LogicalAssetTicker as LogicalAssetTickerPb, MessageType as MessageTypePb, CheckoutSettings_PayWhatYouWant_PayWhatYouWantFlags as PayWhatYouWantFlagsPb, CheckoutSettings_PayWhatYouWant as PayWhatYouWantPb, CheckoutSettings_SenderNoteSettingsMode as SenderNoteSettingsModePb } from "./gen/threecities/v1/v1_pb";
 import { hasOwnProperty, hasOwnPropertyOfType } from "./hasOwnProperty";
 import { LogicalAssetTicker, allLogicalAssetTickers } from "./logicalAssets";
+import { toUppercase } from "./toUppercase";
 
 // TODO unit tests for serialization functions. Especially a test that generates random CheckoutSettings and uses CheckoutSettingsPb.equals() to verify the serialization->deserialization didn't change anything
 
@@ -25,7 +27,7 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
     };
   })();
 
-  const proposedPaymentLogicalAssetTicker: LogicalAssetTickerPb = LogicalAssetTickerPb[cs.proposedPayment.logicalAssetTicker];
+  const proposedPaymentLogicalAssetTickers: LogicalAssetTickerPb[] = [cs.proposedPayment.logicalAssetTickers.primary, ...cs.proposedPayment.logicalAssetTickers.secondaries].map(lat => LogicalAssetTickerPb[lat]);
 
   type ProposedPaymentPaymentMode = Exclude<typeof CheckoutSettingsPb.prototype.proposedPaymentPaymentMode, { case: undefined; value?: undefined }>;
   const proposedPaymentPaymentMode = ((): ProposedPaymentPaymentMode => {
@@ -90,9 +92,10 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
   })();
 
   return new CheckoutSettingsPb({
-    proposedPaymentReceiver: proposedPaymentReceiver,
-    proposedPaymentLogicalAssetTicker: proposedPaymentLogicalAssetTicker,
-    proposedPaymentPaymentMode: proposedPaymentPaymentMode,
+    checkoutSettingsMajorVersion: 1, // we serialize CheckoutSettings into our latest major version of protobuf messages, which is v1
+    proposedPaymentReceiver,
+    proposedPaymentLogicalAssetTickers,
+    proposedPaymentPaymentMode,
     ...(receiverStrategyPreferencesAcceptedTokenTickers && {
       receiverStrategyPreferencesAcceptedTokenTickers
     }),
@@ -107,6 +110,8 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
 
 function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
   try {
+    if (cspb.checkoutSettingsMajorVersion !== 1) throw new Error(`illegal serialization: checkoutSettingsMajorVersion is ${cspb.checkoutSettingsMajorVersion}, expected 1`); // NB in the future, when we add a 2nd protobuf messages major version, our canonical code path (ie. this function) will expect the latest major version, but if it detects an older major version, we'll dynamically load older deserialization code that's not included in the main app bundle, and then the old serialization will be deserialized into the latest version of CheckoutSettings
+
     const proposedPayment = ((): ProposedPayment => {
       const proposedPaymentReceiver: ProposedPayment['receiver'] = (() => {
         switch (cspb.proposedPaymentReceiver.case) { // NB we use switch instead of an if statement to get case exhaustivity checks in linter
@@ -116,13 +121,18 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
         }
       })();
 
-      const proposedPaymentLogicalAssetTicker = ((): LogicalAssetTicker => {
-        if (cspb.proposedPaymentLogicalAssetTicker === LogicalAssetTickerPb.UNSPECIFIED) throw new Error("illegal serialization: proposedPaymentLogicalAssetTicker is UNSPECIFIED");
-        else {
-          const unsafe: string = LogicalAssetTickerPb[cspb.proposedPaymentLogicalAssetTicker]; // WARNING although LogicalAssetTickerPb[LogicalAssetTickerPb.ETH] === "ETH", TypeScript is unable to infer that the type of LogicalAssetTickerPb[LogicalAssetTickerPb] is `keyof typeof LogicalAssetTickerPb` and instead the property access is of type `string`. So we isolate this type unsafety by verifying the value is a valid LogicalAssetTicker and then do an unsafe typecast
-          if (allLogicalAssetTickers.includes(unsafe as LogicalAssetTicker)) return unsafe as LogicalAssetTicker;
-          else throw new Error(`illegal serialization: proposedPaymentLogicalAssetTicker is not a valid LogicalAssetTicker. value was ${unsafe}`);
-        }
+      const proposedPaymentLogicalAssetTickers = ((): PrimaryWithSecondaries<LogicalAssetTicker> => {
+        const lats: LogicalAssetTicker[] = cspb.proposedPaymentLogicalAssetTickers.map((latpb, i) => {
+          if (latpb === LogicalAssetTickerPb.UNSPECIFIED) throw new Error(`illegal serialization: proposedPaymentLogicalAssetTickers[${i}] is UNSPECIFIED`);
+          else {
+            const unsafe: string = LogicalAssetTickerPb[latpb]; // WARNING although LogicalAssetTickerPb[LogicalAssetTickerPb.ETH] === "ETH", TypeScript is unable to infer that the type of LogicalAssetTickerPb[LogicalAssetTickerPb] is `keyof typeof LogicalAssetTickerPb` and instead the property access is of type `string`. So we isolate this type unsafety by verifying the value is a valid LogicalAssetTicker and then do an unsafe typecast
+            if (allLogicalAssetTickers.includes(unsafe as LogicalAssetTicker)) return unsafe as LogicalAssetTicker;
+            else throw new Error(`illegal serialization: proposedPaymentLogicalAssetTickers[${i}] is not a valid LogicalAssetTicker. value was ${unsafe}`);
+          }
+        });
+        const primary = lats[0];
+        if (primary === undefined) throw new Error(`illegal serialization: proposedPaymentLogicalAssetTickers is empty`);
+        else return new PrimaryWithSecondaries<LogicalAssetTicker>(primary, lats.slice(1));
       })();
 
       const proposedPaymentPaymentMode = ((): PaymentMode => {
@@ -154,7 +164,7 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
 
       return {
         receiver: proposedPaymentReceiver,
-        logicalAssetTicker: proposedPaymentLogicalAssetTicker,
+        logicalAssetTickers: proposedPaymentLogicalAssetTickers,
         paymentMode: proposedPaymentPaymentMode,
       } satisfies ProposedPayment;
     })();
@@ -164,8 +174,8 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
         const a = cspb.receiverStrategyPreferencesAcceptedTokenTickers;
         switch (a.case) { // NB we use switch instead of an if statement to get case exhaustivity checks in linter
           case undefined: return undefined;
-          case "receiverStrategyPreferencesAcceptedTokenTickersAllowlist": return { allowlist: new Set(tokenTickersNonEmptyArrayToFromString.from(a.value)) };
-          case "receiverStrategyPreferencesAcceptedTokenTickersDenylist": return { denylist: new Set(tokenTickersNonEmptyArrayToFromString.from(a.value)) };
+          case "receiverStrategyPreferencesAcceptedTokenTickersAllowlist": return { allowlist: new Set(tokenTickersNonEmptyArrayToFromString.from(a.value).map(toUppercase)) };
+          case "receiverStrategyPreferencesAcceptedTokenTickersDenylist": return { denylist: new Set(tokenTickersNonEmptyArrayToFromString.from(a.value).map(toUppercase)) };
         }
       })();
 

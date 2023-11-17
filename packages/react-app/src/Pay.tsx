@@ -1,3 +1,4 @@
+import { BigNumber } from "@ethersproject/bignumber";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaEye } from "react-icons/fa";
 import { Link } from "react-router-dom";
@@ -7,6 +8,7 @@ import { useAccount } from "wagmi";
 import { CheckoutSettings } from "./CheckoutSettings";
 import { CheckoutSettingsRequiresPassword, isCheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
 import { ConnectWalletButton } from "./ConnectWalletButton";
+import { ExchangeRates, convert } from "./ExchangeRates";
 import { Payment, ProposedPaymentWithFixedAmount, ProposedPaymentWithReceiverAddress, acceptProposedPayment, isProposedPaymentWithFixedAmount } from "./Payment";
 import QRCode from "./QRCode";
 import { RenderLogicalAssetAmount, renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
@@ -15,6 +17,8 @@ import { RenderTokenTransfer } from "./RenderTokenTransfer";
 import { ToggleSwitch } from "./ToggleSwitch";
 import { getBlockExplorerUrlForAddress, getBlockExplorerUrlForTransaction } from "./blockExplorerUrls";
 import { getChain, getSupportedChainName } from "./chains";
+import { LogicalAssetTicker } from "./logicalAssets";
+import { getLogicalAssetTickerForTokenOrNativeCurrencyTicker } from "./logicalAssetsToTokens";
 import { Strategy, getProposedStrategiesForProposedPayment, getStrategiesForPayment } from "./strategies";
 import { TokenTransfer } from "./tokenTransfer";
 import { getTokenKey } from "./tokens";
@@ -24,6 +28,7 @@ import { useActiveDemoAccount } from "./useActiveDemoAccount";
 import { useBestStrategy } from "./useBestStrategy";
 import { useCheckoutSettings } from "./useCheckoutSettings";
 import { useConnectedAccountContext } from "./useConnectedAccountContext";
+import { useExchangeRates } from "./useExchangeRates";
 import { useInput } from "./useInput";
 import { useProposedPaymentReceiverAddressAndEnsName } from "./useProposedPaymentReceiverAddressAndEnsName";
 
@@ -196,16 +201,18 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     <span className="text-sm text-center">Please <span className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker" onClick={setCopied}>copy error</span> and<br />paste in a DM to <a href="https://twitter.com/3cities_xyz" target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker">@3cities_xyz</a></span>
   </div> : undefined, [statusIsError, doReset, isErrorCopied, setCopied]);
 
-  const strategies = useMemo<Strategy[] | undefined>(() => {
-    if (payment && ac) return getStrategiesForPayment(checkoutSettings.receiverStrategyPreferences, payment, ac);
-    else return undefined;
-  }, [checkoutSettings.receiverStrategyPreferences, payment, ac]);
+  const exchangeRates: ExchangeRates | undefined = useExchangeRates();
 
-  const { bestStrategy, otherStrategies, disableStrategy, selectStrategy } = useBestStrategy(strategies);
+  const strategies = useMemo<Strategy[] | undefined>(() => {
+    if (payment && ac) return getStrategiesForPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, payment, ac);
+    else return undefined;
+  }, [checkoutSettings.receiverStrategyPreferences, payment, ac, exchangeRates]);
+
+  const { bestStrategy, otherStrategies, disableAllStrategiesOriginatingFromChainId, selectStrategy } = useBestStrategy(strategies);
 
   const receiverAddressBlockExplorerLink: string | undefined = (() => {
     if (proposedPaymentWithReceiverAddress) {
-      const pss = getProposedStrategiesForProposedPayment(checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment);
+      const pss = getProposedStrategiesForProposedPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment);
       return getBlockExplorerUrlForAddress((status?.activeTokenTransfer || bestStrategy?.tokenTransfer || pss[0]?.proposedTokenTransfer)?.token.chainId, proposedPaymentWithReceiverAddress.receiver.address); // the idea here is we'll show an explorer link for the chain that's most relevant to the payment
     }
     else return undefined;
@@ -226,10 +233,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
 
   useEffect(() => {
     if (strategies !== undefined && status?.error !== undefined && (status.error instanceof TransactionFeeUnaffordableError)) {
-      // here, the user can't afford to pay the transaction fee for the active token transfer, so we'll disable the strategy. We'll also disable all other strategies for the same chainId under the assumption that if the user can't afford this strategy, they can't afford any other strategies on that same chain. WARNING this assumption is untrue in the case where a user can't afford an erc20 transfer but could afford the cheaper native currency transfer.
-      strategies.forEach(s => {
-        if (s.tokenTransfer.token.chainId === status.activeTokenTransfer.token.chainId) disableStrategy(s);
-      });
+      disableAllStrategiesOriginatingFromChainId(status.activeTokenTransfer.token.chainId); // here, the user can't afford to pay the transaction fee for the active token transfer, so we'll disable all strategies for the same chainId under the assumption that if the user can't afford this strategy, they can't afford any other strategies on that same chain. WARNING this assumption is untrue in the case where a user can't afford an erc20 transfer but could afford the cheaper native currency transfer. WARNING currently, we never un-disable a chainId, so if the user becomes able to afford the transaction fee on this chain, 3cities will not currently auto-detect that. Today, the page must be reloaded to clear these disabled strategies.
       if (!feeUnaffordableToastDisplayedForCurrentStrategy && (status.buttonClickedAtLeastOnce || userSelectedCurrentStrategy)) {
         // here we have just disabled a strategy because the user can't afford to pay the transaction fee, but the user also clicked a button for this strategy at least once (either the 'pay now' button or selecting this strategy from the payment method screeen), so we are removing a strategy they interacted with, so we'll show a helpful indicator to make this less jarring.
         setFeeUnaffordableToastDisplayedForCurrentStrategy(true); // here, we flag the current strategy as having already displayed a "fee unaffordable" toast. This avoids a race condition where if both `status.buttonClickedAtLeastOnce` and `userSelectedCurrentStrategy` are both true, we'll display the toast twice because this effect is re-run when userSelectedCurrentStrategy is set to false before the next strategy has updated its initial status. An alternative to this flag would be the exclude userSelectedCurrentStrategy from this useEffect's dependencies, but I'd rather not do that because there's no eslint flag to disable a single dependency and I don't want to disable exhaustive dependencies for the entire hook as it's dangerous.
@@ -242,7 +246,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         });
       }
     }
-  }, [strategies, disableStrategy, status?.error, status?.activeTokenTransfer, status?.buttonClickedAtLeastOnce, userSelectedCurrentStrategy, feeUnaffordableToastDisplayedForCurrentStrategy, setFeeUnaffordableToastDisplayedForCurrentStrategy]);
+  }, [strategies, disableAllStrategiesOriginatingFromChainId, status?.error, status?.activeTokenTransfer, status?.buttonClickedAtLeastOnce, userSelectedCurrentStrategy, feeUnaffordableToastDisplayedForCurrentStrategy, setFeeUnaffordableToastDisplayedForCurrentStrategy]);
 
   const canSelectNewStrategy: boolean = !( // user may select a new strategy (ie payment method) unless...
     (status?.userSignedTransaction // the user signed the transaction
@@ -340,9 +344,45 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     <div className="p-4 grid grid-cols-2 w-full border-b border-x border-gray-300 bg-white rounded-b-md">
       <span className="font-bold text-lg">Total:</span>
       <span className="font-bold text-lg text-right"><RenderLogicalAssetAmount
-        logicalAssetTicker={proposedPaymentWithFixedAmount.logicalAssetTicker}
+        logicalAssetTicker={proposedPaymentWithFixedAmount.logicalAssetTickers.primary}
         amountAsBigNumberHexString={proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString}
       /></span>
+      {(() => {
+        // We'll display a supplementary logical asset amount below the primary logical asset amount. This helps the user understand the USD equivalent of their non-USD payment, or the non-USD equivalent for a USD payment if they're not paying USD. NB here we have a USD bias in that if the payment's primary logical asset is not USD, we always attempt to show its USD equivalent. But if the payment's primary logical asset is USD, we show nothing unless the active token transfer is for another logical asset, in which case we show that logical asset's equivalent amount. This asymmetry (USD bias) is because most users seem to prefer USD.
+        type OtherLogicalAssetAmountToDisplay = {
+          lat: LogicalAssetTicker;
+          amount: bigint;
+        }
+        const otherLogicalAssetAmountToDisplay: OtherLogicalAssetAmountToDisplay | 'preserve space' | 'collapse space' = (() => {
+          if (proposedPaymentWithFixedAmount.logicalAssetTickers.primary === 'USD') {
+            const activeTokenTransfer: TokenTransfer | undefined = status?.activeTokenTransfer;
+            if (activeTokenTransfer === undefined) return 'collapse space';
+            else {
+              const activeTokenTransferLat: LogicalAssetTicker | undefined = getLogicalAssetTickerForTokenOrNativeCurrencyTicker(activeTokenTransfer.token.ticker);
+              if (activeTokenTransferLat && activeTokenTransferLat !== 'USD') {
+                const activeTokenTransferLatAmount: bigint | undefined = convert({ er: exchangeRates, fromTicker: 'USD', toTicker: activeTokenTransferLat, fromAmount: BigNumber.from(proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString).toBigInt() });
+                if (activeTokenTransferLatAmount !== undefined) return {
+                  lat: activeTokenTransferLat,
+                  amount: activeTokenTransferLatAmount,
+                }; else return 'preserve space';
+              } else return 'collapse space';
+            }
+          } else {
+            const usdAmount: bigint | undefined = convert({ er: exchangeRates, fromTicker: proposedPaymentWithFixedAmount.logicalAssetTickers.primary, toTicker: 'USD', fromAmount: BigNumber.from(proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString).toBigInt() });
+            if (usdAmount !== undefined) return {
+              lat: 'USD',
+              amount: usdAmount,
+            }; else return 'preserve space';
+          }
+        })();
+        return otherLogicalAssetAmountToDisplay !== 'collapse space' ? <>
+          <span></span> {/* empty span to align grid cols*/}
+          <span className="text-lg text-gray-500 text-right">{otherLogicalAssetAmountToDisplay !== 'preserve space' ? <RenderLogicalAssetAmount
+            logicalAssetTicker={otherLogicalAssetAmountToDisplay.lat}
+            amountAsBigNumberHexString={BigNumber.from(otherLogicalAssetAmountToDisplay.amount).toHexString()}
+          /> : <span>&nbsp;</span>}</span>
+        </> : undefined;
+      })()}
     </div>
     {bestStrategy !== undefined && <div className="py-4 w-full">
       <div className="font-bold text-lg">Payment method</div>
@@ -357,11 +397,11 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         </button>({otherStrategies.length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment methods)</span>}
       </div>
     </div>}
-  </div>, [isConnected, checkoutSettings.note, proposedPaymentWithFixedAmount.logicalAssetTicker, proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod]);
+  </div>, [isConnected, checkoutSettings.note, proposedPaymentWithFixedAmount.logicalAssetTickers, proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, exchangeRates, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod]);
 
   const acceptedTokensAndChainsBox: false | JSX.Element = useMemo(() => checkoutReadinessState === 'senderHasNoPaymentOptions' && <div className="w-full">
     {(() => {
-      const pss = getProposedStrategiesForProposedPayment(checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment);
+      const pss = getProposedStrategiesForProposedPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment);
       const allStrategiesTokenTickers: string[] = [... new Set(pss.map(ps => ps.proposedTokenTransfer.token.ticker))];
       const allStrategiesChainIds: number[] = [... new Set(pss.map(ps => ps.proposedTokenTransfer.token.chainId))];
       return <>
@@ -371,7 +411,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         <div className="p-2 border border-gray-300 bg-white rounded-b-md">{allStrategiesChainIds.map(getSupportedChainName).join(", ")}</div>
       </>;
     })()}
-  </div>, [checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment, checkoutReadinessState]);
+  </div>, [checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment, checkoutReadinessState, exchangeRates]);
 
   const selectPaymentMethodScreen: false | JSX.Element = useMemo(() => bestStrategy !== undefined && otherStrategies !== undefined && otherStrategies.length > 0 && <div className={`grid grid-cols-1 w-full items-center py-6 ${selectingPaymentMethod ? '' : 'hidden'}`}>
     <div className="font-bold text-2xl">Select a payment method</div>
@@ -408,7 +448,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   const paymentSuccessfulBaseText: string = (() => {
     if (status?.isSuccess) {
       return `Hey, I paid you ${renderLogicalAssetAmount({
-        logicalAssetTicker: proposedPaymentWithFixedAmount.logicalAssetTicker,
+        logicalAssetTicker: proposedPaymentWithFixedAmount.logicalAssetTickers.primary,
         amountAsBigNumberHexString: proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString,
       })}${checkoutSettings.note ? ` for ${checkoutSettings.note}` : ''} using 3cities.xyz`;
     } else return ' ';

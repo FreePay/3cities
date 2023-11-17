@@ -5,6 +5,7 @@ import { Optional } from './Optional';
 import { NativeCurrency, Token, isToken } from "./Token";
 import { allSupportedChainIds, arbitrumNova, lineaTestnet, polygonZkEvm, taikoTestnet, zkSync, zkSyncTestnet } from "./chains";
 import { isProduction } from "./isProduction";
+import { toUppercase } from './toUppercase';
 
 // ***************************************************************
 const isTestShorterListOfTokens = false; // WARNING test flag to be manually toggled during develpment to cull the list of supported tokens down to a minimal set for testing purposes
@@ -317,8 +318,8 @@ const tokensByTokenKey: Readonly<{ [tk: TokenKey]: NativeCurrency | Token }> = (
 // tokensByTicker is a look-up table of the set of canonical
 // Token/NativeCurrency instances for each token ticker. Eg.
 // tokensByTicker['DAI'] = [/* DAI instances on all chains */]
-export const tokensByTicker: Readonly<{ [ticker: string]: NonEmptyArray<NativeCurrency | Token> }> = (() => {
-  const r: { [ticker: string]: NonEmptyArray<NativeCurrency | Token> } = {};
+export const tokensByTicker: Readonly<{ [ticker: Uppercase<string>]: NonEmptyArray<NativeCurrency | Token> }> = (() => {
+  const r: { [ticker: Uppercase<string>]: NonEmptyArray<NativeCurrency | Token> } = {};
   for (const nc of nativeCurrencies) {
     const e = r[nc.ticker];
     if (e === undefined) r[nc.ticker] = [nc];
@@ -333,7 +334,7 @@ export const tokensByTicker: Readonly<{ [ticker: string]: NonEmptyArray<NativeCu
 })();
 
 // allTokenTickers is the set of all token tickers we support
-export const allTokenTickers = Object.keys(tokensByTicker);
+export const allTokenTickers: Uppercase<string>[] = Object.keys(tokensByTicker).map(toUppercase); // here we must map toUppercase because Object.keys loses the type information that tokensByTicker tickers are Uppercase<string>
 
 // getTokenByTokenKey returns a NativeCurrency or Token for the passed
 // TokenKey. For convenience, getTokenByTokenKey is a partial function
@@ -345,19 +346,6 @@ export function getTokenByTokenKey(tk: TokenKey): NativeCurrency | Token {
   const t = tokensByTokenKey[tk];
   if (t === undefined) throw new Error(`getTokenByTokenKey: unknown TokenKey: ${tk}`);
   return t;
-}
-
-// getDecimalsToRenderForTokenTicker returns the canonical number of
-// digits after the decimal point to render for a token based on its
-// passed ticker.
-export function getDecimalsToRenderForTokenTicker(ticker: string): number {
-  switch (ticker) {
-    case ETH.ticker: return 4;
-    case DAI.ticker: return 2;
-    case USDC.ticker: return 2;
-    case USDT.ticker: return 2;
-  }
-  return 2;
 }
 
 // TODO debug facility that scans all chain Ids, all token tickers, and prints out to console which tokens are missing on which chains, including native currencies (as I accidentally once omitted a native currency). This would be a good one for conditional compilation using macros.
