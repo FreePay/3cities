@@ -141,11 +141,14 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
 
   // NB when using redirect URLs and webhooks, there are at least three reasonable ways to help a receiver/seller distinguish distinct senders/buyers using the same pay link: 1. pass-through url params, 2. checkoutSettings.reference, 3. embedded pay link using iframe message passing to receive the host page url and including it here (and then the host page url would need to have uniquely identifiable information for the distinct sender/buyer). And if the receiver/seller uses one pay link per buyer, the seller can then store the pay links in a DB and we can submit the pay link.
 
-  useEffect(() => { // redirect on success iff checkoutSettings is setup to redirect. TODO support pass-through url params where arbitrary url params on the pay link are auto-forwarded to the redirect url
+  const successRedirectOnClick: (() => void) | undefined = useMemo(() => { // successRedirectOnClick is defined iff the payment has been successful and a redirect now needs to be executed, in which case successRedirectOnClick itself is the onClick function for a button executing this redirect
     if (statusIsSuccess && checkoutSettings.successRedirect) {
-      if (checkoutSettings.successRedirect.openInNewTab) window.open(checkoutSettings.successRedirect.url, '_blank');
-      else window.location.href = checkoutSettings.successRedirect.url;
-    }
+      const sr = checkoutSettings.successRedirect;
+      return () => { // TODO support pass-through url params where arbitrary url params on the pay link are auto-forwarded to the redirect url
+        if (sr.openInNewTab) window.open(sr.url, '_blank');
+        else window.location.href = sr.url;
+      };
+    } else return undefined;
   }, [checkoutSettings.successRedirect, statusIsSuccess]);
 
   useEffect(() => { // call webhook on success iff checkoutSettings has a webhook
@@ -485,7 +488,12 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     >
       Payment Successful ✅
     </button>
-    <button
+    {successRedirectOnClick !== undefined ? <button
+      type="button"
+      className="rounded-md p-3.5 font-medium bg-primary text-white sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer w-full"
+      onClick={successRedirectOnClick}>
+      {checkoutSettings.successRedirect?.callToAction || 'Continue'}
+    </button> : <button
       type="button"
       className="rounded-md p-3.5 font-medium bg-primary text-white sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer w-full"
       disabled={isPaymentSuccessfulShareCopied} onClick={() => {
@@ -493,12 +501,12 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         else setIsPaymentSuccessfulShareCopied();
       }}>
       {isPaymentSuccessfulShareCopied ? 'Copied!' : `${canShare ? 'Share' : 'Copy'} Receipt`}
-    </button>
+    </button>}
     {paymentSuccessfulBlockExplorerReceiptLink && <div className="flex flex-col justify-center items-center gap-2">
       <QRCode data={paymentSuccessfulBlockExplorerReceiptLink} />
       <span>Scan code for <a href={paymentSuccessfulBlockExplorerReceiptLink} target="_blank" rel="noopener noreferrer" className="text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer"> receipt</a></span>
     </div>}
-    <div className="grid grid-cols-1 w-full items-center gap-4">
+    {/* here we hide the "Send a new Pay Link" button only if a redirect call-to-action exists because we don't want to distract users away from completing the redirect */ successRedirectOnClick === undefined ? <div className="grid grid-cols-1 w-full items-center gap-4">
       <Link to="/pay-link">
         <button
           type="button"
@@ -506,7 +514,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
           Send a new Pay Link
         </button>
       </Link>
-    </div>
+    </div> : undefined}
 
   </div> : undefined;
 

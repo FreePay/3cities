@@ -104,6 +104,7 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
     ...(senderNoteSettingsMode && { senderNoteSettingsMode }),
     ...(senderNoteSettingsInstructions && { senderNoteSettingsInstructions }),
     ...(successRedirectUrl && { successRedirectUrl }),
+    ...(cs.successRedirect?.callToAction && { successRedirectCallToAction: cs.successRedirect?.callToAction }),
     ...(cs.webhookUrl && { webhookUrl: cs.webhookUrl }),
   });
 }
@@ -210,14 +211,18 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
     const note: string | undefined = cspb.note.length > 0 ? cspb.note : undefined;
 
     const successRedirect = ((): CheckoutSettings['successRedirect'] | undefined => {
-      if (cspb.successRedirectUrl.length < 1) return undefined;
-      else {
+      if (cspb.successRedirectUrl.length < 1) {
+        if (cspb.successRedirectCallToAction.length > 0) throw new Error(`illegal serialization: successRedirectCallToAction is non-empty when successRedirectUrl is empty`);
+        else return undefined;
+      } else {
         if (cspb.successRedirectUrl.startsWith(successRedirectUrlOpenInNewTabSentinelChar)) return { // NB see note on successRedirectUrlOpenInNewTabSentinelChar
           url: cspb.successRedirectUrl.slice(1),
           openInNewTab: true,
+          ...(cspb.successRedirectCallToAction.length > 0 && { callToAction: cspb.successRedirectCallToAction }),
         }; else return {
           url: cspb.successRedirectUrl,
           openInNewTab: false,
+          ...(cspb.successRedirectCallToAction.length > 0 && { callToAction: cspb.successRedirectCallToAction }),
         };
       }
     })();

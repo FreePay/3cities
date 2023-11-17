@@ -107,9 +107,11 @@ message CheckoutSettings {
   SenderNoteSettingsMode sender_note_settings_mode = 16; // optional. Specifies whether the sender/buyer may optionally or must provide a note to the receiver/seller. If omitted, then sender may not provide a note. Deserialized as CheckoutSettings.senderNoteSettings.mode
   string sender_note_settings_instructions = 17; // optional if sender_note_settings_mode is non-empty (ie. optional iff mode is 'optional' or 'required'). Must be omitted if sender_note_settings_mode is omitted (ie. must be omitted iff mode is 'none'). Human-readable instructions for sender/buyer as to what sender note may/must be provided. Eg. "Please enter your full name". Deserialized as CheckoutSettings.senderNoteSettings.instructions
 
-  string success_redirect_url = 18; // optional. URL to redirect to after successful checkout. If this URL begins with a tilde "~", the redirect will be opened in a new tab. Deserialized as CheckoutSettings.successRedirect
+  string success_redirect_url = 18; // optional. URL to redirect to after successful checkout. If this URL begins with a tilde "~", the redirect will be opened in a new tab. Deserialized as CheckoutSettings.successRedirect.{url,openInNewTab}
 
-  string webhook_url = 19; // optional. Webhook URL to call when checkout events occur, eg. on checkout success. Deserialized as CheckoutSettings.webhookUrl
+  string success_redirect_call_to_action = 19; // optional if success_redirect_url is non-empty, otherwise must be omitted. Human-readable call to action to prompt the sender/buyer to click a button to trigger the success redirect, as redirects must be triggered by user actions or be suppressed by the browser as spam. Deserialized as CheckoutSettings.successRedirect.callToAction
+
+  string webhook_url = 20; // optional. Webhook URL to call when checkout events occur, eg. on checkout success. Deserialized as CheckoutSettings.webhookUrl
 }
 
 // MessageType is an enum to help clients differentiate between
