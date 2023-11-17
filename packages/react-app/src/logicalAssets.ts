@@ -108,7 +108,7 @@ export function convertLogicalAssetUnits(logicalAssetAmount: BigNumber, newDecim
 // on its passed ticker.
 export function getDecimalsToRenderForLogicalAssetTicker(lat: LogicalAssetTicker): number {
   switch (lat) {
-    case 'ETH': return 4;
+    case 'ETH': return 5; // with 5 decimals, the smallest renderable value is 0.00001 ETH which is about $0.02 with USD/ETH at $2k
     case 'USD': return 2;
     case 'CAD': return 2;
     case 'EUR': return 2;
