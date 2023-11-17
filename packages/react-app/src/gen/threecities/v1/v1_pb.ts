@@ -224,16 +224,23 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
   senderNoteSettingsInstructions = "";
 
   /**
-   * optional. URL to redirect to after successful checkout. If this URL begins with a tilde "~", the redirect will be opened in a new tab. Deserialized as CheckoutSettings.successRedirect
+   * optional. URL to redirect to after successful checkout. If this URL begins with a tilde "~", the redirect will be opened in a new tab. Deserialized as CheckoutSettings.successRedirect.{url,openInNewTab}
    *
    * @generated from field: string success_redirect_url = 18;
    */
   successRedirectUrl = "";
 
   /**
+   * optional if success_redirect_url is non-empty, otherwise must be omitted. Human-readable call to action to prompt the sender/buyer to click a button to trigger the success redirect, as redirects must be triggered by user actions or be suppressed by the browser as spam. Deserialized as CheckoutSettings.successRedirect.callToAction
+   *
+   * @generated from field: string success_redirect_call_to_action = 19;
+   */
+  successRedirectCallToAction = "";
+
+  /**
    * optional. Webhook URL to call when checkout events occur, eg. on checkout success. Deserialized as CheckoutSettings.webhookUrl
    *
-   * @generated from field: string webhook_url = 19;
+   * @generated from field: string webhook_url = 20;
    */
   webhookUrl = "";
 
@@ -259,7 +266,8 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
     { no: 16, name: "sender_note_settings_mode", kind: "enum", T: proto3.getEnumType(CheckoutSettings_SenderNoteSettingsMode) },
     { no: 17, name: "sender_note_settings_instructions", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 18, name: "success_redirect_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 19, name: "webhook_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 19, name: "success_redirect_call_to_action", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 20, name: "webhook_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CheckoutSettings {

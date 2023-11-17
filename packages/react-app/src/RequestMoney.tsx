@@ -295,6 +295,14 @@ export const RequestMoney: React.FC = () => {
   }), []);
   const successRedirectUrlInputOpts = useMemo<Parameters<typeof useInput>[2]>(() => ({ onEnterKeyPress: (e) => e.currentTarget.blur() }), []);
   const [successRedirectUrl, successRedirectUrlInput, setSuccessRedirectUrl] = useInput("", successRedirectUrlInputAttrs, successRedirectUrlInputOpts);
+  const successRedirectCallToActionInputAttrs = useMemo<Parameters<typeof useInput>[1]>(() => ({
+    name: "successRedirectCallToAction",
+    type: "text",
+    className: "w-full rounded-md border px-3.5 py-2 leading-6",
+    placeholder: "Redirect call to action",
+    autoComplete: "off",
+  }), []);
+  const [successRedirectCallToAction, successRedirectCallToActionInput, setSuccessRedirectCallToAction] = useInput("", successRedirectCallToActionInputAttrs, successRedirectUrlInputOpts);
 
   const webhookUrlInputAttrs = useMemo<Parameters<typeof useInput>[1]>(() => ({
     name: "webhookUrl",
@@ -313,9 +321,10 @@ export const RequestMoney: React.FC = () => {
       setPassword('');
       setSuccessRedirectOpenInNewTab(true);
       setSuccessRedirectUrl('');
+      setSuccessRedirectCallToAction('');
       setWebhookUrl('');
     }
-  }, [showAdvancedOptions, setPrivacyAndSecurityMode, setShowPassword, setPassword, setSuccessRedirectUrl, setWebhookUrl]);
+  }, [showAdvancedOptions, setPrivacyAndSecurityMode, setShowPassword, setPassword, setSuccessRedirectUrl, setSuccessRedirectCallToAction, setWebhookUrl]);
 
   const checkoutSettings = useMemo<CheckoutSettings | undefined>(() => {
     if (
@@ -338,12 +347,13 @@ export const RequestMoney: React.FC = () => {
           successRedirect: {
             url: successRedirectUrl,
             openInNewTab: successRedirectOpenInNewTab,
+            ...(successRedirectCallToAction.trim().length > 0 && { callToAction: successRedirectCallToAction.trim() }),
           },
         }),
         ...(webhookUrl.length > 0 && { webhookUrl }),
       } satisfies CheckoutSettings;
     } else return undefined;
-  }, [primaryLogicalAssetTicker, secondaryLogicalAssetTickers, amount, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password, successRedirectUrl, successRedirectOpenInNewTab, webhookUrl]);
+  }, [primaryLogicalAssetTicker, secondaryLogicalAssetTickers, amount, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password, successRedirectUrl, successRedirectCallToAction, successRedirectOpenInNewTab, webhookUrl]);
 
   const { value: serializedCheckoutSettings, isLoading: serializedCheckoutSettingsIsLoading } = useAsyncMemo<string | undefined>(async () => {
     if (checkoutSettings) {
@@ -695,6 +705,7 @@ export const RequestMoney: React.FC = () => {
       <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-4">
         <span className="w-full font-semibold">Redirect after paying</span>
         {successRedirectUrlInput}
+        {successRedirectCallToActionInput}
         <div className="w-full flex justify-start items-center gap-2">
           <span className="grow font-semibold">Redirect in new tab</span>
           <ToggleSwitch initialIsOn={successRedirectOpenInNewTab} onToggle={setSuccessRedirectOpenInNewTab} offClassName="text-gray-500" className="font-bold text-2xl" />

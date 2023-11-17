@@ -28,6 +28,7 @@ export type CheckoutSettings = Readonly<{
   successRedirect?: {
     url: string; // url to redirect to after successful checkout
     openInNewTab: boolean; // the redirect will open in a new tab iff this is set
+    callToAction?: string; // human-readable call to action to prompt the sender/buyer to click a button to trigger the success redirect, as redirects must be triggered by user actions or be suppressed by the browser as spam. Example: "Let Joe know you paid"
   }
   webhookUrl?: string; // webhook url to call when checkout events occur, eg. on checkout success
 }>
