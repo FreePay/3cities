@@ -31,6 +31,7 @@ import { useConnectedAccountContext } from "./useConnectedAccountContext";
 import { useExchangeRates } from "./useExchangeRates";
 import { useInput } from "./useInput";
 import { useProposedPaymentReceiverAddressAndEnsName } from "./useProposedPaymentReceiverAddressAndEnsName";
+import { applyVariableSubstitutions } from "./variableSubstitutions";
 
 // TODO add a big "continue" button at bottom of "select payment method" because if you don't want to change the method, it's unclear that you have to click on the current method. --> see the "continue" button at bottom of Amazon's payment method selection during mobile checkout.
 
@@ -138,18 +139,6 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   const [status, setStatus] = useState<ExecuteTokenTransferButtonStatus | undefined>(undefined);
   const statusIsError = status?.isError === true; // local var for use as a hook dependency to prevent unnecessary rerenders when this bool goes from undefined to false
   const statusIsSuccess = status?.isSuccess === true; // local var for use as a hook dependency to prevent unnecessary rerenders when this bool goes from undefined to false
-
-  // NB when using redirect URLs and webhooks, there are at least three reasonable ways to help a receiver/seller distinguish distinct senders/buyers using the same pay link: 1. pass-through url params, 2. checkoutSettings.reference, 3. embedded pay link using iframe message passing to receive the host page url and including it here (and then the host page url would need to have uniquely identifiable information for the distinct sender/buyer). And if the receiver/seller uses one pay link per buyer, the seller can then store the pay links in a DB and we can submit the pay link.
-
-  const successRedirectOnClick: (() => void) | undefined = useMemo(() => { // successRedirectOnClick is defined iff the payment has been successful and a redirect now needs to be executed, in which case successRedirectOnClick itself is the onClick function for a button executing this redirect
-    if (statusIsSuccess && checkoutSettings.successRedirect) {
-      const sr = checkoutSettings.successRedirect;
-      return () => { // TODO support pass-through url params where arbitrary url params on the pay link are auto-forwarded to the redirect url
-        if (sr.openInNewTab) window.open(sr.url, '_blank');
-        else window.location.href = sr.url;
-      };
-    } else return undefined;
-  }, [checkoutSettings.successRedirect, statusIsSuccess]);
 
   useEffect(() => { // call webhook on success iff checkoutSettings has a webhook
     if (statusIsSuccess && checkoutSettings.webhookUrl
@@ -447,6 +436,21 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     if (!status?.isSuccess) return undefined;
     else return getBlockExplorerUrlForTransaction(status.activeTokenTransfer.token.chainId, status.successData.transactionHash);
   })();
+
+  // NB when using redirect URLs and webhooks, there are at least three reasonable ways to help a receiver/seller distinguish distinct senders/buyers using the same pay link: 1. pass-through url params, 2. checkoutSettings.reference, 3. embedded pay link using iframe message passing to receive the host page url and including it here (and then the host page url would need to have uniquely identifiable information for the distinct sender/buyer). And if the receiver/seller uses one pay link per buyer, the seller can then store the pay links in a DB and we can submit the pay link.
+
+  const successRedirectOnClick: (() => void) | undefined = useMemo(() => { // successRedirectOnClick is defined iff the payment has been successful and a redirect now needs to be executed, in which case successRedirectOnClick itself is the onClick function for a button executing this redirect
+    if (statusIsSuccess && checkoutSettings.successRedirect) {
+      const srd = checkoutSettings.successRedirect;
+      const urlWithVariableSubstitutions = applyVariableSubstitutions(srd.url, {
+        R: encodeURIComponent(paymentSuccessfulBlockExplorerReceiptLink || ''),
+      });
+      return () => { // TODO support pass-through url params where arbitrary url params on the pay link are auto-forwarded to the redirect url
+        if (srd.openInNewTab) window.open(urlWithVariableSubstitutions, '_blank');
+        else window.location.href = urlWithVariableSubstitutions;
+      };
+    } else return undefined;
+  }, [checkoutSettings.successRedirect, statusIsSuccess, paymentSuccessfulBlockExplorerReceiptLink]);
 
   const paymentSuccessfulBaseText: string = (() => {
     if (status?.isSuccess) {
