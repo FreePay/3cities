@@ -76,12 +76,12 @@ export function convert(params: { er: ExchangeRates | undefined; fromTicker: Upp
     else {
       // here we apply the rate to execute the conversion, using bigints to avoid loss of precision. But, we want to ensure that any result decimals that may be truncated are instead rounded:
       const rateStr = rate.toString();
-      const decimalIndex = rateStr.indexOf('.');
-      const scale: bigint = decimalIndex > -1 ? BigInt(rateStr.length - decimalIndex - 1) : 0n;
+      const decimalIndex: bigint = BigInt(rateStr.indexOf('.'));
+      const scale: bigint = decimalIndex > -1n ? BigInt(BigInt(rateStr.length) - decimalIndex - 1n) : 0n;
       const rateBigInt: bigint = BigInt(rateStr.replace('.', ''));
       const resultMayNeedScaling: bigint = fromAmount * rateBigInt;
       if (scale > 0) {
-        const halfScale = 10n ** (scale - 1n); // "The technique of adding half of the scale before dividing is a common way to achieve rounding in integer division. It's based on the idea that adding half of the divisor (the scale in this case) to the dividend will push the quotient over the threshold to the next integer if the remainder of the division is more than half of the divisor."
+        const halfScale: bigint = 10n ** (scale - 1n); // "The technique of adding half of the scale before dividing is a common way to achieve rounding in integer division. It's based on the idea that adding half of the divisor (the scale in this case) to the dividend will push the quotient over the threshold to the next integer if the remainder of the division is more than half of the divisor."
         const resultScaled: bigint = (resultMayNeedScaling + halfScale) / (10n ** scale);
         return resultScaled;
       } else return resultMayNeedScaling;
