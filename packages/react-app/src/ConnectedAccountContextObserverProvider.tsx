@@ -6,10 +6,10 @@ import { AddressContext, emptyAddressContext } from './AddressContext';
 import { ConnectedAccountContextObserverContext } from './ConnectedAccountContextObserverContext';
 import { NativeCurrency, Token } from './Token';
 import { TokenBalance, isDust } from './TokenBalance';
+import { ObservableValueUpdater, makeObservableValue } from './observer';
+import { getTokenKey, nativeCurrencies, tokens } from './tokens';
 import { useLiveNativeCurrencyBalance } from './useLiveNativeCurrencyBalance';
 import { useLiveTokenBalance } from './useLiveTokenBalance';
-import { ObservableValue, ObservableValueUpdater, makeObservableValue } from './observer';
-import { getTokenKey, nativeCurrencies, tokens } from './tokens';
 
 type ConnectedAccountContextObserverProviderProps = {
   children?: React.ReactNode;
@@ -26,7 +26,7 @@ export const ConnectedAccountContextObserverProvider: React.FC<ConnectedAccountC
     <ConnectedAccountContextObserverContext.Provider value={ov.observer}>
       {children}
     </ConnectedAccountContextObserverContext.Provider>
-    <ConnectedAccountContextUpdater ov={ov} />
+    <ConnectedAccountContextUpdater ovu={ov} />
   </>
 };
 
@@ -97,7 +97,7 @@ const ConnectedAccountContextUpdaterInner: React.FC<ConnectedAccountContextUpdat
           address: connectedAccount,
           tokenKey: tk,
           balanceAsBigNumberHexString: newBalance.toHexString(),
-          balanceAsOf: new Date().getTime(),
+          balanceAsOf: Date.now(),
         };
         if (isDust(tb)) {
           // this token's balance is zero or dust. We want AddressContext to reflect useful token balances and so we'll treat this token balance as if it doesn't exist
@@ -130,16 +130,16 @@ const ConnectedAccountContextUpdaterInner: React.FC<ConnectedAccountContextUpdat
 };
 
 type ConnectedAccountContextUpdaterProps = {
-  ov: ObservableValue<AddressContext | undefined>; // TODO pass ObserverableValueUpdater instead of the wider ObservableValue
+  ovu: ObservableValueUpdater<AddressContext | undefined>;
 }
-const ConnectedAccountContextUpdater: React.FC<ConnectedAccountContextUpdaterProps> = ({ ov }) => {
+const ConnectedAccountContextUpdater: React.FC<ConnectedAccountContextUpdaterProps> = ({ ovu }) => {
   const { address } = useAccount();
   // console.log('ConnectedAccountContextUpdater address', address);
   useEffect(() => {
     if (address === undefined) { // here we only need to setValueAndNotifyObservers if connectedAccount is undefined because if it's defined, we'll construct the AddressContext and call setValueAndNotifyObservers(defined value) in ConnectedAccountContextUpdaterInner, and if connectedAccount has transitioned from defined to undefined, the ConnectedAccountContextUpdaterInner component has been unmounted and it won't (and isn't designed to) call setValueAndNotifyObservers(undefined) to notify clients that the account has become disconnected, so we need to do it here
       // console.log("setValueAndNotifyObservers(AddressContext=undefined)");
-      ov.setValueAndNotifyObservers(undefined);
+      ovu.setValueAndNotifyObservers(undefined);
     }
-  }, [ov, address]);
-  return address === undefined ? <></> : <ConnectedAccountContextUpdaterInner ovu={ov} connectedAccount={address} />;
+  }, [ovu, address]);
+  return address === undefined ? <></> : <ConnectedAccountContextUpdaterInner ovu={ovu} connectedAccount={address} />;
 };
