@@ -398,7 +398,7 @@ const ethAddressToFromBytes = Object.freeze({
 const bigIntToFromBytes = Object.freeze({
   to(num: bigint): Uint8Array {
     if (num < 0) {
-      throw new Error('optimizedBigIntToFromBytes.to: negative numbers are not supported');
+      throw new Error('bigIntToFromBytes.to: negative numbers are not supported');
     }
 
     // Convert the BigInt to string and find the non-zero prefix
@@ -429,12 +429,15 @@ const bigIntToFromBytes = Object.freeze({
     return new Uint8Array(byteArray);
   },
   from(bytes: Uint8Array): bigint {
+    if (bytes.length < 1) throw new Error('bigIntToFromBytes.from: bytes length must be at least 1 to encode exponent');
     // Extract the exponent from the last byte
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know bytes.length > 0
     const exponent = bytes[bytes.length - 1]!;
 
     // Calculate the BigInt from the remaining bytes
     let bigInt = BigInt(0);
     for (let i = 0; i < bytes.length - 1; i++) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know bytes[i] exists
       bigInt = (bigInt << BigInt(8)) + BigInt(bytes[i]!);
     }
 
