@@ -187,7 +187,9 @@ const ExchangeRatesUpdaterInner: React.FC<ExchangeRatesUpdaterInnerProps> = ({ e
       if (newRate) setLatestExchangeRates((draft) => {
         const { denominatorTicker, numeratorTicker, source } = newRate;
         if (!draft[denominatorTicker]) draft[denominatorTicker] = {};
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
         if (!draft[denominatorTicker]![numeratorTicker]) draft[denominatorTicker]![numeratorTicker] = {};
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
         draft[denominatorTicker]![numeratorTicker]![source] = newRate;
       });
     };
@@ -281,10 +283,12 @@ function getExchangeRates(p: {
   const exchangeRates: DeepWritable<ExchangeRates> = {};
   for (const denominatorTickerRaw of Object.keys(latestExchangeRates)) {
     const denominatorTicker: Uppercase<string> = toUppercase(denominatorTickerRaw); // the specific key type of Uppercase<string> is lost at runtime so here we re-lift it
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
     for (const numeratorTickerRaw of Object.keys(latestExchangeRates[denominatorTicker]!)) {
       const numeratorTicker: Uppercase<string> = toUppercase(numeratorTickerRaw); // the specific key type of Uppercase<string> is lost at runtime so here we re-lift it
 
       const allRatesForThisPair: ExchangeRate[] = [];
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
       for (const source of Object.keys(latestExchangeRates[denominatorTicker]![numeratorTicker]!)) allRatesForThisPair.push(latestExchangeRates[denominatorTicker]![numeratorTicker]![source]!);
 
       const allNonStaleRatesForThisPair: ExchangeRate[] = allRatesForThisPair.filter(er => !isExchangeRateStale({ maxAgeMillis, timeNowMillisSinceEpoch, er }));
@@ -295,6 +299,7 @@ function getExchangeRates(p: {
         const summarizedRate: number | undefined = medianizeRates(allNonStaleRatesForThisPair);
         if (summarizedRate !== undefined) {
           exchangeRates[denominatorTicker] = exchangeRates[denominatorTicker] || {};
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
           exchangeRates[denominatorTicker]![numeratorTicker] = summarizedRate;
         }
       }
@@ -312,10 +317,12 @@ function isExchangeRateStale(p: { maxAgeMillis: number, timeNowMillisSinceEpoch:
 // ExchangeRates.
 function medianizeRates(rates: ExchangeRate[]): number | undefined {
   if (rates.length === 0) return undefined;
+  // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
   else if (rates.length === 1) return rates[0]!.exchangeRate;
   else {
     const sortedRates = rates.map(rate => rate.exchangeRate).sort((a, b) => a - b);
     const mid = Math.floor(sortedRates.length / 2);
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
     if (sortedRates.length % 2 === 0) return (sortedRates[mid - 1]! + sortedRates[mid]!) / 2; // for an even number of rates, the median is the average of the two middle numbers
     else return sortedRates[mid]; // for an odd number of rates, the median is the middle number
   }

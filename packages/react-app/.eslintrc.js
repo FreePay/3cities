@@ -45,6 +45,9 @@ module.exports = {
         "@typescript-eslint/switch-exhaustiveness-check": "error",
         "@typescript-eslint/no-empty-function": "off",
         "@typescript-eslint/no-inferrable-types": "off",
+        "@typescript-eslint/no-non-null-assertion": [
+            "error",
+        ],
         "eqeqeq": [
             "error",
         ],

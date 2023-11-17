@@ -24,13 +24,16 @@ export function areExchangeRatesEqual(a: ExchangeRates, b: ExchangeRates): boole
         isEqual = false;
         break;
       } else {
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
         const innerKeysA = Object.keys(a[keyA]!);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
         const innerKeysB = Object.keys(b[keyA]!);
         if (innerKeysA.length !== innerKeysB.length) {
           isEqual = false;
           break;
         } else for (const innerKeyRaw of innerKeysA) {
           const innerKey = toUppercase(innerKeyRaw);
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
           if (!Object.prototype.hasOwnProperty.call(b[keyA], innerKey) || a[keyA]![innerKey] !== b[keyA]![innerKey]) {
             isEqual = false;
             break;
