@@ -5,7 +5,7 @@ import { IntRange } from "./IntRange";
 // in that token. For balances, see TokenBalance.
 export type Token = Readonly<{
   name: string;
-  ticker: string;
+  ticker: Uppercase<string>;
   decimals: IntRange<0, 19>;
   chainId: number;
   contractAddress: `0x${string}`;
@@ -19,7 +19,7 @@ export type Token = Readonly<{
 // TokenBalance.
 export type NativeCurrency = Readonly<{
   name: string;
-  ticker: string;
+  ticker: Uppercase<string>;
   decimals: 18; // all EVM chains should implement 18 decimals in their native currencies in order to remain compatible with solidity
   chainId: number;
   contractAddress?: never;

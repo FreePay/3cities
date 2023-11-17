@@ -8,6 +8,7 @@ import { ConnectedAccountContextObserverProvider } from "./ConnectedAccountConte
 import { DemoAccountProvider } from "./DemoAccountProvider";
 import { IsPageVisibleOrRecentlyVisibleProvider } from "./IsPageVisibleOrRecentlyVisibleProvider";
 import { wagmiClient } from "./wagmiClient";
+import { ExchangeRatesProvider } from "./ExchangeRatesProvider";
 
 const connectKitOptions: ConnectKitOptions = {
   walletConnectName: "WalletConnect", // default is "Other Wallets" which I find confusing because anybody who knows they can scan a qr code from mobile will most likely be looking for the name "WalletConnect"
@@ -27,8 +28,10 @@ export const GlobalProviders = () => {
         <DemoAccountProvider> {/* WARNING DemoAccountProvider must be nested inside IsPageVisibleOrRecentlyVisibleProvider because DemoAccountProvider depends on ens name resolution and that depends on page recent visiblity */}
           <ConnectKitProvider options={connectKitOptions}>
             <ConnectedAccountContextObserverProvider>
-              <Toaster richColors /> {/* NB here we put the toaster inside the wagmi, connectkit, and addressContext providers so that the toast clients can have access to these services */}
-              <Outlet />
+              <ExchangeRatesProvider>
+                <Toaster richColors /> {/* NB here we put the toaster inside all other providers so that the toast clients can have access to these services */}
+                <Outlet />
+              </ExchangeRatesProvider>
             </ConnectedAccountContextObserverProvider>
           </ConnectKitProvider>
           {/* </ConnectWalletProvider> */}

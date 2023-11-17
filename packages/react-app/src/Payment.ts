@@ -1,5 +1,7 @@
+import { AddressOrEnsName } from "./AddressOrEnsName";
 import { Narrow } from "./Narrow";
 import { PartialFor } from "./PartialFor";
+import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import { LogicalAssetTicker } from "./logicalAssets";
 
 // PayWhatYouWant is a payment mode that allows the sender/buyer to pay
@@ -30,7 +32,7 @@ export type PaymentMode = Readonly<{
 export type Payment = Readonly<{
   receiverAddress: `0x${string}`;
   senderAddress: `0x${string}`;
-  logicalAssetTicker: LogicalAssetTicker; // the ticker for the logical asset that the reciever will receive when this payment is settled. However, iff paymentMode.payWhatYouWant?.canPayAnyAsset, then this logical asset may be ignored as the sender may then optionally settle the payment by paying any asset.
+  logicalAssetTickers: PrimaryWithSecondaries<LogicalAssetTicker>; // the tickers for the logical assets, one or more of which the receiver will receive upon settlement of this payment. `primary` is the logical asset ticker in which this payment is denominated, and any `secondaries` are prioritized logical asset tickers that are also accepted for payment (secondaries[i] is higher priority than secondaries[i+1]). However, iff paymentMode.payWhatYouWant?.canPayAnyAsset, then these logical assets may be ignored as the sender may then optionally settle the payment by paying any asset.
   paymentMode: PaymentMode;
 }>
 
@@ -42,18 +44,6 @@ export type PaymentWithFixedAmount = Narrow<Payment, 'paymentMode', { logicalAss
 export function isPaymentWithFixedAmount(p: Payment): p is PaymentWithFixedAmount {
   return p.paymentMode.logicalAssetAmountAsBigNumberHexString !== undefined;
 }
-
-// AddressOrEnsName models a conceptual address as either a concrete
-// address xor ens name. Ie. AddressOrEnsName is the sum type of an
-// Ethereum address or an ens name which may or may not be successfully
-// resolvable into an Ethereum address. 
-export type AddressOrEnsName = Readonly<{
-  ensName: string;
-  address?: never;
-} | {
-  ensName?: never;
-  address: `0x${string}`;
-}>
 
 // ProposedPayment is a payment to a specified receiver that may be
 // proposed to a sender who may not yet be specified. The proposed
@@ -92,7 +82,7 @@ export function acceptProposedPayment(senderAddress: `0x${string}`, pp: Proposed
   const p: Payment = {
     receiverAddress: pp.receiver.address,
     senderAddress,
-    logicalAssetTicker: pp.logicalAssetTicker,
+    logicalAssetTickers: pp.logicalAssetTickers,
     paymentMode: pp.paymentMode,
   };
   return p;

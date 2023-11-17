@@ -1,6 +1,7 @@
-import { formatUnits } from "@ethersproject/units";
 import { BigNumber } from "@ethersproject/bignumber";
-import { getDecimalsToRenderForTokenTicker, getTokenByTokenKey, TokenKey } from "./tokens";
+import { formatUnits } from "@ethersproject/units";
+import { getDecimalsToRenderForTokenTicker } from "./logicalAssetsToTokens";
+import { getTokenByTokenKey, TokenKey } from "./tokens";
 
 // TokenBalance is a snapshot of an address's token balance on a
 // specific chain. For example, a snapshot of Bob's DAI balance on
