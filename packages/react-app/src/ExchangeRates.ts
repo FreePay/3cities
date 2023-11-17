@@ -77,7 +77,6 @@ export function convert(params: { er: ExchangeRates | undefined; fromTicker: Upp
       const scale: bigint = decimalIndex > -1 ? BigInt(rateStr.length - decimalIndex - 1) : 0n;
       const rateBigInt: bigint = BigInt(rateStr.replace('.', ''));
       const resultMayNeedScaling: bigint = fromAmount * rateBigInt;
-      console.log("scale", scale, "rateBigInt", rateBigInt, "resultMayNeedScaling", resultMayNeedScaling, "rate", rate, "fromAmount", fromAmount);
       if (scale > 0) {
         const halfScale = 10n ** (scale - 1n); // "The technique of adding half of the scale before dividing is a common way to achieve rounding in integer division. It's based on the idea that adding half of the divisor (the scale in this case) to the dividend will push the quotient over the threshold to the next integer if the remainder of the division is more than half of the divisor."
         const resultScaled: bigint = (resultMayNeedScaling + halfScale) / (10n ** scale);
