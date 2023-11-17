@@ -73,7 +73,7 @@ export const logicalAssetsByTicker: Readonly<{ [key in LogicalAssetTicker]: Logi
 
 export const logicalAssets: Readonly<LogicalAsset[]> = Object.values(logicalAssetsByTicker); // the set of all logical assets we support
 
-export const logicalAssetDecimals = 6; // all logical assets have 6 decimals, ie. we model their amounts as if they were tokens with 6 decimals. For example, a logical asset amount for $5.75 is `5.75 * 10^6`. This allows us to map logical asset amounts to popular token amounts with no loss in precision because USDC and USDT have 6 decimals (requiring no widening) and ETH and DAI have 18 decimals (logical assets can be widened with no loss in precision by multiplying the logical asset amount by 10^12). However, this modeling means that logical assets can't express the full precision of ETH and DAI, eg. logical assets can't express the precision of wei or gwei
+export const logicalAssetDecimals = 18; // all logical assets have 18 decimals, ie. we model their amounts as if they were tokens with 18 decimals. For example, a logical asset amount for $5.75 is `5.75 * 10^18`
 
 // parseLogicalAssetAmount takes a string representation of a float
 // amount, such as "5.75" and returns the full-precision logical asset
@@ -90,11 +90,17 @@ const ten: BigNumber = BigNumber.from(10);
 // decimal places because it was constructed with
 // parseLogicalAssetAmount) into the passed newDecimals count of decimal
 // places. For example, `convertLogicalAssetUnits(myLogicalAssetAmount,
-// DAI.decimals)` converts the passed logical asset amount into a DAI
-// amount.
+// USDC.decimals)` converts the passed logical asset amount into an
+// amount with USDC's decimals. WARNING however, the returned amount may
+// still need exchange rate conversions applied to be sensical.
 export function convertLogicalAssetUnits(logicalAssetAmount: BigNumber, newDecimals: number): BigNumber {
-  if (newDecimals < logicalAssetDecimals) throw new Error(`convertLogicalAssetUnits: unsupported narrowing of passed logical asset amount to newDecimals=${newDecimals}`); // TODO support narrowing
-  return logicalAssetAmount.mul(ten.pow(newDecimals - logicalAssetDecimals));
+  const decimalDiff = logicalAssetDecimals - newDecimals;
+  if (decimalDiff === 0) return logicalAssetAmount; // no conversion needed if the decimals are the same
+  else if (decimalDiff > 0) {
+    const scale = ten.pow(decimalDiff); // scale for narrowing the precision
+    const halfScale = scale.div(2); // half of the scale for rounding. "The technique of adding half of the scale before dividing is a common way to achieve rounding in integer division. It's based on the idea that adding half of the divisor (the scale in this case) to the dividend will push the quotient over the threshold to the next integer if the remainder of the division is more than half of the divisor."
+    return logicalAssetAmount.add(halfScale).div(scale); // add half of the scale for rounding and then divide by the scale to narrow the precision
+  } else return logicalAssetAmount.mul(ten.pow(-decimalDiff));
 }
 
 // getDecimalsToRenderForTLogicalAsseticker returns the canonical number
