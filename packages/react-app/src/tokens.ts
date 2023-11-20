@@ -7,6 +7,8 @@ import { allSupportedChainIds, arbitrumNova, lineaTestnet, polygonZkEvm, taikoTe
 import { isProduction } from "./isProduction";
 import { toUppercase } from './toUppercase';
 
+// TODO consider verbose token names like {TOKEN_SYMBOL}-{NETWORK_VERBOSE_NAME}.
+
 // ***************************************************************
 const isTestShorterListOfTokens = false; // WARNING test flag to be manually toggled during develpment to cull the list of supported tokens down to a minimal set for testing purposes
 // ***************************************************************
