@@ -23,7 +23,7 @@ import { Strategy, getProposedStrategiesForProposedPayment, getStrategiesForPaym
 import { TokenTransfer } from "./tokenTransfer";
 import { getTokenKey } from "./tokens";
 import { ExecuteTokenTransferButton, ExecuteTokenTransferButtonStatus, TransactionFeeUnaffordableError } from "./transactions";
-import { truncateEnsAddress, truncateEthAddress } from "./truncateAddress";
+import { truncateEnsName, truncateEthAddress } from "./truncateAddress";
 import { useActiveDemoAccount } from "./useActiveDemoAccount";
 import { useBestStrategy } from "./useBestStrategy";
 import { useCheckoutSettings } from "./useCheckoutSettings";
@@ -326,7 +326,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     <div className="p-4 flex items-center gap-4 justify-between w-full border border-gray-300 bg-white rounded-t-md">
       <span>To:</span>
       <span className="font-bold inline-flex gap-1 place-content-between" style={{ overflowWrap: 'anywhere' }}>
-        <span>{!showFullReceiverAddress && (truncateEnsAddress(receiverEnsName) || truncateEthAddress(receiverAddress))}{showFullReceiverAddress && receiverAddress && `${receiverAddress}${receiverEnsName ? ` (${receiverEnsName})` : ''}`}{showFullReceiverAddress && !receiverAddress && receiverEnsName}{showFullReceiverAddress && receiverAddressBlockExplorerLink && <a href={receiverAddressBlockExplorerLink} target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker ml-1">explorer</a>}</span>
+        <span>{!showFullReceiverAddress && (truncateEnsName(receiverEnsName) || truncateEthAddress(receiverAddress))}{showFullReceiverAddress && receiverAddress && `${receiverAddress}${receiverEnsName ? ` (${receiverEnsName})` : ''}`}{showFullReceiverAddress && !receiverAddress && receiverEnsName}{showFullReceiverAddress && receiverAddressBlockExplorerLink && <a href={receiverAddressBlockExplorerLink} target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker ml-1">explorer</a>}</span>
         <span className="flex place-items-center"><FaEye onClick={() => setShowFullReceiverAddress(v => !v)} className="w-4 sm:hover:text-gray-500 sm:hover:cursor-pointer" /></span>
       </span>
     </div>
