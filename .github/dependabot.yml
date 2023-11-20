@@ -14,7 +14,7 @@ updates:
       - "github-actions"
     open-pull-requests-limit: 10
     allow:
-      - dependency-type: "all"
+      - dependency-type: "direct"
     assignees:
       - "ryanberckmans"
 
@@ -24,13 +24,13 @@ updates:
     schedule:
       interval: "daily"
     target-branch: "dev"
-    versioning-strategy: "increase"
+    versioning-strategy: "increase-if-necessary"
     labels:
       - "dependencies"
       - "npm"
     open-pull-requests-limit: 10
     allow:
-      - dependency-type: "all"
+      - dependency-type: "direct"
     ignore:
       - dependency-name: "@web3auth/*"
       - dependency-name: "wagmi*"
