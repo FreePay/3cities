@@ -1,6 +1,6 @@
 import React, { FC, useEffect, useState } from 'react';
 import { IsPageVisibleOrRecentlyVisibleContext } from './IsPageVisibleOrRecentlyVisibleContext';
-import { ObservableValue, Observer, makeObservableValue, useObservedValue } from './observer';
+import { ObservableValueUpdater, Observer, makeObservableValue, useObservedValue } from './observer';
 import useDebounce from './useDebounce';
 
 type IsPageVisibleOrRecentlyVisibleProviderProps = {
@@ -18,7 +18,7 @@ export const IsPageVisibleOrRecentlyVisibleProvider: FC<IsPageVisibleOrRecentlyV
     <IsPageVisibleOrRecentlyVisibleProviderInner isPageVisibleOrRecentlyVisibleObserver={isPageVisibleOrRecentlyVisibleOv.observer}>
       {children}
     </IsPageVisibleOrRecentlyVisibleProviderInner>
-    <IsPageVisibleOrRecentlyVisibleUpdater ov={isPageVisibleOrRecentlyVisibleOv} {...(opts && { opts })} />
+    <IsPageVisibleOrRecentlyVisibleUpdater ovu={isPageVisibleOrRecentlyVisibleOv} {...(opts && { opts })} />
   </>;
 };
 
@@ -169,15 +169,15 @@ function useCalcIsPageVisibleOrRecentlyVisible(opts?: UseIsPageVisibleOrRecently
 }
 
 type IsPageVisibleOrRecentlyVisibleUpdaterProps = {
-  ov: ObservableValue<boolean>;
+  ovu: ObservableValueUpdater<boolean>;
   opts?: UseIsPageVisibleOrRecentlyVisibleOpts;
 }
 
-const IsPageVisibleOrRecentlyVisibleUpdater: FC<IsPageVisibleOrRecentlyVisibleUpdaterProps> = ({ ov, opts }) => {
+const IsPageVisibleOrRecentlyVisibleUpdater: FC<IsPageVisibleOrRecentlyVisibleUpdaterProps> = ({ ovu, opts }) => {
   const isPageVisibleOrRecentlyVisible: boolean = useCalcIsPageVisibleOrRecentlyVisible(opts);
   useEffect(
-    () => ov.setValueAndNotifyObservers(isPageVisibleOrRecentlyVisible),
-    [ov, opts, isPageVisibleOrRecentlyVisible],
+    () => ovu.setValueAndNotifyObservers(isPageVisibleOrRecentlyVisible),
+    [ovu, opts, isPageVisibleOrRecentlyVisible],
   );
   return undefined;
 };

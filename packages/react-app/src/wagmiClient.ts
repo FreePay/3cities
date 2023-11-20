@@ -14,6 +14,8 @@ import { Web3AuthConnector, Web3AuthLoginProvider } from './Web3AuthConnector';
 
 // TODO move the web3auth async/load/set/reconnect stuff into makeWeb3AuthConnectorAsync.ts and maybe rename that file to something that explains "here's the code that glues async web3auth to wagmiClient in a lifecycle"
 
+// TODO can we add a provider for a localhost ethrpc url for L1, eg. http://localhost:8545, and default to it? This would allow power users to automatically benefit from running their own ethrpc. However, there is a potential downside: it's possible that the ethrpc on localhost would be relatively unperformant. Eg. imagine on mobile, Coinbase Wallet gave every user an ethrpc running on http://localhost:8545, then 3cities might automatically pick this up, but what if this local node sucks for querying chain data? eg. slow, needs to ask other nodes for data --> perhaps it's better to avoid defautling to localhost and add it as an app config option. ethrpc urls could be set in CheckoutSettings (eg. EF specifies that customers should use the EF's rpc urls) or in app-wide settings (eg. Me -> Settings -> ethrpc urls)
+
 const alchemyApiKey: string = (() => {
   const s = process.env['REACT_APP_ALCHEMY_API_KEY'];
   if (s === undefined) {
@@ -67,7 +69,7 @@ export const wagmiClient = createClient({
         headlessMode: true,
       },
     }),
-    new InjectedConnector({ // NB connectkit's wallet connection modal will only show InjectedConnector in the list of available wallets if there's actually a non-metamask, non-coinbase browser wallet extension, see shouldShowInjectedConnector https://github.com/family/connectkit/blob/8ac82c816c76df9154c37347c0721219d2b88a14/packages/connectkit/src/components/Pages/Connectors/index.tsx#L115 --> I was able to get Backpack.app wallet working --> connectkit detects this InjectedConnector in the wagmi.Client and also detects the Backpack browser extension, and then surfaces the wallet option "Browser Wallet" (NB phantom doesn't show up as an InjectedConnector/Browser Wallet, nor does it show up as a fake MetaMask wallet, it simply doesn't show up)
+    new InjectedConnector({ // NB connectkit's wallet connection modal will only show InjectedConnector in the list of available wallets if there's actually a non-metamask, non-coinbase browser wallet extension, see shouldShowInjectedConnector https://github.com/family/connectkit/blob/8ac82c816c76df9154c37347c0721219d2b88a14/packages/connectkit/src/components/Pages/Connectors/index.tsx#L115 --> I was able to get Backpack.app wallet working --> connectkit detects this InjectedConnector in the wagmi.Client and also detects the Backpack browser extension, and then surfaces the wallet option "Browser Wallet" (NB phantom doesn't show up as an InjectedConnector/Browser Wallet, nor does it show up as a fake MetaMask wallet, it simply doesn't show up) --> TODO update connectkit to latest and then injectedconnector support will be much improved and this comment can be updated
       chains,
       options: {
         shimDisconnect: true, // here we pass true for shimDisconnect so that wagmi patches ergonomic holes in metamask (and possibly some injected wallets), or else the user may experience ergonomically poor UX, such as the user diconnects their wallet from inside the wallet browser extension, but this disconnect doesn't register with the app, so the app remains 'connected' when in fact it's disconnected.

@@ -12,7 +12,7 @@ export type Subscription<T> = Readonly<{
 // Observer<T> is a facility to subscribe to synchronous updates of a stream of values of type T. See ObservableValue.
 export type Observer<T> = Readonly<{
   subscribe: (s: SubscriptionOnValueChangeHandler<T>) => Subscription<T>, // subscribe to be pushed new values
-  isObserver: true, // 
+  isObserver: true,
   getCurrentValue: () => T,
 }>
 
@@ -65,10 +65,17 @@ export type ObservableValue<T> = Readonly<{
   setValueAndNotifyObservers: (t: T) => void, // update the current value to the passed new value and push this new value to all subscriptions. The current (old) value is discarded
 }>
 
-// ObservableValueUpdater is a narrower ObservableValue for clients
-// that only need to update the value being observed and don't need
-// the current value or observer.
-export type ObservableValueUpdater<T> = Pick<ObservableValue<T>, 'setValueAndNotifyObservers'>;
+// ObservableValueUpdaterWithCurrentValue is a narrower ObservableValue
+// for clients that only need to update the value being observed and
+// potentially inspect the current value, and don't need the observer.
+export type ObservableValueUpdaterWithCurrentValue<T> = Pick<ObservableValue<T>, 'setValueAndNotifyObservers' | 'getCurrentValue'> & {
+  _type?: T; // a "branded type" dummy member that ensures that ObservableValueUpdater<A> and ObservableValueUpdater<B> are structurally unique and not equivalent to each other given TypeScript's structural typing system. If this is excluded, then `const oB: ObservableValueUpdater<B> = oA satisfies ObservableValueUpdater<A>;` compiles because TypeScript only checks the structure of the sole function member `setValueAndNotifyObservers(_): void` and doesn't structurally match the parameter type of `setValueAndNotifyObservers<T>(t: T): void`
+};
+
+// ObservableValueUpdater is an even narrower ObservableValue for
+// clients that only need to update the value being observed and don't
+// need the current value or observer.
+export type ObservableValueUpdater<T> = Omit<ObservableValueUpdaterWithCurrentValue<T>, 'getCurrentValue'>
 
 // makeObservableValue constructs a canonical instance of
 // ObservableValue. See note on ObservableValue.

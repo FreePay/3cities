@@ -57,7 +57,7 @@
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-rulesdir": "^0.2.2",
-    "postcss": "^8.4.21",
+    "postcss": "^8.4.31",
     "postcss-import": "^15.1.0",
     "react-scripts": "https://gitpkg.now.sh/ryanberckmans/create-react-app/packages/react-scripts?6544f27623d9b156cee63774f7bf1a78ba8f1aab",
     "source-map-explorer": "^2.5.3",

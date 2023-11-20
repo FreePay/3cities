@@ -62,6 +62,9 @@ export const About: React.FC = () => {
       <li className="mb-2">
         Chain Abstraction: 3cities monitors all supported tokens and chains in real-time, choosing the best chain for every payment.
       </li>
+      <li className="mb-2">
+        Multi Currency: 3cities tracks exchange rates in real-time from many independent sources, allowing, for example, a request for $5 to be paid with $5 in ETH using the current price.
+      </li>
     </ul>
     <h2 className="text-2xl mt-8 mb-4">Supported Assets and Networks</h2>
     <p className="mb-4">

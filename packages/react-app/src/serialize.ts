@@ -1,12 +1,15 @@
+import { BigNumber } from "@ethersproject/bignumber";
 import { CheckoutSettings, SenderNoteSettings } from "./CheckoutSettings";
 import { NonEmptyArray, ensureNonEmptyArray } from "./NonEmptyArray";
 import { PaymentMode, ProposedPayment } from "./Payment";
+import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import { StrategyPreferences } from "./StrategyPreferences";
 import { modifiedBase64Decode, modifiedBase64Encode } from "./base64";
 import { decrypt, encrypt, generateSignature, makeIv, makeSalt, verifySignature } from "./crypto";
 import { CheckoutSettingsEncrypted as CheckoutSettingsEncryptedPb, CheckoutSettings as CheckoutSettingsPb, CheckoutSettingsSigned as CheckoutSettingsSignedPb, LogicalAssetTicker as LogicalAssetTickerPb, MessageType as MessageTypePb, CheckoutSettings_PayWhatYouWant_PayWhatYouWantFlags as PayWhatYouWantFlagsPb, CheckoutSettings_PayWhatYouWant as PayWhatYouWantPb, CheckoutSettings_SenderNoteSettingsMode as SenderNoteSettingsModePb } from "./gen/threecities/v1/v1_pb";
-import { hasOwnPropertyOfType } from "./hasOwnProperty";
+import { hasOwnProperty, hasOwnPropertyOfType } from "./hasOwnProperty";
 import { LogicalAssetTicker, allLogicalAssetTickers } from "./logicalAssets";
+import { toUppercase } from "./toUppercase";
 
 // TODO unit tests for serialization functions. Especially a test that generates random CheckoutSettings and uses CheckoutSettingsPb.equals() to verify the serialization->deserialization didn't change anything
 
@@ -24,7 +27,7 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
     };
   })();
 
-  const proposedPaymentLogicalAssetTicker: LogicalAssetTickerPb = LogicalAssetTickerPb[cs.proposedPayment.logicalAssetTicker];
+  const proposedPaymentLogicalAssetTickers: LogicalAssetTickerPb[] = [cs.proposedPayment.logicalAssetTickers.primary, ...cs.proposedPayment.logicalAssetTickers.secondaries].map(lat => LogicalAssetTickerPb[lat]);
 
   type ProposedPaymentPaymentMode = Exclude<typeof CheckoutSettingsPb.prototype.proposedPaymentPaymentMode, { case: undefined; value?: undefined }>;
   const proposedPaymentPaymentMode = ((): ProposedPaymentPaymentMode => {
@@ -40,12 +43,12 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
       return {
         value: new PayWhatYouWantPb({
           ...(flags && { flags }),
-          suggestedLogicalAssetAmounts: p.suggestedLogicalAssetAmountsAsBigNumberHexStrings.map(hexStringToFromBytes.to),
+          suggestedLogicalAssetAmounts: p.suggestedLogicalAssetAmountsAsBigNumberHexStrings.map(a => bigIntToFromBytes.to(BigNumber.from(a).toBigInt())),
         }),
         case: "proposedPaymentPaymentModePayWhatYouWant",
       };
     } else return {
-      value: hexStringToFromBytes.to(pm.logicalAssetAmountAsBigNumberHexString),
+      value: bigIntToFromBytes.to(BigNumber.from(pm.logicalAssetAmountAsBigNumberHexString).toBigInt()),
       case: "proposedPaymentPaymentModeLogicalAssetAmount",
     };
   })();
@@ -89,9 +92,10 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
   })();
 
   return new CheckoutSettingsPb({
-    proposedPaymentReceiver: proposedPaymentReceiver,
-    proposedPaymentLogicalAssetTicker: proposedPaymentLogicalAssetTicker,
-    proposedPaymentPaymentMode: proposedPaymentPaymentMode,
+    checkoutSettingsMajorVersion: 1, // we serialize CheckoutSettings into our latest major version of protobuf messages, which is v1
+    proposedPaymentReceiver,
+    proposedPaymentLogicalAssetTickers,
+    proposedPaymentPaymentMode,
     ...(receiverStrategyPreferencesAcceptedTokenTickers && {
       receiverStrategyPreferencesAcceptedTokenTickers
     }),
@@ -100,12 +104,15 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
     ...(senderNoteSettingsMode && { senderNoteSettingsMode }),
     ...(senderNoteSettingsInstructions && { senderNoteSettingsInstructions }),
     ...(successRedirectUrl && { successRedirectUrl }),
+    ...(cs.successRedirect?.callToAction && { successRedirectCallToAction: cs.successRedirect?.callToAction }),
     ...(cs.webhookUrl && { webhookUrl: cs.webhookUrl }),
   });
 }
 
 function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
   try {
+    if (cspb.checkoutSettingsMajorVersion !== 1) throw new Error(`illegal serialization: checkoutSettingsMajorVersion is ${cspb.checkoutSettingsMajorVersion}, expected 1`); // NB in the future, when we add a 2nd protobuf messages major version, our canonical code path (ie. this function) will expect the latest major version, but if it detects an older major version, we'll dynamically load older deserialization code that's not included in the main app bundle, and then the old serialization will be deserialized into the latest version of CheckoutSettings
+
     const proposedPayment = ((): ProposedPayment => {
       const proposedPaymentReceiver: ProposedPayment['receiver'] = (() => {
         switch (cspb.proposedPaymentReceiver.case) { // NB we use switch instead of an if statement to get case exhaustivity checks in linter
@@ -115,13 +122,18 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
         }
       })();
 
-      const proposedPaymentLogicalAssetTicker = ((): LogicalAssetTicker => {
-        if (cspb.proposedPaymentLogicalAssetTicker === LogicalAssetTickerPb.UNSPECIFIED) throw new Error("illegal serialization: proposedPaymentLogicalAssetTicker is UNSPECIFIED");
-        else {
-          const unsafe: string = LogicalAssetTickerPb[cspb.proposedPaymentLogicalAssetTicker]; // WARNING although LogicalAssetTickerPb[LogicalAssetTickerPb.ETH] === "ETH", TypeScript is unable to infer that the type of LogicalAssetTickerPb[LogicalAssetTickerPb] is `keyof typeof LogicalAssetTickerPb` and instead the property access is of type `string`. So we isolate this type unsafety by verifying the value is a valid LogicalAssetTicker and then do an unsafe typecast
-          if (allLogicalAssetTickers.includes(unsafe as LogicalAssetTicker)) return unsafe as LogicalAssetTicker;
-          else throw new Error(`illegal serialization: proposedPaymentLogicalAssetTicker is not a valid LogicalAssetTicker. value was ${unsafe}`);
-        }
+      const proposedPaymentLogicalAssetTickers = ((): PrimaryWithSecondaries<LogicalAssetTicker> => {
+        const lats: LogicalAssetTicker[] = cspb.proposedPaymentLogicalAssetTickers.map((latpb, i) => {
+          if (latpb === LogicalAssetTickerPb.UNSPECIFIED) throw new Error(`illegal serialization: proposedPaymentLogicalAssetTickers[${i}] is UNSPECIFIED`);
+          else {
+            const unsafe: string = LogicalAssetTickerPb[latpb]; // WARNING although LogicalAssetTickerPb[LogicalAssetTickerPb.ETH] === "ETH", TypeScript is unable to infer that the type of LogicalAssetTickerPb[LogicalAssetTickerPb] is `keyof typeof LogicalAssetTickerPb` and instead the property access is of type `string`. So we isolate this type unsafety by verifying the value is a valid LogicalAssetTicker and then do an unsafe typecast
+            if (allLogicalAssetTickers.includes(unsafe as LogicalAssetTicker)) return unsafe as LogicalAssetTicker;
+            else throw new Error(`illegal serialization: proposedPaymentLogicalAssetTickers[${i}] is not a valid LogicalAssetTicker. value was ${unsafe}`);
+          }
+        });
+        const primary = lats[0];
+        if (primary === undefined) throw new Error(`illegal serialization: proposedPaymentLogicalAssetTickers is empty`);
+        else return new PrimaryWithSecondaries<LogicalAssetTicker>(primary, lats.slice(1));
       })();
 
       const proposedPaymentPaymentMode = ((): PaymentMode => {
@@ -129,7 +141,7 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
         switch (pm.case) { // NB we use switch instead of an if statement to get case exhaustivity checks in linter
           case undefined: throw new Error("illegal serialization: proposedPaymentPaymentMode.case is undefined");
           case "proposedPaymentPaymentModeLogicalAssetAmount": return {
-            logicalAssetAmountAsBigNumberHexString: hexStringToFromBytes.from(pm.value),
+            logicalAssetAmountAsBigNumberHexString: BigNumber.from(bigIntToFromBytes.from(pm.value)).toHexString(),
           };
           case "proposedPaymentPaymentModePayWhatYouWant": {
             const [isDynamicPricingEnabled, canPayAnyAsset] = ((): [boolean, boolean] => {
@@ -144,7 +156,7 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
               payWhatYouWant: {
                 isDynamicPricingEnabled,
                 canPayAnyAsset,
-                suggestedLogicalAssetAmountsAsBigNumberHexStrings: pm.value.suggestedLogicalAssetAmounts.map(hexStringToFromBytes.from),
+                suggestedLogicalAssetAmountsAsBigNumberHexStrings: pm.value.suggestedLogicalAssetAmounts.map(a => BigNumber.from(bigIntToFromBytes.from(a)).toHexString()),
               }
             };
           }
@@ -153,7 +165,7 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
 
       return {
         receiver: proposedPaymentReceiver,
-        logicalAssetTicker: proposedPaymentLogicalAssetTicker,
+        logicalAssetTickers: proposedPaymentLogicalAssetTickers,
         paymentMode: proposedPaymentPaymentMode,
       } satisfies ProposedPayment;
     })();
@@ -163,8 +175,8 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
         const a = cspb.receiverStrategyPreferencesAcceptedTokenTickers;
         switch (a.case) { // NB we use switch instead of an if statement to get case exhaustivity checks in linter
           case undefined: return undefined;
-          case "receiverStrategyPreferencesAcceptedTokenTickersAllowlist": return { allowlist: new Set(tokenTickersNonEmptyArrayToFromString.from(a.value)) };
-          case "receiverStrategyPreferencesAcceptedTokenTickersDenylist": return { denylist: new Set(tokenTickersNonEmptyArrayToFromString.from(a.value)) };
+          case "receiverStrategyPreferencesAcceptedTokenTickersAllowlist": return { allowlist: new Set(tokenTickersNonEmptyArrayToFromString.from(a.value).map(toUppercase)) };
+          case "receiverStrategyPreferencesAcceptedTokenTickersDenylist": return { denylist: new Set(tokenTickersNonEmptyArrayToFromString.from(a.value).map(toUppercase)) };
         }
       })();
 
@@ -199,14 +211,18 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
     const note: string | undefined = cspb.note.length > 0 ? cspb.note : undefined;
 
     const successRedirect = ((): CheckoutSettings['successRedirect'] | undefined => {
-      if (cspb.successRedirectUrl.length < 1) return undefined;
-      else {
+      if (cspb.successRedirectUrl.length < 1) {
+        if (cspb.successRedirectCallToAction.length > 0) throw new Error(`illegal serialization: successRedirectCallToAction is non-empty when successRedirectUrl is empty`);
+        else return undefined;
+      } else {
         if (cspb.successRedirectUrl.startsWith(successRedirectUrlOpenInNewTabSentinelChar)) return { // NB see note on successRedirectUrlOpenInNewTabSentinelChar
           url: cspb.successRedirectUrl.slice(1),
           openInNewTab: true,
+          ...(cspb.successRedirectCallToAction.length > 0 && { callToAction: cspb.successRedirectCallToAction }),
         }; else return {
           url: cspb.successRedirectUrl,
           openInNewTab: false,
+          ...(cspb.successRedirectCallToAction.length > 0 && { callToAction: cspb.successRedirectCallToAction }),
         };
       }
     })();
@@ -271,7 +287,7 @@ export function deserializeCheckoutSettingsUnknownMessageType(s: string): MaybeC
     try {
       ret = checkoutSettingsFromProto(CheckoutSettingsPb.fromBinary(binarySerialized));
     } catch (e) {
-      console.error("deserializeCheckoutSettingsUnknownMessageType: error deserializing CheckoutSettings", e);
+      console.error("deserializeCheckoutSettingsUnknownMessageType: error deserializing CheckoutSettings\n", e, ...(e instanceof Error && hasOwnProperty(e, 'cause') ? ['\n', e.cause] : []));
       ret = undefined;
     }
   }
@@ -379,33 +395,153 @@ const ethAddressToFromBytes = Object.freeze({
   },
 });
 
-// hexStringToFromBytes is a serialization helper API that converts a
-// number in hex string format to and from big-endian Uint8Array.
-const hexStringToFromBytes = Object.freeze({
-  // NB the asymmetry in to/from signatures: the passed hex is `string` but the returned hex is `0x${string}`. This is because in our codebase we chose to model BigNumber hex strings as the `string` type and not `0x${string}`, and the reason for this choice is that we will eventually upgrade from ethers to viem which deprecates BigNumber and uses BigInt directly, so we didn't want to invest in making our BigNumber hex strings `0x${string}` everywhere since we'll throw that away when switching to BigInt
-  to(hex: string): Uint8Array {
-    if (!/^0x([a-fA-F0-9]+)$/.test(hex)) {
-      throw new Error('hexStringToFromBytes.to: invalid hexadecimal string ' + hex);
+// bigIntToFromBytes is a serialization helper API that converts a
+// bigint >= 0 to and form a Uint8Array. The binary encoding is in
+// scientific notation and optimized for bigints with many zeroes at the
+// end, which is what we commonly see in 3cities logical asset amounts
+// because they have 18 decimals of precision.
+const bigIntToFromBytes = Object.freeze({
+  to(num: bigint): Uint8Array {
+    if (num < 0) {
+      throw new Error('bigIntToFromBytes.to: negative numbers are not supported');
     }
-    const bigInt = BigInt(hex);
-    const byteArray: number[] = [];
 
+    // Convert the BigInt to string and find the non-zero prefix
+    const str = num.toString();
+    const nonZeroPrefix = str.replace(/0+$/, '');
+    const exponent = str.length - nonZeroPrefix.length;
+
+    // Ensure exponent is in range [0, 255]
+    if (exponent > 255) {
+      throw new Error('Exponent out of range');
+    }
+
+    // Convert non-zero prefix back to BigInt
+    const bigInt = BigInt(nonZeroPrefix);
+
+    // Serialize non-zero prefix to big-endian byte array
+    const byteArray: number[] = [];
     let tempBigInt = bigInt;
     while (tempBigInt > 0) {
       const byte = Number(tempBigInt & BigInt(0xFF));
       byteArray.unshift(byte);
       tempBigInt >>= BigInt(8);
     }
+
+    // Append exponent byte
+    byteArray.push(exponent);
+
     return new Uint8Array(byteArray);
   },
-  from(bytes: Uint8Array): `0x${string}` {
+  from(bytes: Uint8Array): bigint {
+    if (bytes.length < 1) throw new Error('bigIntToFromBytes.from: bytes length must be at least 1 to encode exponent');
+    // Extract the exponent from the last byte
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know bytes.length > 0
+    const exponent = bytes[bytes.length - 1]!;
+
+    // Calculate the BigInt from the remaining bytes
     let bigInt = BigInt(0);
-    for (const byte of bytes) {
-      bigInt = (bigInt << BigInt(8)) + BigInt(byte);
+    for (let i = 0; i < bytes.length - 1; i++) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know bytes[i] exists
+      bigInt = (bigInt << BigInt(8)) + BigInt(bytes[i]!);
     }
-    return `0x${bigInt.toString(16)}`;
-  },
+
+    // Reconstruct the original BigInt by appending zeros based on the exponent
+    return BigInt(`${bigInt.toString()}${'0'.repeat(exponent)}`);
+  }
 });
+
+// *************************************************
+// BEGIN -- tests for bigIntToFromBytes
+// *************************************************
+
+// const runBigIntTest = (testName: string, expected: string, actual: string) => {
+//   const passed = expected === actual;
+//   console.log(`Test ${passed ? 'passed' : 'failed'}: ${testName}, expected: ${expected}, actual: ${actual}`);
+// };
+
+// const testBigIntConversion = (num: bigint) => {
+//   try {
+//     const bytes = bigIntToFromBytes.to(num);
+//     const result = bigIntToFromBytes.from(bytes);
+//     runBigIntTest(`Convert ${num}`, num.toString(), result.toString());
+//   } catch (error) {
+//     console.error(`Test failed for ${num}`, error);
+//   }
+// };
+
+// // Test for zero
+// testBigIntConversion(0n);
+
+// // Test for small numbers with zero padding
+// testBigIntConversion(BigInt('1' + '0'.repeat(10)));
+// testBigIntConversion(BigInt('12' + '0'.repeat(20)));
+
+// // Test positive numbers
+// testBigIntConversion(123456789n);
+// testBigIntConversion(1n);
+// testBigIntConversion(0n);
+// testBigIntConversion(1000000000000000000n); // Large number
+// testBigIntConversion(999999999999999999n);  // Large number with non-zero digits
+// testBigIntConversion(100000000000034400000000n); // Large number
+// testBigIntConversion(100000000000034400000005n); // Large number
+// testBigIntConversion(10000000000003440000000333500n); // Large number
+// testBigIntConversion(0x00010000000000003440000000333500n); // Large number
+
+
+// // Test edge cases
+// try {
+//   bigIntToFromBytes.to(BigInt(-1)); // Negative number test
+//   console.log('Test failed: negative number, expected: error, actual: no error');
+// } catch (e) {
+//   console.log('Test passed: negative number');
+// }
+
+// // Test for the upper limit of the exponent (255)
+// const largeNumberWithZeros = BigInt(`1${'0'.repeat(255)}`);
+// testBigIntConversion(largeNumberWithZeros);
+
+// // Test exceeding the exponent limit (should throw an error)
+// try {
+//   const tooLargeNumberWithZeros = BigInt(`1${'0'.repeat(256)}`);
+//   bigIntToFromBytes.to(tooLargeNumberWithZeros);
+//   console.log('Test failed: Exponent limit exceeded, expected: error, actual: no error');
+// } catch (e) {
+//   console.log('Test passed: Exponent limit exceeded');
+// }
+
+// // Test for a number with leading zeros that would be lost in serialization
+// const numberWithLeadingZeros = BigInt('0x0001' + '0'.repeat(10));
+// testBigIntConversion(numberWithLeadingZeros);
+
+// // Test for a large number with leading zeros
+// const largeNumberWithLeadingZeros = BigInt('0x000123456789ABCDEF' + '0'.repeat(10));
+// testBigIntConversion(largeNumberWithLeadingZeros);
+
+
+// // Fuzz Testing
+// const runFuzzTest = (numTests: number) => {
+//   for (let i = 0; i < numTests; i++) {
+//     const randomNum = BigInt(Math.floor(Math.random() * 1e9));
+//     testBigIntConversion(randomNum);
+//   }
+// };
+// runFuzzTest(100);
+
+// // Fuzz testing with random numbers and random zero padding
+// const runFuzzTestWithZeros = (numTests: number) => {
+//   for (let i = 0; i < numTests; i++) {
+//     const randomNum = BigInt(Math.floor(Math.random() * 1e9));
+//     const zeros = '0'.repeat(Math.floor(Math.random() * 256));
+//     const numWithZeros = BigInt(`${randomNum}${zeros}`);
+//     testBigIntConversion(numWithZeros);
+//   }
+// };
+// runFuzzTestWithZeros(100);
+
+// *************************************************
+// END -- tests for bigIntToFromBytes
+// *************************************************
 
 // uint32NumbersToFromUint8Array is a serialization helper API that
 // converts an array of uint32 numbers to and from a big-endian packed

@@ -97,6 +97,13 @@ proto3.util.setEnumType(MessageType, "threecities.v1.MessageType", [
  */
 export class CheckoutSettings extends Message<CheckoutSettings> {
   /**
+   * required. CheckoutSettings protobuf message major version. Must be set to 1 for all CheckoutSettings created from this protobuf package. Ie. this package is threecities.v1, corresponding to checkoutSettingsMajorVersion set to 1. checkout_settings_major_version helps clients differentiate between different CheckoutSettings major versions given an anonymous binary message serialization which is otherwise known to be a CheckoutSettings
+   *
+   * @generated from field: uint32 checkout_settings_major_version = 1;
+   */
+  checkoutSettingsMajorVersion = 0;
+
+  /**
    * required.
    *
    * @generated from oneof threecities.v1.CheckoutSettings.proposed_payment_receiver
@@ -105,7 +112,7 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
     /**
      * Big-endian binary encoding of Ethereum address of the payment receiver. Deserialized as CheckoutSettings.proposedPayment.receiver.address
      *
-     * @generated from field: bytes proposed_payment_receiver_address = 1;
+     * @generated from field: bytes proposed_payment_receiver_address = 2;
      */
     value: Uint8Array;
     case: "proposedPaymentReceiverAddress";
@@ -113,18 +120,18 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
     /**
      * ENS name of the payment receiver. Deserialized as CheckoutSettings.proposedPayment.receiver.ensName
      *
-     * @generated from field: string proposed_payment_receiver_ens_name = 2;
+     * @generated from field: string proposed_payment_receiver_ens_name = 3;
      */
     value: string;
     case: "proposedPaymentReceiverEnsName";
   } | { case: undefined; value?: undefined } = { case: undefined };
 
   /**
-   * required. Ticker for logical asset in which payment is denominated. Deserialized as CheckoutSettings.proposedPayment.logicalAssetTicker
+   * required. The first element is the required ticker for the primary logical asset in which the payment is denominated. Other elements are the optional prioritized secondary logical assets that are also accepted for payment. Eg. the 2nd element is a higher priority secondary logical asset than the 3rd element. Deserialized as CheckoutSettings.proposedPayment.logicalAssetTickers
    *
-   * @generated from field: threecities.v1.LogicalAssetTicker proposed_payment_logical_asset_ticker = 3;
+   * @generated from field: repeated threecities.v1.LogicalAssetTicker proposed_payment_logical_asset_tickers = 4;
    */
-  proposedPaymentLogicalAssetTicker = LogicalAssetTicker.UNSPECIFIED;
+  proposedPaymentLogicalAssetTickers: LogicalAssetTicker[] = [];
 
   /**
    * required.
@@ -135,7 +142,7 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
     /**
      * Big-endian binary encoding of payment logical asset amount. Deserialized as CheckoutSettings.proposedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString
      *
-     * @generated from field: bytes proposed_payment_payment_mode_logical_asset_amount = 4;
+     * @generated from field: bytes proposed_payment_payment_mode_logical_asset_amount = 5;
      */
     value: Uint8Array;
     case: "proposedPaymentPaymentModeLogicalAssetAmount";
@@ -143,7 +150,7 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
     /**
      * If oneof is this option, then this checkout is using "pay what you want" mode, which allows the sender to pay what they want within the constraints of these PayWhatYouWant details. Deserialized as CheckoutSettings.proposedPayment.paymentMode.payWhatYouWant
      *
-     * @generated from field: threecities.v1.CheckoutSettings.PayWhatYouWant proposed_payment_payment_mode_pay_what_you_want = 5;
+     * @generated from field: threecities.v1.CheckoutSettings.PayWhatYouWant proposed_payment_payment_mode_pay_what_you_want = 6;
      */
     value: CheckoutSettings_PayWhatYouWant;
     case: "proposedPaymentPaymentModePayWhatYouWant";
@@ -158,7 +165,7 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
     /**
      * space-delimited list of token tickers in which this checkout's payment must be received. Deserialized as CheckoutSettings.receiverStrategyPreferences.acceptedTokenTickers.allowlist
      *
-     * @generated from field: string receiver_strategy_preferences_accepted_token_tickers_allowlist = 6;
+     * @generated from field: string receiver_strategy_preferences_accepted_token_tickers_allowlist = 7;
      */
     value: string;
     case: "receiverStrategyPreferencesAcceptedTokenTickersAllowlist";
@@ -166,7 +173,7 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
     /**
      * space-delimited list of token tickers in which this checkout's payment must not be received. Deserialized as CheckoutSettings.receiverStrategyPreferences.acceptedTokenTickers.denylist
      *
-     * @generated from field: string receiver_strategy_preferences_accepted_token_tickers_denylist = 7;
+     * @generated from field: string receiver_strategy_preferences_accepted_token_tickers_denylist = 8;
      */
     value: string;
     case: "receiverStrategyPreferencesAcceptedTokenTickersDenylist";
@@ -181,7 +188,7 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
     /**
      * byte-packed array of big-endian uint32 chain ids on which this checkout's payment must be received. Deserialized as CheckoutSettings.receiverStrategyPreferences.acceptedChainIds.allowlist
      *
-     * @generated from field: bytes receiver_strategy_preferences_accepted_chain_ids_allowlist = 8;
+     * @generated from field: bytes receiver_strategy_preferences_accepted_chain_ids_allowlist = 9;
      */
     value: Uint8Array;
     case: "receiverStrategyPreferencesAcceptedChainIdsAllowlist";
@@ -189,7 +196,7 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
     /**
      * byte-packed array of big-endian uint32 chain ids on which this checkout's payment must not be received. Deserialized as CheckoutSettings.receiverStrategyPreferences.acceptedChainIds.denylist
      *
-     * @generated from field: bytes receiver_strategy_preferences_accepted_chain_ids_denylist = 9;
+     * @generated from field: bytes receiver_strategy_preferences_accepted_chain_ids_denylist = 10;
      */
     value: Uint8Array;
     case: "receiverStrategyPreferencesAcceptedChainIdsDenylist";
@@ -198,7 +205,7 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
   /**
    * optional. Human-readable note describing or contextualizing this checkout, intended to be read by the sender. Deserialized as CheckoutSettings.note
    *
-   * @generated from field: string note = 10;
+   * @generated from field: string note = 11;
    */
   note = "";
 
@@ -217,16 +224,23 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
   senderNoteSettingsInstructions = "";
 
   /**
-   * optional. URL to redirect to after successful checkout. If this URL begins with a tilde "~", the redirect will be opened in a new tab. Deserialized as CheckoutSettings.successRedirect
+   * optional. URL to redirect to after successful checkout. If this URL begins with a tilde "~", the redirect will be opened in a new tab. Deserialized as CheckoutSettings.successRedirect.{url,openInNewTab}
    *
    * @generated from field: string success_redirect_url = 18;
    */
   successRedirectUrl = "";
 
   /**
+   * optional if success_redirect_url is non-empty, otherwise must be omitted. Human-readable call to action to prompt the sender/buyer to click a button to trigger the success redirect, as redirects must be triggered by user actions or be suppressed by the browser as spam. Deserialized as CheckoutSettings.successRedirect.callToAction
+   *
+   * @generated from field: string success_redirect_call_to_action = 19;
+   */
+  successRedirectCallToAction = "";
+
+  /**
    * optional. Webhook URL to call when checkout events occur, eg. on checkout success. Deserialized as CheckoutSettings.webhookUrl
    *
-   * @generated from field: string webhook_url = 19;
+   * @generated from field: string webhook_url = 20;
    */
   webhookUrl = "";
 
@@ -238,20 +252,22 @@ export class CheckoutSettings extends Message<CheckoutSettings> {
   static readonly runtime: typeof proto3 = proto3;
   static readonly typeName = "threecities.v1.CheckoutSettings";
   static readonly fields: FieldList = proto3.util.newFieldList(() => [
-    { no: 1, name: "proposed_payment_receiver_address", kind: "scalar", T: 12 /* ScalarType.BYTES */, oneof: "proposed_payment_receiver" },
-    { no: 2, name: "proposed_payment_receiver_ens_name", kind: "scalar", T: 9 /* ScalarType.STRING */, oneof: "proposed_payment_receiver" },
-    { no: 3, name: "proposed_payment_logical_asset_ticker", kind: "enum", T: proto3.getEnumType(LogicalAssetTicker) },
-    { no: 4, name: "proposed_payment_payment_mode_logical_asset_amount", kind: "scalar", T: 12 /* ScalarType.BYTES */, oneof: "proposed_payment_payment_mode" },
-    { no: 5, name: "proposed_payment_payment_mode_pay_what_you_want", kind: "message", T: CheckoutSettings_PayWhatYouWant, oneof: "proposed_payment_payment_mode" },
-    { no: 6, name: "receiver_strategy_preferences_accepted_token_tickers_allowlist", kind: "scalar", T: 9 /* ScalarType.STRING */, oneof: "receiver_strategy_preferences_accepted_token_tickers" },
-    { no: 7, name: "receiver_strategy_preferences_accepted_token_tickers_denylist", kind: "scalar", T: 9 /* ScalarType.STRING */, oneof: "receiver_strategy_preferences_accepted_token_tickers" },
-    { no: 8, name: "receiver_strategy_preferences_accepted_chain_ids_allowlist", kind: "scalar", T: 12 /* ScalarType.BYTES */, oneof: "receiver_strategy_preferences_accepted_chain_ids" },
-    { no: 9, name: "receiver_strategy_preferences_accepted_chain_ids_denylist", kind: "scalar", T: 12 /* ScalarType.BYTES */, oneof: "receiver_strategy_preferences_accepted_chain_ids" },
-    { no: 10, name: "note", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 1, name: "checkout_settings_major_version", kind: "scalar", T: 13 /* ScalarType.UINT32 */ },
+    { no: 2, name: "proposed_payment_receiver_address", kind: "scalar", T: 12 /* ScalarType.BYTES */, oneof: "proposed_payment_receiver" },
+    { no: 3, name: "proposed_payment_receiver_ens_name", kind: "scalar", T: 9 /* ScalarType.STRING */, oneof: "proposed_payment_receiver" },
+    { no: 4, name: "proposed_payment_logical_asset_tickers", kind: "enum", T: proto3.getEnumType(LogicalAssetTicker), repeated: true },
+    { no: 5, name: "proposed_payment_payment_mode_logical_asset_amount", kind: "scalar", T: 12 /* ScalarType.BYTES */, oneof: "proposed_payment_payment_mode" },
+    { no: 6, name: "proposed_payment_payment_mode_pay_what_you_want", kind: "message", T: CheckoutSettings_PayWhatYouWant, oneof: "proposed_payment_payment_mode" },
+    { no: 7, name: "receiver_strategy_preferences_accepted_token_tickers_allowlist", kind: "scalar", T: 9 /* ScalarType.STRING */, oneof: "receiver_strategy_preferences_accepted_token_tickers" },
+    { no: 8, name: "receiver_strategy_preferences_accepted_token_tickers_denylist", kind: "scalar", T: 9 /* ScalarType.STRING */, oneof: "receiver_strategy_preferences_accepted_token_tickers" },
+    { no: 9, name: "receiver_strategy_preferences_accepted_chain_ids_allowlist", kind: "scalar", T: 12 /* ScalarType.BYTES */, oneof: "receiver_strategy_preferences_accepted_chain_ids" },
+    { no: 10, name: "receiver_strategy_preferences_accepted_chain_ids_denylist", kind: "scalar", T: 12 /* ScalarType.BYTES */, oneof: "receiver_strategy_preferences_accepted_chain_ids" },
+    { no: 11, name: "note", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 16, name: "sender_note_settings_mode", kind: "enum", T: proto3.getEnumType(CheckoutSettings_SenderNoteSettingsMode) },
     { no: 17, name: "sender_note_settings_instructions", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 18, name: "success_redirect_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
-    { no: 19, name: "webhook_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 19, name: "success_redirect_call_to_action", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 20, name: "webhook_url", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): CheckoutSettings {

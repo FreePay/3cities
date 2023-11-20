@@ -5,7 +5,7 @@ import React, { FC, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from 'react-router-dom';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { ActiveDemoAccountContext } from './ActiveDemoAccountContext';
-import { ObservableValue, Observer, makeObservableValue, useObservedValue } from './observer';
+import { ObservableValueUpdater, Observer, makeObservableValue, useObservedValue } from './observer';
 import { useEnsAddress } from './useEnsAddress';
 
 type DemoAccountProviderProps = {
@@ -24,7 +24,7 @@ export const DemoAccountProvider: FC<DemoAccountProviderProps> = ({ children }) 
     <DemoAccountProviderInner activeDemoAccountObserver={activeDemoAccountOv.observer}>
       {children}
     </DemoAccountProviderInner>
-    <ActiveDemoAccountUpdater ov={activeDemoAccountOv} />
+    <ActiveDemoAccountUpdater ovu={activeDemoAccountOv} />
   </>;
 };
 
@@ -188,14 +188,14 @@ function useCalcActiveDemoAccount() {
 }
 
 interface ActiveDemoAccountUpdaterProps {
-  ov: ObservableValue<string | undefined>;
+  ovu: ObservableValueUpdater<string | undefined>;
 }
 
-const ActiveDemoAccountUpdater: FC<ActiveDemoAccountUpdaterProps> = ({ ov }) => {
+const ActiveDemoAccountUpdater: FC<ActiveDemoAccountUpdaterProps> = ({ ovu }) => {
   const activeDemoAccount: string | undefined = useCalcActiveDemoAccount();
   useEffect(
-    () => ov.setValueAndNotifyObservers(activeDemoAccount),
-    [ov, activeDemoAccount],
+    () => ovu.setValueAndNotifyObservers(activeDemoAccount),
+    [ovu, activeDemoAccount],
   );
   return undefined;
 };

@@ -13,7 +13,7 @@ type AllowlistOrDenylist<T> = Readonly<{
 // to allow a receiver/seller to say eg., "I don't care what chain you
 // send me tokens on, but I don't want Tether".
 export type StrategyPreferences = Readonly<{
-  acceptedTokenTickers?: AllowlistOrDenylist<string>, // list of token tickers in which payment must (if allowlist) or must not (if denylist) be received
+  acceptedTokenTickers?: AllowlistOrDenylist<Uppercase<string>>, // list of token tickers in which payment must (if allowlist) or must not (if denylist) be received
   acceptedChainIds?: AllowlistOrDenylist<number>, // list of chain ids on which payment must (if allowlist) or must not (if denylist) be received
   // TODO soft preferences that are evaluated on a best-effort basis eg. "I prefer USD over EUR where possible", eg. "I prefer Arbitrum One where possible"
 }>

@@ -13,6 +13,7 @@ interface ToggleSwitchProps {
   onClassName?: string; // className to apply to the non-root button when toggled on. Typically used to set the color when toggled on. Defaults to text-green-500.
   offClassName?: string; // className to apply to the non-root button when toggled off. Typically used to set the color when toggled off. Defaults to text-red-500.
   size?: string; // size of the toggle. Defaults to 1.5em.
+  disabled?: boolean; // iff true, toggling the switch will be disabled.
 }
 
 const styleFlipHorizontally = { transform: "scaleX(-1)" };
@@ -27,14 +28,17 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = React.memo(({
   onClassName = "text-green-500",
   offClassName = "text-red-500",
   size = "1.5em",
+  disabled,
 }: ToggleSwitchProps) => {
   const [isOn, setIsOn] = useState(initialIsOn);
 
   const handleToggle = useCallback(() => {
-    const newState = !isOn;
-    setIsOn(newState);
-    onToggle(newState);
-  }, [isOn, setIsOn, onToggle]);
+    if (disabled !== true) {
+      const newState = !isOn;
+      setIsOn(newState);
+      onToggle(newState);
+    }
+  }, [isOn, setIsOn, onToggle, disabled]);
 
   const iconStyle = whichDirectionIsOn === "left" ? styleFlipHorizontally : {};
   const leftLabel = whichDirectionIsOn === "left" ? onLabel : offLabel;
@@ -43,7 +47,7 @@ export const ToggleSwitch: React.FC<ToggleSwitchProps> = React.memo(({
   return (
     <div onClick={handleToggle} className={`flex items-center ${className || ''}`}>
       {leftLabel && <span>{leftLabel}</span>}
-      <button className={`focus:outline-none transition-colors duration-150 active:scale-95 ${isOn ? onClassName : offClassName}`}>
+      <button disabled={disabled === true} className={`disabled:cursor-not-allowed focus:outline-none transition-colors duration-150 enabled:active:scale-95 ${isOn ? onClassName : offClassName}`}>
         {/* NB here we apply onClassName and offClassName to the button instead of directly to FaToggleOn/FaToggleOff so that the default transition-colors is correctly applied. Otherwise, transition-colors doesn't work because it only affects changing the color on the same element, and FaToggleOn/Off are two different elements. */}
         {isOn ? <FaToggleOn size={size} style={iconStyle} /> : <FaToggleOff size={size} style={iconStyle} />}
       </button>

@@ -97,13 +97,15 @@ export type ExecuteTokenTransferButtonProps = {
   loadingSpinnerClassName?: string // className applied to the loading spinner iff button is loading. The text color is used for the loading spinner's foreground color, and the svg fill color is used for the loading spinner's background color. Recommended: set text color to same color as the disabled button label (as button is disabled during loading) and fill color to same color as button's (disabled) background color.
   errorClassName?: string // className applied to any error label
   warningClassName?: string // className applied to any warning label
-  setStatus?: (status: ExecuteTokenTransferButtonStatus) => void; // callback for the client to receive updated button status. React note: if an ancestor component of ExecuteTokenTransferButton caches this updated status as state, then ExecuteTokenTransferButton will rerender redundantly each time it updates the status (because an ancestor's subtree rerenders on state change). These redundant rerenders can be avoided by storing eg. an Observer in the ancestor and using the updated status in a cousin component (including potentially caching it as state).
+  setStatus?: (status: ExecuteTokenTransferButtonStatus | undefined) => void; // callback for the client to receive updated button status. The passed status will be undefined iff ExecuteTokenTransferButton is unmounting, and this is provided to help clients avoid caching stale statuses for buttons that have been destroyed. React note: if an ancestor component of ExecuteTokenTransferButton caches this updated status as state, then ExecuteTokenTransferButton will rerender redundantly each time it updates the status (because an ancestor's subtree rerenders on state change). These redundant rerenders can be avoided by storing eg. an Observer in the ancestor and using the updated status in a cousin component (including potentially caching it as state).
 };
 
 // ExecuteTokenTransferButton is a batteries-included button to manage the
 // full lifecycle of a single token transfer.
 export const ExecuteTokenTransferButton: React.FC<ExecuteTokenTransferButtonProps> = ({ setStatus, ...props }) => {
   const [ov] = useState(() => makeObservableValue<ExecuteTokenTransferStatus | undefined>(undefined));
+
+  useEffect(() => () => setStatus?.(undefined), [setStatus]); // when ExecuteTokenTransferButton unmounts, set client status to undefined to help avoid the client caching a stale status for a destroyed button
 
   const innerSetStatus = useCallback<((s: ExecuteTokenTransferStatus) => void)>((s: ExecuteTokenTransferStatus) => {
     // the job of this outer ExecuteTokenTransferButton component is to avoid necessary rerenders (especially not rerendering on each transfer status update) and to act as plumbing between the transfer, the client, and the UI. Here, a new status has been produced by the transfer, and so this component will push that status to the UI and the client, while leveraging ObservableValue to avoid state updates to itself:
