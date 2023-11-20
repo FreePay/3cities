@@ -50,7 +50,7 @@ export const router = createHashRouter(createRoutesFromElements(
       'pay': <PayLinkNotFound />,
     }} />}>
       <Route element={<ConversionWrapper />}>
-        <Route path="pay" element={<Pay />} />
+        <Route path="pay" element={<Pay />} /> {/* WARNING the route https://3cities.xyz/#/pay?c=<v1 payload> is part of our public API and commitment to customers to maintain backwards compatibility forever */}
         {/* <Route path="donate" element={<Donate />} /> */}
         {/* <Route path="prepare-checkout" element={<PointOfSaleCheckoutConfig />} />  */}
         {/* <Route path="checkout" element={<Checkout />} /> */}
