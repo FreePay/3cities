@@ -57,7 +57,7 @@ async function seedRecentlyUsedReceiversExamples(): Promise<"examples-were-seede
   // await clearRecentlyUsed(sentinelKey); // development feature: uncomment this line to clear the sentinel value and reinitialize your local examples
   if ((await getMostRecentlyUsed(sentinelKey)).length < 1) {
     await addToRecentlyUsed(recentlyUsedReceiversKey, "example.eth");
-    await addToRecentlyUsed(recentlyUsedReceiversKey, "brian.cb.id");
+    await addToRecentlyUsed(recentlyUsedReceiversKey, "barmstrong.cb.id");
     await addToRecentlyUsed(sentinelKey, "set"); // sentinel value to indicate that defaults were seeded and shouldn't be seeded again
     return "examples-were-seeded";
   } else return undefined;
