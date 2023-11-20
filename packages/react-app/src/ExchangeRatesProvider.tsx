@@ -92,7 +92,7 @@ const exchangeRatesToFetch: Array<ExchangeRateFetcher> = [
       const data = await response.json();
       if (!data.ethereum.usd) throw new Error('response invalid');
       else return data.ethereum.usd;
-    }, refetchIntervalMilliseconds: defaultRefetchIntervalMilliseconds,
+    }, refetchIntervalMilliseconds: 60_500, // Coingecko seems to aggressively rate limit so we'll fetch only once per minute
   },
   {
     denominatorTicker: 'ETH',
