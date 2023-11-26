@@ -1,5 +1,6 @@
 import { useContext } from "react";
 import { IsPageVisibleOrRecentlyVisibleContext } from "./IsPageVisibleOrRecentlyVisibleContext";
+import { Observer, useObservedValue } from "./observer";
 
 // useIsPageVisibleOrRecentlyVisible returns true iff the page is
 // currently visible or has been visible in the past opts.recentMillis
@@ -12,5 +13,6 @@ import { IsPageVisibleOrRecentlyVisibleContext } from "./IsPageVisibleOrRecently
 // every time the app is hidden and then shown again. See
 // useIsPageVisible for details on how page visibility is detected.
 export function useIsPageVisibleOrRecentlyVisible(): boolean {
-  return useContext(IsPageVisibleOrRecentlyVisibleContext);
+  const o: Observer<boolean> = useContext(IsPageVisibleOrRecentlyVisibleContext);
+  return useObservedValue(o);
 }
