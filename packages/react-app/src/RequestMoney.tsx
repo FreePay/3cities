@@ -420,6 +420,12 @@ export const RequestMoney: React.FC = () => {
   const [showReceiverRequiredWarning, setShowReceiverRequiredWarning] = useState(false); // if the user clicks Send Pay Link before filling in a receiver, we'll show a warning that receiver is a required field
   const [showPasswordRequiredWarning, setShowPasswordRequiredWarning] = useState(false); // if the user clicks Send Pay Link before filling in a password while privacyAndSecurityMode is encrypted or signed, we'll show a warning that password is a required field
 
+  useEffect(() => { // typically, we don't reset any required warning until the send pay link button is clicked. This helps guide the user and reduce jank by not toggling warnings as they are still filling in fields. However, if the receiver required warning was set, but the user's wallet becomes connected, then the receiver is unconditionally and automatically set to the connected wallet address, and so the receiver required warning is now particularly redundant, so we unset it as a special case
+    if (showReceiverRequiredWarning && isConnected && computedReceiver && computedReceiver.address && computedReceiver.address === connectedWalletAddress) {
+      setShowReceiverRequiredWarning(false);
+    }
+  }, [isConnected, connectedWalletAddress, computedReceiver, showReceiverRequiredWarning, setShowReceiverRequiredWarning]);
+
   const onClickSendPayLink = useCallback(() => {
     if (checkoutSettings) { // NB some implicit control flow: here we check only that checkoutSettings is defined before showing the pay link share modal, but the modal depends on checkoutLink which may be undefined even if checkoutSettings is defined due to asynchronous generation of serializedCheckoutSettings. In this case, the modal will simply pop-up as soon as checkoutLink becomes available.
       setShowAmountRequiredWarning(false);
