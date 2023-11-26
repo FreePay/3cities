@@ -327,7 +327,7 @@ const staticChainIdPriority: ChainIdPriority = {
   [optimism.id]: 800,
   [polygonZkEvm.id]: 750,
   [zkSync.id]: 700,
-  [polygon.id]: 500,
+  [polygon.id]: 500, // polygon is currently an alt L1 and so we assign it lowest priority since we prefer L2s
   [mainnet.id]: 1,
 
   // Testnet priorities below here (higher priority is better):
@@ -340,10 +340,10 @@ if (isProduction) chainsSupportedBy3cities.forEach(c => {
 
 const staticTokenTickerPriority: TokenTickerPriority = {
   // This is intended to be a complete set of prioritized production token tickers (higher priority is better):
-  USDC: 1000, // I put USDC as top priority because I think ppl generally prefer to use it
-  DAI: 900, // DAI is the most popular decentralized stablecoin so I made it 2nd highest priority
-  LUSD: 800, // LUSD is the most decentralized stablecoin so I made it 3rd highest priority
-  USDT: 700, // USDT is quite popular so I made it 4th highest priority
+  USDC: 1000, // USDC first, as it's most popular
+  USDT: 900, // USDT second, as it's second most popular
+  DAI: 800, // DAI third, as it's third most popular
+  LUSD: 700,
 
   // People generally want to pay with stablecoins, so non-stables have lower priority:
   ETH: 150, // ETH is prioritized above WETH because it's more natural (naturalness principle)
