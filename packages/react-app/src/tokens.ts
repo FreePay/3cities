@@ -30,30 +30,35 @@ const isTestShorterListOfTokens = false; // WARNING test flag to be manually tog
 // all if a production provider isn't defined in the active wagmi
 // config.
 
+// NB 3cities token ticker design for bridged vs native tokens, eg. USDC is available in both bridged and native variants on many L2s. The official guidance from Circle and the L2s is that the ticker for a bridged variant is eg. "USDC.e" on Arbitrum, and that the ticker "USDC" is reserved for native variants. However, 3cities has decided to give all bridged and native variants the same "USDC" ticker and to present the Circle-recommended ticker as `tickerCanonical`. The advantages of this approach are (i) reducing ticker fragmentation, as a receiver only needs to specify they accept USDC and they will automatically accept all bridged and native variants; (ii) enhancing pay link backwards compatibility, so that existing pay links that have a ticker allowlist that includes USDC will automatically pick up all future native and bridged variants instead of permanently forbidding variants whose canonical ticker is not USDC; and (iii) supporting Ethereum's L2 model of bridging, where we don't want our supported bridged versions of tokens to be effectively second-class citizens with weird tickers.
+
 // token is a convenience function to construct a Token for a passed Chain.
-export function token(chain: Chain, { name, ticker, decimals = 18, contractAddress }: Optional<Pick<Token, 'name' | 'ticker' | 'decimals' | 'contractAddress'>, 'decimals'>): Token {
-  const o: Pick<Token, 'name' | 'ticker' | 'decimals' | 'chainId' | 'contractAddress'> = { name, ticker, decimals, chainId: chain.id, contractAddress };
-  if (chain.testnet) {
-    const testnet: Pick<Token, 'testnet'> = { testnet: true };
-    return Object.assign(o, testnet);
-  } else return o;
+export function token(chain: Chain, { name, ticker, tickerCanonical, decimals = 18, contractAddress }: Optional<Pick<Token, 'name' | 'ticker' | 'tickerCanonical' | 'decimals' | 'contractAddress'>, 'decimals'>): Token {
+  const o: Token = Object.freeze({
+    name,
+    ticker,
+    ...(tickerCanonical && { tickerCanonical }),
+    decimals,
+    chainId: chain.id,
+    contractAddress,
+    ...(chain.testnet && { testnet: true }),
+  });
+  return o;
 }
 
-// nativeCurrency is a convenience function to construct a NativeCurrency
-// for a passed Chain.
-export function nativeCurrency(chain: Chain, args?: Pick<NativeCurrency, 'name' | 'ticker'>): NativeCurrency {
-  const o: Pick<NativeCurrency, 'name' | 'ticker' | 'decimals' | 'chainId'> = {
+// nativeCurrency is a convenience function to construct a
+// NativeCurrency for a passed Chain.
+export function nativeCurrency(chain: Chain, args?: Pick<NativeCurrency, 'name' | 'ticker' | 'tickerCanonical'>): NativeCurrency {
+  const o: NativeCurrency = Object.freeze({
     name: args?.name || 'Ether',
     ticker: args?.ticker || 'ETH',
+    ...(args?.tickerCanonical && { tickerCanonical: args.tickerCanonical }),
     decimals: 18,
     chainId: chain.id,
-  };
-  if (chain.testnet) {
-    const testnet: Pick<NativeCurrency, 'testnet'> = { testnet: true };
-    return Object.assign(o, testnet);
-  } else return o;
+    ...(chain.testnet && { testnet: true }),
+  });
+  return o;
 }
-
 
 // By our convention, in our token registry, every production network
 // has zero or one testnets. Here, we have adopted Goerli as the
@@ -96,7 +101,8 @@ const ArbitrumWETH = token(arbitrum, { name: 'Wrapped Ether', ticker: 'WETH', co
 const ArbitrumGoerliWETH = token(arbitrumGoerli, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0xe39Ab88f8A4777030A534146A9Ca3B52bd5D43A3' });
 const ArbitrumDAI = token(arbitrum, { name: 'Dai', ticker: 'DAI', contractAddress: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1' });
 const ArbitrumGoerliDAI = token(arbitrumGoerli, { name: 'Dai', ticker: 'DAI', contractAddress: '0x8411120Df646D6c6DA15193Ebe9E436c1c3a5222' });
-const ArbitrumUSDC = token(arbitrum, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8', decimals: 6 });
+const ArbitrumUSDCBridged = token(arbitrum, { name: 'USD Coin', ticker: 'USDC', tickerCanonical: 'USDC.e', contractAddress: '0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8', decimals: 6 });
+const ArbitrumUSDCNative = token(arbitrum, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0xaf88d065e77c8cc2239327c5edb3a432268e5831', decimals: 6 });
 const ArbitrumGoerliUSDC = token(arbitrumGoerli, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x8FB1E3fC51F3b789dED7557E680551d93Ea9d892', decimals: 6 });
 const ArbitrumUSDT = token(arbitrum, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', decimals: 6 });
 const ArbitrumGoerliUSDT = token(arbitrumGoerli, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0xB401e876346B3C77DD51781Efba5223d2F1e6697', decimals: 6 });
@@ -218,7 +224,8 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     polygonDAI,
     USDC,
     OptimismUSDC,
-    ArbitrumUSDC,
+    ArbitrumUSDCBridged,
+    ArbitrumUSDCNative,
     ArbitrumNovaUSDC,
     zkSyncUSDC,
     PolygonZkEvmUSDC,
@@ -271,7 +278,7 @@ export type TokenKey = string // see getTokenKey
 // NativeCurrency or Token, suitable to be used as a hashing or object
 // key.
 export function getTokenKey(t: NativeCurrency | Token): TokenKey {
-  return `${t.ticker}-${t.chainId}`;
+  return isToken(t) ? `${t.contractAddress}-${t.chainId}` : `${t.ticker}-${t.chainId}`; // WARNING here we must use the contractAddress to uniquely identify a token because we support multiple tokens with the same ticker on the same chain
 }
 
 // allTokenKeys is a list of all TokenKeys for both nativeCurrencies

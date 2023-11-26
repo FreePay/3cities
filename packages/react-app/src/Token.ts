@@ -6,6 +6,7 @@ import { IntRange } from "./IntRange";
 export type Token = Readonly<{
   name: string;
   ticker: Uppercase<string>;
+  tickerCanonical?: string; // optional canonical ticker intended to be read by humans. If tickerCanonical is defined, Token renderers should use it over ticker. For example, tickerCanonical can be useful if the human-readable ticker is not all uppercase, and/or if `ticker` is being set to something other than this token's canonical ticker. For example, "USDC.e" is the tickerCanonical and "USDC" the ticker for bridged USDC on Arbitrum, which has the effect of using the actual USDC.e ticker in renderers while handling bridged USDC as ordinary USDC from the perspective of the rest of system
   decimals: IntRange<0, 19>;
   chainId: number;
   contractAddress: `0x${string}`;
@@ -20,6 +21,7 @@ export type Token = Readonly<{
 export type NativeCurrency = Readonly<{
   name: string;
   ticker: Uppercase<string>;
+  tickerCanonical?: string; // optional canonical ticker intended to be read by humans. If tickerCanonical is defined, Token renderers should use it over ticker. For example, tickerCanonical can be useful if the human-readable ticker is not all uppercase, and/or if `ticker` is being set to something other than this token's canonical ticker. For example, "USDC.e" is the tickerCanonical and "USDC" the ticker for bridged USDC on Arbitrum, which has the effect of using the actual USDC.e ticker in renderers while handling bridged USDC as ordinary USDC from the perspective of the rest of system
   decimals: 18; // all EVM chains should implement 18 decimals in their native currencies in order to remain compatible with solidity
   chainId: number;
   contractAddress?: never;
