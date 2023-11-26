@@ -264,21 +264,32 @@ function sortStrategiesByPriority(
   strategies: Strategy[] | ProposedStrategy[],
 ): Strategy[] | ProposedStrategy[] {
   return strategies.sort((a, b) => {
-    const aLogicalAssetPriority = getStrategyLogicalAssetPriority(a);
-    const bLogicalAssetPriority = getStrategyLogicalAssetPriority(b);
-    if (aLogicalAssetPriority === bLogicalAssetPriority) {
-      const aChainId = 'tokenTransfer' in a ? a.tokenTransfer.token.chainId : a.proposedTokenTransfer.token.chainId;
-      const bChainId = 'tokenTransfer' in b ? b.tokenTransfer.token.chainId : b.proposedTokenTransfer.token.chainId;
-      const aChainPriority = chainIdPriority[aChainId] ?? Number.NEGATIVE_INFINITY;
-      const bChainPriority = chainIdPriority[bChainId] ?? Number.NEGATIVE_INFINITY;
-      if (aChainPriority === bChainPriority) {
-        const aTicker = 'tokenTransfer' in a ? a.tokenTransfer.token.ticker : a.proposedTokenTransfer.token.ticker;
-        const bTicker = 'tokenTransfer' in b ? b.tokenTransfer.token.ticker : b.proposedTokenTransfer.token.ticker;
+    const aToken: Token | NativeCurrency = 'tokenTransfer' in a ? a.tokenTransfer.token : a.proposedTokenTransfer.token;
+    const bToken: Token | NativeCurrency = 'tokenTransfer' in b ? b.tokenTransfer.token : b.proposedTokenTransfer.token;
+    const aChainId = aToken.chainId;
+    const bChainId = bToken.chainId;
+    const aChainPriority = chainIdPriority[aChainId] ?? Number.NEGATIVE_INFINITY;
+    const bChainPriority = chainIdPriority[bChainId] ?? Number.NEGATIVE_INFINITY;
+    if (aChainPriority === bChainPriority) {
+      const aLogicalAssetPriority = getStrategyLogicalAssetPriority(a);
+      const bLogicalAssetPriority = getStrategyLogicalAssetPriority(b);
+      if (aLogicalAssetPriority === bLogicalAssetPriority) {
+        const aTicker = aToken.ticker;
+        const bTicker = bToken.ticker;
         const aTickerPriority = tokenTickerPriority[aTicker] ?? Number.NEGATIVE_INFINITY;
         const bTickerPriority = tokenTickerPriority[bTicker] ?? Number.NEGATIVE_INFINITY;
-        return bTickerPriority - aTickerPriority;
-      } else return bChainPriority - aChainPriority;
-    } else return bLogicalAssetPriority - aLogicalAssetPriority;
+        if (aTicker === bTicker) { // NB two tokens may share the same ticker, chain, and logical asset priority, such as with bridged and native USDC on the same L2. In this case, we tie-break by preferring the bridged variant, as the bridged variant gives the receiver greater protections vs. the native variant (since only the bridged variant can't be seized from the end-user and can often be force-exited from the L2)
+          // WARNING here we assume tickerCanonical defined indicates the token is bridged. This is because today, bridged variants of USDC are assigned a different canonical ticker by Circle (eg. USDC.e for Arb/Op):
+          const aIsBridged: boolean = 'tickerCanonical' in aToken;
+          const bIsBridged: boolean = 'tickerCanonical' in bToken;
+          if (aIsBridged === bIsBridged) { // both tokens are either bridged or not. TODO further tie-breaking logic
+            return 0; // for now, keep them in the same order they were
+          } else {
+            return aIsBridged ? -1 : 1; // prefer the bridged version
+          }
+        } else return bTickerPriority - aTickerPriority;
+      } else return bLogicalAssetPriority - aLogicalAssetPriority;
+    } else return bChainPriority - aChainPriority;
   });
 }
 
