@@ -86,7 +86,8 @@ const OptimismWETH = token(optimism, { name: 'Wrapped Ether', ticker: 'WETH', co
 const OptimismGoerliWETH = token(optimismGoerli, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0x4200000000000000000000000000000000000006' });
 const OptimismDAI = token(optimism, { name: 'Dai', ticker: 'DAI', contractAddress: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1' });
 const OptimismGoerliDAI = token(optimismGoerli, { name: 'Dai', ticker: 'DAI', contractAddress: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1' });
-const OptimismUSDC = token(optimism, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607', decimals: 6 });
+const OptimismUSDCBridged = token(optimism, { name: 'USD Coin', ticker: 'USDC', tickerCanonical: 'USDC.e', contractAddress: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607', decimals: 6 });
+const OptimismUSDCNative = token(optimism, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85', decimals: 6 });
 const OptimismGoerliUSDC = token(optimismGoerli, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x7E07E15D2a87A24492740D16f5bdF58c16db0c4E', decimals: 6 });
 const OptimismUSDT = token(optimism, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0x94b008aA00579c1307B0EF2c499aD98a8ce58e58', decimals: 6 });
 const OptimismGoerliUSDT = token(optimismGoerli, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0x853eb4bA5D0Ba2B77a0A5329Fd2110d5CE149ECE', decimals: 6 });
@@ -169,7 +170,8 @@ const polygonETH = token(polygon, { name: 'Ether', ticker: 'ETH', contractAddres
 const polygonMumbaiETH = token(polygonMumbai, { name: 'Ether', ticker: 'ETH', contractAddress: '0xA6FA4fB5f76172d178d61B04b0ecd319C5d1C0aa' }); // remember, ETH is an erc20 on polygon
 const polygonDAI = token(polygon, { name: 'Dai', ticker: 'DAI', contractAddress: '0x8f3cf7ad23cd3cadbd9735aff958023239c6a063' });
 const polygonMumbaiDAI = token(polygonMumbai, { name: 'Dai', ticker: 'DAI', contractAddress: '0xfe4F5145f6e09952a5ba9e956ED0C25e3Fa4c7F1' }); // this isn't actually DAI, it's a generic ERC20
-const polygonUSDC = token(polygon, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174', decimals: 6 });
+const polygonUSDCBridged = token(polygon, { name: 'USD Coin', ticker: 'USDC', tickerCanonical: 'USDC.e', contractAddress: '0x2791bca1f2de4661ed88a30c99a7a9449aa84174', decimals: 6 });
+const polygonUSDCNative = token(polygon, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359', decimals: 6 });
 // const polygonMumbaiUSDC = token(polygonMumbai, { name: 'USD Coin', ticker: 'USDC', contractAddress: '', decimals: 6 });
 const polygonUSDT = token(polygon, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f', decimals: 6 });
 // const polygonMumbaiUSDT = token(polygonMumbai, { name: 'Tether USD', ticker: 'USDT', contractAddress: '', decimals: 6 });
@@ -219,13 +221,15 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     polygonETH,
     // USDC first, as it's most popular
     USDC,
-    OptimismUSDC,
+    OptimismUSDCBridged,
+    OptimismUSDCNative,
     ArbitrumUSDCBridged,
     ArbitrumUSDCNative,
     ArbitrumNovaUSDC,
     zkSyncUSDC,
     PolygonZkEvmUSDC,
-    polygonUSDC,
+    polygonUSDCBridged,
+    polygonUSDCNative,
     // USDT second, as it's second most popular
     USDT,
     OptimismUSDT,
