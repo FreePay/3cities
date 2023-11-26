@@ -17,9 +17,10 @@ import { RenderTokenTransfer } from "./RenderTokenTransfer";
 import { ToggleSwitch } from "./ToggleSwitch";
 import { getBlockExplorerUrlForAddress, getBlockExplorerUrlForTransaction } from "./blockExplorerUrls";
 import { getChain, getSupportedChainName } from "./chains";
+import { formatFloat } from "./formatFloat";
 import { LogicalAssetTicker } from "./logicalAssets";
 import { getLogicalAssetTickerForTokenOrNativeCurrencyTicker } from "./logicalAssetsToTokens";
-import { Strategy, getProposedStrategiesForProposedPayment, getStrategiesForPayment } from "./strategies";
+import { ProposedStrategy, Strategy, getProposedStrategiesForProposedPayment, getStrategiesForPayment } from "./strategies";
 import { TokenTransfer } from "./tokenTransfer";
 import { getTokenKey } from "./tokens";
 import { ExecuteTokenTransferButton, ExecuteTokenTransferButtonStatus, TransactionFeeUnaffordableError } from "./transactions";
@@ -29,6 +30,7 @@ import { useBestStrategy } from "./useBestStrategy";
 import { useCheckoutSettings } from "./useCheckoutSettings";
 import { useConnectedAccountContext } from "./useConnectedAccountContext";
 import { useExchangeRates } from "./useExchangeRates";
+import { useInitialLoadTimeInSeconds } from "./useInitialLoadTimeInSeconds";
 import { useInput } from "./useInput";
 import { useProposedPaymentReceiverAddressAndEnsName } from "./useProposedPaymentReceiverAddressAndEnsName";
 import { applyVariableSubstitutions } from "./variableSubstitutions";
@@ -100,6 +102,8 @@ const PayNeedsPassword: React.FC<PayNeedsPasswordProps> = ({ csrp }) => {
     </div>
   );
 };
+
+const BestStrategyLabel: React.FC = () => <span></span>; // actual: `<span className="text-primary-darker font-semibold">best</span>` --> NB I like the BestStrategyLabel system, I think it's user-centric and helps explain how 3cities works. However, I think there's a real possibility of it angering many L2 tribes in terms of describing their payment methods as "non-best". TODO can we  find another succinct label here, like "cheapest" or "recommended"?
 
 type PayInnerProps = {
   checkoutSettings: CheckoutSettings;
@@ -195,6 +199,8 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
 
   const exchangeRates: ExchangeRates | undefined = useExchangeRates();
 
+  const proposedStrategies = useMemo<ProposedStrategy[]>(() => getProposedStrategiesForProposedPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment), [checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment, exchangeRates]);
+
   const strategies = useMemo<Strategy[] | undefined>(() => {
     if (payment && ac) return getStrategiesForPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, payment, ac);
     else return undefined;
@@ -202,13 +208,12 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
 
   const { bestStrategy, otherStrategies, disableAllStrategiesOriginatingFromChainId, selectStrategy } = useBestStrategy(strategies);
 
-  const receiverAddressBlockExplorerLink: string | undefined = (() => {
+  const receiverAddressBlockExplorerLink = useMemo<string | undefined>(() => {
     if (proposedPaymentWithReceiverAddress) {
-      const pss = getProposedStrategiesForProposedPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment);
-      return getBlockExplorerUrlForAddress((status?.activeTokenTransfer || bestStrategy?.tokenTransfer || pss[0]?.proposedTokenTransfer)?.token.chainId, proposedPaymentWithReceiverAddress.receiver.address); // the idea here is we'll show an explorer link for the chain that's most relevant to the payment
+      return getBlockExplorerUrlForAddress((status?.activeTokenTransfer || bestStrategy?.tokenTransfer || proposedStrategies[0]?.proposedTokenTransfer)?.token.chainId, proposedPaymentWithReceiverAddress.receiver.address); // the idea here is we'll show an explorer link for the chain that's most relevant to the payment
     }
     else return undefined;
-  })();
+  }, [proposedPaymentWithReceiverAddress, status?.activeTokenTransfer, proposedStrategies, bestStrategy?.tokenTransfer]);
 
   const [showFullReceiverAddress, setShowFullReceiverAddress] = useState(false);
 
@@ -246,7 +251,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     && !status.isError // and there wasn't an error, then we don't want to let the user select a new strategy because they may broadcast a successful transaction for the current transfer, and that could result in a double-spend for this Agreement (eg. the user selects a new strategy, then signs the transaction for the previous strategy, then signs a transaction for the new strategy, and there's a double spend)
   );
 
-  const [selectingPaymentMethod, setSelectingPaymentMethod] = useState(false); // layout control variable to determine if payment method selection view is being shown. We use this instead of handling payment method selection at the route level because there's a lot of accumulated state in this page that I didn't want to (and wasn't sure how to be) split across routes. This means payment method selection doesn't result in changing the URL, so you can't link to payment method selection, you can only open it up once the link is loaded, which is fine.
+  const [selectingPaymentMethod, setSelectingPaymentMethod] = useState(false); // layout control variable to determine if payment method selection view is being shown
 
   useEffect(() => {
     if (selectingPaymentMethod // if the user is selecting a payment method
@@ -257,6 +262,20 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       )
     ) setSelectingPaymentMethod(false); // then we'll close the payment select view
   }, [setSelectingPaymentMethod, selectingPaymentMethod, canSelectNewStrategy, otherStrategies]);
+
+  const [wantToSetSelectingPaymentMethodToFalse, setWantToSetSelectingPaymentMethodToFalse] = useState(false); // wantToSetSelectingPaymentMethodToFalse is true iff the payment method select view is in the process of closing but is not yet closed. See note on `setWantToSetSelectingPaymentMethodToFalse(true);` as to why this deferral improves UX
+
+  useEffect(() => { // here we implement the intent of wantToSetSelectingPaymentMethodToFalse deferring closing the payment method select view until the status.activeTokenTransfer has synced with the new bestStrategy.tokenTransfer. See note on `setWantToSetSelectingPaymentMethodToFalse(true);` as to why this deferral improves UX
+    if (wantToSetSelectingPaymentMethodToFalse && (
+      // wantToSetSelectingPaymentMethodToFalse applies if and only if both activeTokenTransfer and bestStrategy are defined and activeTokenTransfer is waiting to sync with the latest bestStrategy. So if either activeTokenTransfer or bestStrategy become undefined, then wantToSetSelectingPaymentMethodToFalse no longer applies, and we must immediately close the payment method select view lest it become stuck open:
+      status?.activeTokenTransfer === undefined
+      || bestStrategy === undefined
+      || status.activeTokenTransfer === bestStrategy.tokenTransfer // ie. activeTokenTransfer has now synced with the latest bestStrategy, so we're ready finish deferral of actually closing the payment method select view
+    )) {
+      setSelectingPaymentMethod(false);
+      setWantToSetSelectingPaymentMethodToFalse(false);
+    }
+  }, [status?.activeTokenTransfer, bestStrategy, wantToSetSelectingPaymentMethodToFalse]);
 
   const checkoutReadinessState:
     'receiverAddressLoading' // the CheckoutSettings.proposedPayment used an ens name for the receiver, and resolving this ens name into an address is in progress
@@ -299,6 +318,8 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     {retryButton}
   </div>, [activeDemoAccount, retryButton]);
 
+  const initialLoadTimeInSeconds: number | undefined = useInitialLoadTimeInSeconds([bestStrategy, ac && ac.address === connectedAddress], [checkoutSettings, connectedAddress]);
+
   const paymentScreen: false | JSX.Element = useMemo(() => !statusIsSuccess && <div className={`${selectingPaymentMethod ? 'hidden' : '' /* WARNING here we hide the payment screen when selecting payment method instead of destroying it. This avoids an ExecuteTokenTransferButton remount each time the payment method changes, which is a mechanism to test reset logic and code paths. */}`}>
     <div className="w-full py-6">
       {(() => {
@@ -333,33 +354,33 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     {checkoutSettings.note !== undefined && <div className="p-4 flex items-center w-full border-b border-x border-gray-300 bg-white">
       <span className="text-left">{checkoutSettings.note}</span>
     </div>}
-    <div className="p-4 grid grid-cols-2 w-full border-b border-x border-gray-300 bg-white rounded-b-md">
-      <span className="font-bold text-lg">Total:</span>
-      <span className="font-bold text-lg text-right"><RenderLogicalAssetAmount
+    <div className="p-4 grid grid-cols-6 w-full border-b border-x border-gray-300 bg-white rounded-b-md">
+      <span className="font-bold text-lg col-span-2">Total:</span>
+      <span className="font-bold text-lg text-right col-span-4"><RenderLogicalAssetAmount
         logicalAssetTicker={proposedPaymentWithFixedAmount.logicalAssetTickers.primary}
         amountAsBigNumberHexString={proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString}
       /></span>
       {(() => {
-        // We'll display a supplementary logical asset amount below the primary logical asset amount. This helps the user understand the USD equivalent of their non-USD payment, or the non-USD equivalent for a USD payment if they're not paying USD. NB here we have a USD bias in that if the payment's primary logical asset is not USD, we always attempt to show its USD equivalent. But if the payment's primary logical asset is USD, we show nothing unless the active token transfer is for another logical asset, in which case we show that logical asset's equivalent amount. This asymmetry (USD bias) is because most users seem to prefer USD.
+        // We'll attempt to display a secondary logical asset amount below the primary logical asset amount. NB here we have a bias for USD in that if the payment's primary logical asset is not USD, we unconditionally attempt to show its USD equivalent, but if the payment's primary logical asset is USD, we only conditionally attempt to show its non-USD equivalent. This asymmetry (USD bias) is because most users seem to prefer USD.
         type OtherLogicalAssetAmountToDisplay = {
           lat: LogicalAssetTicker;
           amount: bigint;
         }
         const otherLogicalAssetAmountToDisplay: OtherLogicalAssetAmountToDisplay | 'preserve space' | 'collapse space' = (() => {
           if (proposedPaymentWithFixedAmount.logicalAssetTickers.primary === 'USD') {
-            const activeTokenTransfer: TokenTransfer | undefined = status?.activeTokenTransfer;
-            if (activeTokenTransfer === undefined) return 'collapse space';
-            else {
-              const activeTokenTransferLat: LogicalAssetTicker | undefined = getLogicalAssetTickerForTokenOrNativeCurrencyTicker(activeTokenTransfer.token.ticker);
-              if (activeTokenTransferLat && activeTokenTransferLat !== 'USD') {
-                const activeTokenTransferLatAmount: bigint | undefined = convert({ er: exchangeRates, fromTicker: 'USD', toTicker: activeTokenTransferLat, fromAmount: BigNumber.from(proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString).toBigInt() });
-                if (activeTokenTransferLatAmount !== undefined) return {
-                  lat: activeTokenTransferLat,
-                  amount: activeTokenTransferLatAmount,
-                }; else return 'preserve space';
-              } else return 'collapse space';
-            }
-          } else {
+            const mostRelevantSecondaryLat = ((): LogicalAssetTicker | undefined => {
+              if (status?.activeTokenTransfer) return getLogicalAssetTickerForTokenOrNativeCurrencyTicker(status.activeTokenTransfer.token.ticker); // we'll define the most relevant secondary logical asset ticker as the one associated with the current active token transfer, if any, since the active token transfer is the one is currently to be used for payment. NB if the activeTokenTransfer is denominated in USD, then the most relevant "secondary" lat will be the same as the primary lat (and then not displayed below)
+              else return proposedStrategies.map(ps => getLogicalAssetTickerForTokenOrNativeCurrencyTicker(ps.proposedTokenTransfer.token.ticker)).find(lat => lat !== undefined && lat !== 'USD') // we'll define the second most relevant secondary logical asset ticker as the one associated with the highest-priority proposed strategy that's not denominated in USD because these proposed strategies are based on live exchange rates and contextual prioritization. Here, we use the first non-USD proposed strategy even if a USD proposed strategy may be higher priority to showcase 3cities's exchange rate functionality
+                || (!isConnected ? proposedPaymentWithFixedAmount.logicalAssetTickers.secondaries[0] : undefined); // we'll define the least relevant secondary logical asset ticker as the highest-priority of the payment secondaries only if the wallet not connected. This helps showcase 3cities's exchange rate capability when the wallet isn't connected, while avoiding UI jank if the wallet is connected because then, it's likely that soon (eg. after strategies finish loading), activeTokenTransfer will become USD-denominated, resulting in no secondary logical asset equivalent being displayed (as we don't display a non-USD equivalent if activeTokenTransfer is in USD for a USD payment). Ie. if we were to drop `!isConnected` here, then a typical page load for a USD payment with an already-connected wallet would have jank where the extra space for secondary equivalent is shown briefly until strategies finish loading and activeTokenTransfer likely becomes USD-denominated (and if activeTokenTransfer becomes non-USD-denominated, then we'll show a bit of jank where the space soon expands to display the non-USD equivalent, which is fine)
+            })();
+            if (mostRelevantSecondaryLat && mostRelevantSecondaryLat !== 'USD') {
+              const paymentAmountInMostRelevantSecondaryLat: bigint | undefined = convert({ er: exchangeRates, fromTicker: 'USD', toTicker: mostRelevantSecondaryLat, fromAmount: BigNumber.from(proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString).toBigInt() });
+              if (paymentAmountInMostRelevantSecondaryLat !== undefined) return {
+                lat: mostRelevantSecondaryLat,
+                amount: paymentAmountInMostRelevantSecondaryLat,
+              }; else return 'preserve space'; // here we 'preserve space' because the most likely reason that paymentAmountInMostRelevantSecondaryLat is undefined is because exchange rates are initially loading, so we don't want to collapse the space now only to have it un-collapse after rates finish loading and cause UI jank
+            } else return 'collapse space'; // no relevant non-USD secondary lat was found and one is unlikely to be automatically found soon, so we collapse space to avoid the ugly blank space
+          } else { // the payment's primary logical asset is not USD, so we always show the USD equivalent (see note above on our asymmetric bias for USD)
             const usdAmount: bigint | undefined = convert({ er: exchangeRates, fromTicker: proposedPaymentWithFixedAmount.logicalAssetTickers.primary, toTicker: 'USD', fromAmount: BigNumber.from(proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString).toBigInt() });
             if (usdAmount !== undefined) return {
               lat: 'USD',
@@ -368,69 +389,90 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
           }
         })();
         return otherLogicalAssetAmountToDisplay !== 'collapse space' ? <>
-          <span></span> {/* empty span to align grid cols*/}
-          <span className="text-lg text-gray-500 text-right">{otherLogicalAssetAmountToDisplay !== 'preserve space' ? <RenderLogicalAssetAmount
+          <span className="col-span-2"></span> {/* empty span to align grid cols*/}
+          <span className="text-lg text-gray-500 text-right col-span-4">{otherLogicalAssetAmountToDisplay !== 'preserve space' ? <RenderLogicalAssetAmount
             logicalAssetTicker={otherLogicalAssetAmountToDisplay.lat}
             amountAsBigNumberHexString={BigNumber.from(otherLogicalAssetAmountToDisplay.amount).toHexString()}
           /> : <span>&nbsp;</span>}</span>
         </> : undefined;
       })()}
     </div>
-    {bestStrategy !== undefined && <div className="py-4 w-full">
+    {isConnected && /* WARNING here render payment method section only if isConnected as a render optimization because when disconnecting the wallet, bestStrategy does not become undefined until event callbacks clear the ExecuteTokenTransferButton status because bestStrategy is computed using status.activeTokenTransfer. So here, we don't render Payment Method if disconnected to avoid briefly rendering it with a stale bestStrategy after wallet becomes disconnected */ bestStrategy !== undefined && <div className="mt-6 w-full">
       <div className="font-bold text-lg">Payment method</div>
-      <div className="p-2 border border-gray-300 bg-white rounded-b-md flex flex-wrap gap-y-2 justify-between items-center">
-        <RenderTokenTransfer tt={status?.activeTokenTransfer || bestStrategy.tokenTransfer} opts={{ hideAmount: true }} />
-        {canSelectNewStrategy && otherStrategies && otherStrategies.length > 0 && <span className="text-xs"><button
-          onClick={() => setSelectingPaymentMethod(true)}
-          className="relative flex-0 rounded-md px-2 py-0.5 mx-2 bg-gray-200 sm:hover:bg-gray-300 focus:outline-none active:scale-95"
-          type="button"
-        >
-          change
-        </button>({otherStrategies.length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment methods)</span>}
+      <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md flex flex-col gap-2 justify-between items-start">
+        <div className="w-full flex gap-2 justify-start items-center">
+          {(() => {
+            return <span className="flex justify-between gap-2 items-center">
+              <RenderTokenTransfer tt={status?.activeTokenTransfer || bestStrategy.tokenTransfer} opts={{ hideAmount: true }} />
+              {strategies !== undefined && bestStrategy === strategies[0] /* WARNING here condition only on bestStrategy and not activeTokenTransfer when displaying BestStrategyLabel, meaning BestStrategyLabel may be displayed even if activeTokenTransfer is not the current bestStrategy */ ? <BestStrategyLabel /> : undefined}
+            </span>;
+          })()}
+          {canSelectNewStrategy && otherStrategies && otherStrategies.length > 0 && <span className="text-xs"><button
+            onClick={() => setSelectingPaymentMethod(true)}
+            className="relative flex-0 rounded-md px-2 py-0.5 mr-2 bg-gray-200 sm:hover:bg-gray-300 focus:outline-none active:scale-95"
+            type="button"
+          >
+            change
+          </button></span>}
+        </div>
+        <span className="text-gray-500 text-xs">{(otherStrategies || []).length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment method{(otherStrategies || []).length > 0 ? 's' : ''} across {[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length} chain{[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length > 1 ? 's' : ''} {initialLoadTimeInSeconds ? <span>({formatFloat(initialLoadTimeInSeconds, 2)} seconds)</span> : undefined}</span>
       </div>
     </div>}
-  </div>, [isConnected, checkoutSettings.note, proposedPaymentWithFixedAmount.logicalAssetTickers, proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, exchangeRates, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod]);
+  </div>, [isConnected, checkoutSettings.note, proposedPaymentWithFixedAmount.logicalAssetTickers, proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, exchangeRates, proposedStrategies, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod, initialLoadTimeInSeconds]);
 
-  const acceptedTokensAndChainsBox: false | JSX.Element = useMemo(() => checkoutReadinessState === 'senderHasNoPaymentOptions' && <div className="w-full">
-    {(() => {
-      const pss = getProposedStrategiesForProposedPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment);
-      const allStrategiesTokenTickers: string[] = [... new Set(pss.map(ps => ps.proposedTokenTransfer.token.ticker))];
-      const allStrategiesChainIds: number[] = [... new Set(pss.map(ps => ps.proposedTokenTransfer.token.chainId))];
-      return <>
-        <div className="pt-4 font-bold text-lg">Tokens accepted</div>
-        <div className="p-2 border border-gray-300 bg-white rounded-b-md">{allStrategiesTokenTickers.join(", ")}</div>
-        <div className="pt-4 font-bold text-lg">Chains accepted</div>
-        <div className="p-2 border border-gray-300 bg-white rounded-b-md">{allStrategiesChainIds.map(getSupportedChainName).join(", ")}</div>
-      </>;
-    })()}
-  </div>, [checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment, checkoutReadinessState, exchangeRates]);
+  const acceptedTokensAndChainsElement: false | JSX.Element = useMemo(() => !statusIsSuccess // NB here we must check statusIsSuccess because the sender may have no payment options after successful payment (eg. if they paid using their only payment method and it was exhausted by the payment) and so `checkoutReadinessState === 'senderHasNoPaymentOptions'` may be true after paying
+    && checkoutReadinessState === 'senderHasNoPaymentOptions' && <div className="w-full">
+      {(() => {
+        const allStrategiesTokenTickers: string[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.ticker))];
+        const allStrategiesChainIds: number[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.chainId))];
+        return <>
+          <div className="pt-6 font-bold text-lg">Tokens accepted</div>
+          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">{allStrategiesTokenTickers.join(", ")}</div>
+          <div className="pt-6 font-bold text-lg">Chains accepted</div>
+          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">{allStrategiesChainIds.map(getSupportedChainName).join(", ")}</div>
+        </>;
+      })()}
+    </div>, [statusIsSuccess, checkoutReadinessState, proposedStrategies]);
+
+  const acceptedTokensAndChainsSummaryElement: false | JSX.Element = useMemo(() => !statusIsSuccess // NB here we must check statusIsSuccess because success status may be preserved even if the sender disconnects their wallet after successful payment, so `!isConnected` may be true after successful payment
+    && !isConnected && <div className="mt-6 w-full">
+      {(() => {
+        const allProposedStrategiesTokenTickers: string[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.ticker))];
+        const allProposedStrategiesChainIds: number[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.chainId))];
+        return <>
+          <div className="font-bold text-lg">Payment method</div>
+          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">Instantly picks your best of {allProposedStrategiesTokenTickers.length} token{allProposedStrategiesTokenTickers.length > 1 ? 's' : ''} across {allProposedStrategiesChainIds.length} chain{allProposedStrategiesChainIds.length > 1 ? 's' : ''} this payment accepts</div>
+        </>;
+      })()}
+    </div>, [isConnected, statusIsSuccess, proposedStrategies]);
 
   const selectPaymentMethodScreen: false | JSX.Element = useMemo(() => bestStrategy !== undefined && otherStrategies !== undefined && otherStrategies.length > 0 && <div className={`grid grid-cols-1 w-full items-center py-6 ${selectingPaymentMethod ? '' : 'hidden'}`}>
     <div className="font-bold text-2xl">Select a payment method</div>
-    <div className="py-2 flex items-end justify-between">
+    <div className="my-2 flex items-end justify-between">
       <div className="font-bold text-lg">Pay with</div>
       <div className="font-bold text-sm">Your balance</div>
     </div>
     {[bestStrategy, ...otherStrategies].map((s, i) => {
       const tk = getTokenKey(s.tokenTransfer.token);
       const tb = ac?.tokenBalances[tk];
-      return <div key={tk}
-        className={`flex gap-2 justify-between p-2 ${i > 1 ? 'border-t' : ''} ${i > 0 ? 'border-x' : ''} ${i === 0 ? 'border-2 border-secondary' : 'border-gray-300'} bg-white ${i === otherStrategies.length /* NB absence of -1 because array is one longer due to prepend of bestStrategy */ ? 'border-b' : ''} ${i === 0 ? 'rounded-t-md' : ''} ${i === otherStrategies.length /* NB absence of -1 because array is one longer due to prepend of bestStrategy */ ? 'rounded-b-md' : ''} sm:hover:cursor-pointer focus:outline-none active:scale-95 sm:hover:bg-gray-200`}
+      return <div key={tk /* WARNING in the future, eg. after we add auto-bridging, the token key may become insufficient to uniquely determine a strategy. Instead, we may want something like getStrategyKey or Strategy.key (where `key` is the shape of the strategy, eg. as used in bestStrategy to preserve strategy selection across strategies regeneration) and perhaps also Strategy.instanceId (where instanceId is the unique id for that actually strategy instance) */}
+        className={`flex gap-2 justify-between px-4 py-2 ${i > 1 ? 'border-t' : ''} ${i > 0 ? 'border-x' : ''} ${i === 0 ? 'border-2 border-secondary' : 'border-gray-300'} bg-white ${i === otherStrategies.length /* NB absence of -1 because array is one longer due to prepend of bestStrategy */ ? 'border-b' : ''} ${i === 0 ? 'rounded-t-md' : ''} ${i === otherStrategies.length /* NB absence of -1 because array is one longer due to prepend of bestStrategy */ ? 'rounded-b-md' : ''} sm:hover:cursor-pointer focus:outline-none active:scale-95 sm:hover:bg-gray-200`}
         onClick={() => {
-          if (i > 0 && canSelectNewStrategy) {
-            selectStrategy(s);
-            setNextStrategyWasSelectedByTheUser(true);
-            // WARNING here we must not call status.reset() because canSelectNewStrategy is intended to be true iff autoReset=true will auto-reset the button. If instead we called reset here, and there was some state inconsistency between our view and the button's view of the transfer, then it's possible that we might reset the button after it's unsafe to do so (eg. when user may sign a tx for the old transfer) and risk causing a double payment.
+          if (!wantToSetSelectingPaymentMethodToFalse) { // NB iff wantToSetSelectingPaymentMethodToFalse, then we are in the process of closing the payment method screen and don't allow selecting a new payment method (can only select a payment method when the payment method screen is "fully open")
+            if (i > 0 && canSelectNewStrategy) {
+              selectStrategy(s);
+              setNextStrategyWasSelectedByTheUser(true);
+              // WARNING here we must not call status.reset() because canSelectNewStrategy is intended to be true iff autoReset=true will auto-reset the button. If instead we called reset here, and there was some state inconsistency between our view and the button's view of the transfer, then it's possible that we might reset the button after it's unsafe to do so (eg. when user may sign a tx for the old transfer) and risk causing a double payment.
+            }
+            setWantToSetSelectingPaymentMethodToFalse(true); // here, we express intent to close the payment method screen instead of closing it directly with `setSelectingPaymentMethod(false)`. This delays the actual closing of the payment method screen, allowing time for status.activeTokenTransfer to be updated to the latest bestStrategy (as activeTokenTransfer only updates on ExecuteTokenTransferButton internal useEffect). If instead we closed the payment screen directly, then in some cases, the user experiences UI jank as the old active token transfer is still being rendered before immediately transitioning to render the new best strategy
           }
-          setSelectingPaymentMethod(false);
         }}>
-        <span>
-          <RenderTokenTransfer tt={s.tokenTransfer} opts={{ hideAmount: true }} />
-        </span>
+        <RenderTokenTransfer tt={s.tokenTransfer} opts={{ hideAmount: true }} />
+        {strategies && s === strategies[0] && <BestStrategyLabel />}
         {ac !== undefined && tb && <span className="text-right"> <RenderTokenBalance tb={tb} opts={{ hideChainSeparator: true, hideChain: true }} /></span>}
       </div>
     })}
-  </div>, [ac, bestStrategy, otherStrategies, canSelectNewStrategy, selectStrategy, selectingPaymentMethod]);
+  </div>, [ac, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, selectStrategy, selectingPaymentMethod, wantToSetSelectingPaymentMethodToFalse, setWantToSetSelectingPaymentMethodToFalse]);
 
   const paymentSuccessfulBlockExplorerReceiptLink: string | undefined = (() => {
     if (!status?.isSuccess) return undefined;
@@ -525,7 +567,8 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   return (
     <div className="grid grid-cols-1">
       {paymentScreen}
-      {acceptedTokensAndChainsBox}
+      {acceptedTokensAndChainsElement}
+      {acceptedTokensAndChainsSummaryElement}
       {selectPaymentMethodScreen}
       {paymentSuccessfulScreen}
     </div>
