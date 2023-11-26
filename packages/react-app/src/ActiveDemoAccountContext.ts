@@ -1,9 +1,12 @@
-import React from "react";
+import { createContext } from "react";
+import { Observer, makeObservableValue } from './observer';
 
-// ActiveDemoAccountContext is set to the currently active demo account
-// managed via DemoAccountProvider, or undefined if no demo account is
-// active. (ie. a demo account is a read-only impersonated connected
-// wallet for demo purposes). WARNING this context must only be provided
-// by DemoAccountProvider and used by useActiveDemoAccount, and not
+// ActiveDemoAccountContext provides an observer for the currently
+// active demo account managed via DemoAccountProvider. If the observed
+// value is defined, then it's the active demo account (address or ens).
+// Otherwise, the observed value is undefined and no demo account is
+// active. A demo account is a read-only impersonated connected wallet
+// for demo purposes. WARNING this context must only be provided by
+// DemoAccountProvider and used by useActiveDemoAccount, and not
 // directly consumed by anything else
-export const ActiveDemoAccountContext = React.createContext<string | undefined>(undefined);
+export const ActiveDemoAccountContext = createContext<Observer<string | undefined>>(makeObservableValue<string | undefined>(undefined).observer);

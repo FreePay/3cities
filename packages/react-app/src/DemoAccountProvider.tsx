@@ -5,7 +5,7 @@ import React, { FC, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from 'react-router-dom';
 import { useAccount, useConnect, useDisconnect } from 'wagmi';
 import { ActiveDemoAccountContext } from './ActiveDemoAccountContext';
-import { ObservableValueUpdater, Observer, makeObservableValue, useObservedValue } from './observer';
+import { ObservableValueUpdater, Observer, makeObservableValue } from './observer';
 import { useEnsAddress } from './useEnsAddress';
 
 type DemoAccountProviderProps = {
@@ -40,8 +40,7 @@ type DemoAccountProviderInnerProps = DemoAccountProviderProps & {
 // -> DemoAccountProvider rerenders on observed value update ->
 // ActiveDemoAccountUpdater rerenders because its parent rerendered).
 const DemoAccountProviderInner: FC<DemoAccountProviderInnerProps> = ({ children, activeDemoAccountObserver }) => {
-  const activeDemoAccount: string | undefined = useObservedValue(activeDemoAccountObserver);
-  return <ActiveDemoAccountContext.Provider value={activeDemoAccount}>
+  return <ActiveDemoAccountContext.Provider value={activeDemoAccountObserver}>
     {children}
   </ActiveDemoAccountContext.Provider>;
 };
