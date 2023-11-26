@@ -1,6 +1,6 @@
 import React from 'react';
 import { AddressContext } from './AddressContext';
-import { Observer } from './observer';
+import { Observer, makeObservableValue } from './observer';
 
 // ConnectedAccountContextObserverContext provides an observer for the
 // connected account's AddressContext, which is automatically kept
@@ -8,4 +8,4 @@ import { Observer } from './observer';
 // be provided by ConnectedAccountContextObserverProvider and used by
 // useConnectedAccountContext, and not directly consumed by anything
 // else.
-export const ConnectedAccountContextObserverContext = React.createContext<Observer<AddressContext | undefined> | undefined>(undefined);
+export const ConnectedAccountContextObserverContext = React.createContext<Observer<AddressContext | undefined>>(makeObservableValue<AddressContext | undefined>(undefined).observer);
