@@ -1,9 +1,8 @@
-import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvmTestnet, scrollTestnet } from '@wagmi/core/chains';
 import { Chain } from 'wagmi';
 import { NonEmptyArray } from "./NonEmptyArray";
 import { Optional } from './Optional';
 import { NativeCurrency, Token, isToken } from "./Token";
-import { allSupportedChainIds, arbitrumNova, lineaTestnet, polygonZkEvm, taikoTestnet, zkSync, zkSyncTestnet } from "./chains";
+import { allSupportedChainIds, arbitrum, arbitrumGoerli, arbitrumNova, baseGoerli, goerli, lineaTestnet, mainnet, optimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvm, polygonZkEvmTestnet, scrollTestnet, taikoTestnet, zkSync, zkSyncTestnet } from './chains';
 import { isProduction } from "./isProduction";
 import { toUppercase } from './toUppercase';
 
