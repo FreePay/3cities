@@ -1,7 +1,18 @@
-import { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvmTestnet, scrollTestnet } from '@wagmi/core/chains';
+// eslint-disable-next-line no-restricted-imports -- here is our single allowed use of importing from @wagmi/core/chains, used to construct 3cities chains which are then exported for the rest of 3cities
+import { arbitrum, arbitrumGoerli, baseGoerli, goerli, optimism as wagmiOptimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvmTestnet, scrollTestnet, mainnet as wagmiMainnet } from '@wagmi/core/chains';
 import { Chain } from 'wagmi';
-import { isProduction } from './isProduction';
 import { NonEmptyArray } from './NonEmptyArray';
+import { isProduction } from './isProduction';
+
+const mainnet = Object.assign({}, wagmiMainnet, {
+  name: "Ethereum L1", // rename to "Ethereum L1" as the wagmi name of "Ethereum" is confusing for users
+});
+
+const optimism = Object.assign({}, wagmiOptimism, {
+  name: "OP Mainnet", // rename to "OP Mainnet" as the wagmi name of "Optimism" is no longer Optimism's preferred name for this chain
+});
+
+export { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvmTestnet, scrollTestnet };
 
 // ***************************************************************
 const isTestShorterListOfChains = false; // WARNING test flag to be manually toggled during develpment to cull the list of supported chains down to a minimal set for testing purposes
@@ -107,8 +118,8 @@ export const zkSyncTestnet: Readonly<Chain> = Object.freeze<Chain>({ // here we 
 
 export const zkSync: Readonly<Chain> = Object.freeze<Chain>({ // here we declare zkSync even though wagmi exports zkSync because wagmi's zkSync is currently out of date with the final zkSync mainnet rpc endpoints.
   id: 324,
-  name: "zkSync",
-  network: "zkSync",
+  name: "zkSync Era",
+  network: "zkSync Era",
   nativeCurrency: {
     name: "Ether",
     symbol: "ETH",

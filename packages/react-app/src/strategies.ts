@@ -1,5 +1,4 @@
 import { BigNumber } from "@ethersproject/bignumber";
-import { arbitrum, arbitrumGoerli, mainnet, optimism, polygon } from '@wagmi/core/chains';
 import { AddressContext } from "./AddressContext";
 import { ExchangeRates, convert } from "./ExchangeRates";
 import { Intersection } from "./Intersection";
@@ -8,7 +7,7 @@ import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import { StrategyPreferences } from "./StrategyPreferences";
 import { NativeCurrency, Token, isToken } from "./Token";
 import { canAfford } from "./canAfford";
-import { arbitrumNova, chainsSupportedBy3cities, polygonZkEvm, zkSync } from "./chains";
+import { arbitrum, arbitrumGoerli, arbitrumNova, chainsSupportedBy3cities, mainnet, optimism, polygon, polygonZkEvm, zkSync } from './chains';
 import { flatMap } from "./flatMap";
 import { isProduction } from "./isProduction";
 import { LogicalAssetTicker, convertLogicalAssetUnits } from "./logicalAssets";

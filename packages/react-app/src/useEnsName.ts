@@ -1,6 +1,7 @@
 import { isAddress } from "@ethersproject/address";
 import { useMemo } from "react";
-import { goerli, mainnet, useEnsName as wagmiUseEnsName } from 'wagmi';
+import { useEnsName as wagmiUseEnsName } from 'wagmi';
+import { goerli, mainnet } from "./chains";
 import { isProduction } from "./isProduction";
 import { truncateEnsName } from "./truncateAddress";
 import { useEnsAddress } from "./useEnsAddress";

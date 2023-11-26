@@ -1,11 +1,11 @@
 import { BigNumber } from "@ethersproject/bignumber";
 import React, { useEffect, useState } from 'react';
 import { useImmer } from 'use-immer';
-import { goerli, mainnet } from 'wagmi';
 import { readContracts } from 'wagmi/actions';
 import { ExchangeRates, areExchangeRatesEqual } from './ExchangeRates';
 import { ExchangeRatesContext } from './ExchangeRatesContext';
 import { DeepWritable } from './Writable';
+import { goerli, mainnet } from './chains';
 import { isProduction } from './isProduction';
 import { ObservableValue, ObservableValueUpdater, ObservableValueUpdaterWithCurrentValue, Observer, makeObservableValue } from './observer';
 import { toUppercase } from './toUppercase';
