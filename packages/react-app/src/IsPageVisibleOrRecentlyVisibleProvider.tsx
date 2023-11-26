@@ -1,6 +1,6 @@
 import React, { FC, useEffect, useState } from 'react';
 import { IsPageVisibleOrRecentlyVisibleContext } from './IsPageVisibleOrRecentlyVisibleContext';
-import { ObservableValueUpdater, Observer, makeObservableValue, useObservedValue } from './observer';
+import { ObservableValueUpdater, Observer, makeObservableValue } from './observer';
 import useDebounce from './useDebounce';
 
 type IsPageVisibleOrRecentlyVisibleProviderProps = {
@@ -37,8 +37,7 @@ type IsPageVisibleOrRecentlyVisibleProviderInnerProps = IsPageVisibleOrRecentlyV
 // update -> IsPageVisibleOrRecentlyVisibleUpdater rerenders because its
 // parent rerendered).
 const IsPageVisibleOrRecentlyVisibleProviderInner: FC<IsPageVisibleOrRecentlyVisibleProviderInnerProps> = ({ children, isPageVisibleOrRecentlyVisibleObserver }) => {
-  const isPageVisibleOrRecentlyVisible: boolean = useObservedValue(isPageVisibleOrRecentlyVisibleObserver);
-  return <IsPageVisibleOrRecentlyVisibleContext.Provider value={isPageVisibleOrRecentlyVisible}>
+  return <IsPageVisibleOrRecentlyVisibleContext.Provider value={isPageVisibleOrRecentlyVisibleObserver}>
     {children}
   </IsPageVisibleOrRecentlyVisibleContext.Provider>;
 };
