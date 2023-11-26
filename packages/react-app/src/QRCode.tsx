@@ -16,7 +16,7 @@ async function getQRCodeStylingLib(): Promise<typeof QRCodeStyling> {
 } // @eslint-no-use-below[qrCodeStylingLibPromise]
 getQRCodeStylingLib(); // immediately begin lazily loading the qr-code-styling dependency so that, during QR code generation below, it's already available and the user doesn't have to wait for the lazy load
 
-const qrCodeImageUrl = '/logo.png';
+const qrCodeImageUrl = '/logo.png'; // TODO why does this QR code image not always show up on webkit/safari/iPhone?
 async function loadQrCodeImage(): Promise<void> {
   return new Promise((resolve, reject) => {
     const img = new Image();
