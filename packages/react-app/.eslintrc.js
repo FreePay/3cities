@@ -66,6 +66,10 @@ module.exports = {
                         ],
                         "message": "Please use <Trans> instead of t."
                     },
+                    {
+                        "name": "@wagmi/core/chains",
+                        "message": "Import from 3cities './chains' instead."
+                    },
                 ],
                 "patterns": [
                     {
