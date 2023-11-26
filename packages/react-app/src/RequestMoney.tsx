@@ -2,7 +2,7 @@ import { isAddress } from "@ethersproject/address";
 import { BigNumber } from "@ethersproject/bignumber";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CurrencyInput from "react-currency-input-field";
-import { FaCheckCircle, FaExclamationCircle, FaRegCopy, FaRegQuestionCircle, FaTimesCircle } from "react-icons/fa";
+import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaRegCopy, FaTimesCircle } from "react-icons/fa";
 import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
 import { useImmer } from "use-immer";
@@ -414,6 +414,8 @@ export const RequestMoney: React.FC = () => {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // TODO add a required warning that at least one token/chain are required if using allowlists and it's empty. Otherwise, the UI appears to say 'zero tokens allowed' but the generated link works and accepts all tokens (due to empty strategy prefs generated --> empty denylist)
+
   const [showAmountRequiredWarning, setShowAmountRequiredWarning] = useState(false); // if the user clicks Send Pay Link before filling in an amount, we'll show a warning that amount is a required field
   const [showReceiverRequiredWarning, setShowReceiverRequiredWarning] = useState(false); // if the user clicks Send Pay Link before filling in a receiver, we'll show a warning that receiver is a required field
   const [showPasswordRequiredWarning, setShowPasswordRequiredWarning] = useState(false); // if the user clicks Send Pay Link before filling in a password while privacyAndSecurityMode is encrypted or signed, we'll show a warning that password is a required field
@@ -666,7 +668,7 @@ export const RequestMoney: React.FC = () => {
       <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-4">
         <div className="flex justify-start items-center gap-1" onClick={showPrivacyAndSecurityInfoModal}>
           <span className="w-full font-semibold">Privacy &amp; Security</span>
-          <FaRegQuestionCircle className="text-lg sm:hover:text-gray-500 sm:hover:cursor-pointer" />
+          <FaInfoCircle className="text-lg sm:hover:text-gray-500 sm:hover:cursor-pointer" />
         </div>
         {privacyAndSecurityInfoModal}
         <div className="grow flex justify-between gap-4">
