@@ -212,16 +212,12 @@ export const nativeCurrencies: Readonly<NonEmptyArray<NativeCurrency>> = (() => 
 export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
   const ts = (isProduction ? [
     // Here we group the tokens by ticker and not chain because `tokens` is used to generate the canonical token ordering in allTokenKeys and our supposition is that in a multichain UX, the user would rather see all their DAIs together than all their Optimism assets, although this is somewhat contrary to how the rest of the ecosystem works right now where most apps support connecting to only one chain at a time and so naturally render all assets for one chain, effectively sorting by chain before ticker
+    // WETH zero'th, as it's a native currency
     WETH,
     OptimismWETH,
     ArbitrumWETH,
     polygonETH,
-    DAI,
-    OptimismDAI,
-    ArbitrumDAI,
-    ArbitrumNovaDAI,
-    PolygonZkEvmDAI,
-    polygonDAI,
+    // USDC first, as it's most popular
     USDC,
     OptimismUSDC,
     ArbitrumUSDCBridged,
@@ -230,21 +226,44 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     zkSyncUSDC,
     PolygonZkEvmUSDC,
     polygonUSDC,
+    // USDT second, as it's second most popular
     USDT,
     OptimismUSDT,
     ArbitrumUSDT,
     polygonUSDT,
+    // DAI third, as it's third most popular
+    DAI,
+    OptimismDAI,
+    ArbitrumDAI,
+    ArbitrumNovaDAI,
+    PolygonZkEvmDAI,
+    polygonDAI,
+    // LUSD fourth, as it's the only other one we support rn
     LUSD,
     OptimismLUSD,
     ArbitrumLUSD,
     PolygonZkEvmLUSD,
     polygonLUSD,
   ] : [
+    // WETH zero'th, as it's a native currency
     GoerliWETH,
     OptimismGoerliWETH,
     ArbitrumGoerliWETH,
     PolygonZkEvmTestnetWETH,
     polygonMumbaiETH,
+    // USDC first, as it's most popular
+    GoerliUSDC,
+    OptimismGoerliUSDC,
+    ArbitrumGoerliUSDC,
+    zkSyncTestnetUSDC,
+    lineaTestnetUSDC,
+    ScrollTestnetUSDC,
+    TaikoTestnetUSDC,
+    // USDT second, as it's second most popular
+    GoerliUSDT,
+    OptimismGoerliUSDT,
+    ArbitrumGoerliUSDT,
+    // DAI third, as it's third most popular
     GoerliDAI,
     OptimismGoerliDAI,
     ArbitrumGoerliDAI,
@@ -253,16 +272,7 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     TaikoTestnetDAI,
     BaseGoerliDAI,
     polygonMumbaiDAI,
-    GoerliUSDC,
-    OptimismGoerliUSDC,
-    ArbitrumGoerliUSDC,
-    zkSyncTestnetUSDC,
-    lineaTestnetUSDC,
-    ScrollTestnetUSDC,
-    TaikoTestnetUSDC,
-    GoerliUSDT,
-    OptimismGoerliUSDT,
-    ArbitrumGoerliUSDT,
+    // LUSD fourth, as it's the only other one we support rn
     GoerliLUSD,
     ArbitrumGoerliLUSD,
   ].filter((t) => !isTestShorterListOfTokens || t.ticker === 'USDC') // ie. drop all tokens but one ticker if this test flag is set to help test with a shorter list of tokens
