@@ -1,7 +1,6 @@
 import React from "react";
 import { RenderRawTokenBalance } from "./RenderRawTokenBalance";
 import { NativeCurrency, Token, isToken } from "./Token";
-import { getSupportedChainName } from "./chains";
 import { useLiveNativeCurrencyBalance } from "./useLiveNativeCurrencyBalance";
 import { useLiveTokenBalance } from "./useLiveTokenBalance";
 
@@ -30,9 +29,7 @@ const RenderLiveNativeCurrencyBalance: React.FC<RenderLiveNativeCurrencyBalanceP
   const b = useLiveNativeCurrencyBalance(address, nativeCurrency.chainId);
   return <RenderRawTokenBalance
     balance={b}
-    ticker={nativeCurrency.ticker}
-    decimals={nativeCurrency.decimals}
-    chainName={getSupportedChainName(nativeCurrency.chainId)}
+    nativeCurrencyOrToken={nativeCurrency}
   />;
 }
 
@@ -44,8 +41,6 @@ const RenderLiveTokenBalanceInternal: React.FC<RenderLiveTokenBalanceInternalPro
   const b = useLiveTokenBalance(token.contractAddress, address, token.chainId);
   return <RenderRawTokenBalance
     balance={b}
-    ticker={token.ticker}
-    decimals={token.decimals}
-    chainName={getSupportedChainName(token.chainId)}
+    nativeCurrencyOrToken={token}
   />;
 }
