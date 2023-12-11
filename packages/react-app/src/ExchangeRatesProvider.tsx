@@ -179,8 +179,10 @@ type ExchangeRatesUpdaterInnerProps = {
   exchangeRateUpdatersObserver: Observer<ExchangeRate | undefined>; // the ingress observer that receives a stream of heterenous ExchangeRate snapshots from all exchangeRatesToFetch
 }
 
+const emptyObject = {}; // WARNING useImmer may use object identity for render stability and so we pass a static object as the default value to avoid rerenders
+
 const ExchangeRatesUpdaterInner: React.FC<ExchangeRatesUpdaterInnerProps> = ({ exchangeRatesObservableValueUpdater, exchangeRateUpdatersObserver }) => {
-  const [latestExchangeRates, setLatestExchangeRates] = useImmer<{ [denominatorTicker: Uppercase<string>]: { [numeratorTicker: Uppercase<string>]: { [source: string]: ExchangeRate; }; }; }>({}); // index of latest individual exchange rates per pair and source. Invariant `latestExchangeRate[d][n][s].denominatorTicker/numeratorTicker/source ===  d/n/s
+  const [latestExchangeRates, setLatestExchangeRates] = useImmer<{ [denominatorTicker: Uppercase<string>]: { [numeratorTicker: Uppercase<string>]: { [source: string]: ExchangeRate; }; }; }>(emptyObject); // index of latest individual exchange rates per pair and source. Invariant `latestExchangeRate[d][n][s].denominatorTicker/numeratorTicker/source ===  d/n/s
 
   useEffect(() => {
     const onNewExchangeRate = (newRate: ExchangeRate | undefined) => {
