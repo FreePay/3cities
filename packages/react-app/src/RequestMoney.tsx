@@ -570,7 +570,7 @@ export const RequestMoney: React.FC = () => {
       </div>
     </div>}
     <div className="w-full flex justify-between items-center gap-2 mt-4">
-      <span className="font-semibold">Also accept currency</span>
+      <span className="font-semibold">Accept with exchange rate</span>
       <div className="flex justify-end items-center gap-3">
         {(['USD', 'ETH'] satisfies LogicalAssetTicker[]).filter(t => t !== primaryLogicalAssetTicker).map(t => <div key={`${primaryLogicalAssetTicker}-${t}` /* WARNING here we use a key that changes when changing primaryLogicalAssetTicker. This is needed because today, ToggleSwitch doesn't support programmatic setting of its value, and so our only way to ensure these ToggleSwitches stay synced the fact that the primaryLogicalAssetTicker's ToggleSwitch may not be turned off (since it's the primary and not a valid secondary) is via initialIsOn, so we recreate these ToggleSwitches so they pick up their latest value of initialIsOn */} className="flex justify-center items-center gap-1">
           <span>{t}</span>
