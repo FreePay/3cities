@@ -1,5 +1,5 @@
 import { BigNumber } from '@ethersproject/bignumber';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useImmer } from 'use-immer';
 import { useAccount } from 'wagmi';
 import { AddressContext, emptyAddressContext } from './AddressContext';
@@ -64,18 +64,20 @@ type ConnectedAccountContextUpdaterInnerProps = {
   connectedAccount: `0x${string}`;
 }
 const ConnectedAccountContextUpdaterInner: React.FC<ConnectedAccountContextUpdaterInnerProps> = ({ ovu, connectedAccount }) => {
-  const [ac, setAC] = useImmer<AddressContext>(emptyAddressContext(connectedAccount)); // ie. here we initialize an empty AddressContext for the currently connected account because no token balances have been loaded yet. The TokenBalanceUpdaters/NativeCurrencyUpdaters will be mounted below, and they will be responsible for executing callbacks to trigger updates of individual TokenBalances
+  const emptyAddressContextForConnectedAccount = useMemo(() => emptyAddressContext(connectedAccount), [connectedAccount]);
+
+  const [ac, setAC] = useImmer<AddressContext>(emptyAddressContextForConnectedAccount); // ie. here we initialize an empty AddressContext for the currently connected account because no token balances have been loaded yet. The TokenBalanceUpdaters/NativeCurrencyUpdaters will be mounted below, and they will be responsible for executing callbacks to trigger updates of individual TokenBalances
 
   const [acResetNonce, setACResetNonce] = useState(0); // a nonce that's incremented every time AddressContext is reset to an empty value by the useEffect below, used to serialize the effects of resetting AddressContext to an empty value vs. updating token balances, to eliminate the race condition where fresh balance updates are lost because they are flushed before the AddressContext is reset
 
   useEffect(() => {
     if (connectedAccount !== ac.address) { // if connectedAccount changes, we need to reset the AddressContext to an empty value to avoid retaining a stale AdddressContext from the previous connected account
-      setAC(emptyAddressContext(connectedAccount));
+      setAC(emptyAddressContextForConnectedAccount);
       setACResetNonce(n => n + 1); // increment acResetNonce to trigger a flush of token balances into the new AddressContext. If we didn't do this, there's a race condition where updated balances may have been applied to the old AddressContext prior to the reset
     } else {
       // console.log("ConnectedAccountContextUpdaterInner skipped set empty AddressContext because connectedAccount === ac.address");
     }
-  }, [connectedAccount, ac.address, setAC, setACResetNonce]);
+  }, [connectedAccount, emptyAddressContextForConnectedAccount, ac.address, setAC, setACResetNonce]);
 
   useEffect(() => {
     // here we actually notify observers when AddressContext has changed
