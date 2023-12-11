@@ -1,67 +1,76 @@
 import { DependencyList, useEffect, useMemo, useState } from 'react';
 
 // Design goals of useAsyncMemo (which were achieved)
-//  1. mimic React.useMemo's API but for async values
-//  2. allow clients to specify a default value such that they never have to handle undefined
-//  3. allow the client's promise factory to potentially result in no promise to execute, in which case the async value is not updated
-//  4. allow the client to force re-running (recaching) of the promise factory, as in some cases, the client may know that there's fresh data to use but this fresh data can't be detected via passed DependencyList
+//  1. mimic React.useMemo's API but for async values.
+//  2. allow clients to specify a default value such that they never have to handle undefined.
+//  3. allow the client's promise factory to potentially result in no promise to execute, in which case the async value is not updated and most recent value is retained.
+//  4. allow the client to force re-running (recaching) of the promise factory, as in some cases, the client may know that there's fresh data to use but this fresh data can't be detected via passed DependencyList.
 //  5. provide isLoading and isError so the client can detect that the async value is loading, loaded, or errored.
-//  5b. crucially, when dependencies change or forceRecache is called, isLoading is set to true during the same render when the new promise is instantiated. This prevents the hook from returning { value=staleValue, isLoading=false }. In other words, isLoading=false if and only if the returned value is fresh/non-stale.
+//  5b. crucially, when dependencies change or forceRecache is called, isLoading is set to true during the same render. This prevents the hook from returning { value=staleValue, isLoading=false }. In other words, isLoading=false if and only if the returned value is fresh/non-stale.
+//  5c. although isLoading is set to true during the same render where dependencies change or forceRecache is called, the client's promise factory is called only on a deferred basis and not during the this same render.
 
-// Copied from https://github.com/awmleer/use-async-memo/blob/master/src/index.ts
+const ClientPromiseFactoryReturnedUndefined = Symbol('ClientPromiseFactoryReturnedUndefined'); // a sentinel value indicating that the client's promise factory returned no promise
+
+const ClientPromiseRejected = Symbol('ClientPromiseRejected'); // a sentinel value indicating that the client's promise rejected
+
+// Forked from https://github.com/awmleer/use-async-memo/blob/master/src/index.ts
 export function useAsyncMemo<T>(factory: () => Promise<T> | undefined | null, deps: DependencyList): { value: T | undefined, isLoading: boolean, isError: boolean, forceRecache: () => void }
 export function useAsyncMemo<T>(factory: () => Promise<T> | undefined | null, deps: DependencyList, initialValue: T): { value: T, isLoading: boolean, isError: boolean, forceRecache: () => void }
 export function useAsyncMemo<T>(factory: () => Promise<T> | undefined | null, deps: DependencyList, initialValue?: T) {
   const [value, setValue] = useState<T | undefined>(initialValue);
-  const setForceRerenderNonce = useState(0)[1];
-  const [nonce, setNonce] = useState(0);
+  const [nonce, setNonce] = useState(0); // a nonce that when incremented will force rerunning and recaching of the passed promise factory
 
-  type RichPromise = Promise<T> & { // RichPromise allows us to track whether the promise is loading or errored without using React state. Avoidign use of React state is necessary so that we can compute isLoading synchronously in useMemo to satisfy design goal 5b.
+  type RichPromise = Promise<T | typeof ClientPromiseFactoryReturnedUndefined | typeof ClientPromiseRejected> & { // RichPromise allows us to track whether the client's promise is loading or rejected without using React state. Avoiding use of React state is necessary so that we can compute isLoading synchronously in useMemo to satisfy design goal 5b.
     isLoading: boolean,
     isError: boolean,
   }
 
-  const promise: RichPromise | undefined = useMemo(() => { // the trick here is that when dependencies change, promise is calculated synchronously in a single render with useMemo, resulting in isLoading=true in the same render as where the dependencies changed and the new promise was instantiated. One reason this works is because while the `cancel = false` variable in the useEffect below protects against calling setValue after this hook unmounts, RichPromise needs no such unmount protection because the then/catch/finally handlers are only modifying rich promise itself, so if the component is unmounted by the time those handlers execute, there's no error because we're not calling setState on the unmounted component. Ie. if the component is unmounted during promise settlement, RichPromise will modify only its own state upon settlement and then be garbage collected
-    const p = factory();
-    if (p === undefined || p === null) return undefined;
-    else {
-      const rp: RichPromise = Object.assign(p, {
-        isLoading: true,
-        isError: false,
+  const richPromise: RichPromise = useMemo(() => { // the trick here is that when dependencies change, richPromise is calculated synchronously in a single render with useMemo, resulting in isLoading=true in the same render as where the dependencies changed and the new promise was instantiated. One reason this works is because while the `cancel = false` variable in the useEffect below protects against calling setValue after this hook unmounts, RichPromise needs no such unmount protection because the then/catch/finally handlers are only modifying rich promise itself, so if the component is unmounted by the time those handlers execute, there's no error because we're not calling setState on the unmounted component. Ie. if the component is unmounted during promise settlement, RichPromise will modify only its own state upon settlement and then be garbage collected
+    const p: Promise<T | typeof ClientPromiseFactoryReturnedUndefined> = new Promise<void>((resolve) => resolve()) // WARNING the first parameter of the Promise constructor is executed immediately by the Promise during construction (https://stackoverflow.com/questions/42118900/when-is-the-body-of-a-promise-constructor-callback-executed/42118995#42118995) and so, this initial promise with a no-op resolve() is needed to ensure that the client's promise factory is not executed until useAsyncMemo finishes setting up the hooks and state below. If we were to remove this no-op promise, then we'd introduce a concurrency bug where the client's promise executes when this promise `p` is constructed and before useAsyncMemo ends, which breaks useAsyncMemo's promise handlers because if an `await` statement is encountered when executing the client's promise, the JS runtime will suspend execution of this initial useAsyncMemo invocation before the hooks and state below can complete (ie. React renders must be synchronous and never suspend)
+      .then<T | typeof ClientPromiseFactoryReturnedUndefined>(async () => {
+        const clientPromise = factory();
+        if (clientPromise === undefined || clientPromise === null) return ClientPromiseFactoryReturnedUndefined;
+        else return await clientPromise;
       });
-      rp.then((v) => {
-        rp.isError = false;
-        return v;
-      }).catch(() => {
-        rp.isError = true;
-      }).finally(() => {
-        rp.isLoading = false;
-      });
-      return rp;
-    }
+
+    let rp: RichPromise | undefined = undefined; // here we close over the `rp` reference so that our promise chain sets state on the final promise returned to the client. This avoids building a forked promise chain with race conditions between the handlers below and the client's handlers (ie. with a forked promise chain, `isLoading = false` may occur after `setValue`)
+    rp = Object.assign(p.then<T | typeof ClientPromiseFactoryReturnedUndefined>((v) => {
+      // NB this promise chain can't execute synchronously because `p` doesn't settle synchronously (see WARNING above on `p` definition), so we are guaranteed that `rp` has been assigned before executing this promise chain
+      if (rp) rp.isError = false; else throw new Error("rp is undefined");
+      return v;
+    }).catch<typeof ClientPromiseRejected>((e) => {
+      if (rp) rp.isError = true; else throw new Error("rp is undefined");
+      console.error('useAsyncMemo: client promise rejected', e);
+      return ClientPromiseRejected;
+    }).finally(() => {
+      if (rp) rp.isLoading = false; else throw new Error("rp is undefined");
+    }), {
+      isLoading: true,
+      isError: false,
+    });
+
+    return rp;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, deps.concat([nonce]));
 
   useEffect(() => {
     let cancel = false;
-    if (promise) promise.then((v) => {
-      if (!cancel) setValue(v);
-    }).catch(() => { // WARNING here we use setForceRerenderNonce to ensure the component rerenders when the promise settles. React doesn't know when the promise settles; if the promise is successful, then setValue will be called to rerender the component. But if the promise errors, setValue will not be called, and so we use setForceRerenderNonce to rerender in this case
-      if (!cancel) setForceRerenderNonce(n => n + 1);
-    });
+    richPromise.then((v) => {
+      if (!cancel && v !== ClientPromiseFactoryReturnedUndefined && v !== ClientPromiseRejected) setValue(v);
+    }).catch((e) => console.error("useAsyncMemo: unexpected RichPromise rejection", e));
     return () => { cancel = true; };
-  }, [setValue, setForceRerenderNonce, promise]);
+  }, [setValue, richPromise]);
 
   const forceRecache = useMemo<() => void>(() => () => setNonce(n => n + 1), [setNonce]);
 
   const ret = useMemo(() => {
     return {
       value,
-      isLoading: promise?.isLoading ?? false,
-      isError: promise?.isError ?? false,
+      isLoading: richPromise.isLoading ?? false,
+      isError: richPromise.isError ?? false,
       forceRecache,
     };
-  }, [value, forceRecache, promise?.isLoading, promise?.isError]);
+  }, [value, forceRecache, richPromise.isLoading, richPromise.isError]);
 
   return ret;
 }
