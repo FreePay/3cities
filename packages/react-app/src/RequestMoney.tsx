@@ -1,7 +1,5 @@
 import { isAddress } from "@ethersproject/address";
-import { BigNumber } from "@ethersproject/bignumber";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import CurrencyInput from "react-currency-input-field";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaRegCopy, FaTimesCircle } from "react-icons/fa";
 import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
@@ -10,19 +8,19 @@ import { useAccount, useDisconnect } from "wagmi";
 import { CheckoutSettings } from "./CheckoutSettings";
 import { serializedCheckoutSettingsUrlParam } from "./CheckoutSettingsProvider";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
-import { ExchangeRates, convert } from "./ExchangeRates";
+import { CurrencyAmountInput, currencyAmountDefault } from "./CurrencyAmountInput";
 import { Modal, useModal } from "./Modal";
-import { ProposedPayment, isProposedPaymentWithFixedAmount } from "./Payment";
+import { PaymentMode, ProposedPayment, isPaymentModeWithFixedAmount, isProposedPaymentWithFixedAmount } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import QRCode from "./QRCode";
-import { RenderLogicalAssetAmount, renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
+import { renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
 import { Spinner } from "./Spinner";
 import { StrategyPreferences } from "./StrategyPreferences";
 import { ToggleSwitch } from "./ToggleSwitch";
 import { allSupportedChainIds, getSupportedChainName } from "./chains";
 import { isLikelyAnEnsName } from "./isLikelyAnEnsName";
 import { isProduction } from "./isProduction";
-import { LogicalAssetTicker, getDecimalsToRenderForLogicalAssetTicker, logicalAssetsByTicker, parseLogicalAssetAmount } from "./logicalAssets";
+import { LogicalAssetTicker, logicalAssetsByTicker, parseLogicalAssetAmount } from "./logicalAssets";
 import { isTokenTickerSupportedByLogicalAsset } from "./logicalAssetsToTokens";
 import { addToRecentlyUsed, getMostRecentlyUsed, removeFromRecentlyUsed } from "./recentlyUsed";
 import { serializeCheckoutSettings, serializeCheckoutSettingsWithEncryption, serializeCheckoutSettingsWithSignature } from "./serialize";
@@ -32,8 +30,9 @@ import { useAsyncMemo } from "./useAsyncMemo";
 import useDebounce from "./useDebounce";
 import { useEnsAddress } from "./useEnsAddress";
 import { useEnsName } from "./useEnsName";
-import { useExchangeRates } from "./useExchangeRates";
 import { useInput } from "./useInput";
+import { useLogicalAssetTickerSelectionInput } from "./useLogicalAssetTickerSelectionInput";
+import { usePayWhatYouWantInput } from "./usePayWhatYouWantInput";
 
 // TODO consider converting manual <input>s into useInput --> I started trying to do this for the receiver input, but encountered a challenge and abandoned the effort. The problem is that there's a use-before-declare circular dependency rawReceiver->computedReceiver/addressForDebouncedRawReceiverEnsName->rawReceiverInputParams->circular. In the current impl with an inline <input>, this circular dependency is resolved by adding a layer of indirection where the input's inline onChange sets the rawReceiver, so rawReceiver can be defined above the input. But with the useInput hook, the hook returns the actual current value (as opposed to setting it indirectly in a callback), so in order to use the useInput hooks, a bit more work is needed, and/or perhaps a modification to useInput API. Here was my work in progress:
 // const rawReceiverInputParams = useMemo(() => {
@@ -45,10 +44,6 @@ import { useInput } from "./useInput";
 //   };
 // }, [computedReceiver, addressForDebouncedRawReceiverEnsName]);
 // const [rawReceiverNew, rawReceiverInput, setRawReceiverNew] = useInput('', rawReceiverInputParams, { onEnterKeyPress: (e) => e.currentTarget.blur() });
-
-const amountInputId = "amount-input";
-const amountRawDefault = "0"; // Q: why set amountRawDefault to "0" instead of undefined? A: It's because when the amount input is reset by the user clicking the X, we execute the reset by setting amountRaw to its initial value, but if this initial value is undefined, then CurrencyInput doesn't actually get reset because CurrencyInput defines passing value=undefined to mean "disregard this passed value and maintain amount as internal state"
-const amountInputWidthDefault = 1; // width to fit amountRawDefault
 
 const recentlyUsedReceiversKey = "receivers";
 
@@ -63,11 +58,12 @@ async function seedRecentlyUsedReceiversExamples(): Promise<"examples-were-seede
   } else return undefined;
 }
 
-export const RequestMoney: React.FC = () => {
-  const [primaryLogicalAssetTicker, setPrimaryLogicalAssetTicker] = useState<LogicalAssetTicker>('USD');
-  const primaryLogicalAsset = logicalAssetsByTicker[primaryLogicalAssetTicker];
+const defaultSecondaryLogicalAssetTickers = new Set<LogicalAssetTicker>(['USD', 'ETH']);
 
-  const [secondaryLogicalAssetTickers, setSecondaryLogicalAssetTickers] = useImmer<Set<LogicalAssetTicker>>(new Set(['USD', 'ETH'])); // the set of secondary logical asset tickers also accepted for payment. WARNING may include primaryLogicalAssetTicker and must be removed before ProposedPayment constructor. Default to USD and ETH because those are expected to be the most popular secondaries to accept
+export const RequestMoney: React.FC = () => {
+  const { logicalAssetTicker: primaryLogicalAssetTicker, logicalAssetTickerSelectionInputElement } = useLogicalAssetTickerSelectionInput('USD');
+
+  const [secondaryLogicalAssetTickers, setSecondaryLogicalAssetTickers] = useImmer<Set<LogicalAssetTicker>>(defaultSecondaryLogicalAssetTickers); // the set of secondary logical asset tickers also accepted for payment. WARNING may include primaryLogicalAssetTicker and must be removed before ProposedPayment construction. Default to USD and ETH because those are expected to be the most popular secondaries to accept
 
   const toggleSecondaryLogicalAssetTicker = useCallback((lat: LogicalAssetTicker) => {
     setSecondaryLogicalAssetTickers(draft => {
@@ -76,66 +72,7 @@ export const RequestMoney: React.FC = () => {
     });
   }, [setSecondaryLogicalAssetTickers]);
 
-  const [amountInputWidth, setAmountInputWidth] = useState(amountInputWidthDefault);
-  const amountInputDecimalsLimit = getDecimalsToRenderForLogicalAssetTicker(primaryLogicalAssetTicker); // specify the currency input to have as many decimals as we'd canonically render for a given currency. For example, two decimals for USD ($2.04) and four decimals for ETH (0.1256e)
-  const [amountRaw, setAmountRaw] = useState<string | undefined>(amountRawDefault);
-  const amount: number | undefined = useMemo(() => {
-    if (amountRaw === undefined) return undefined;
-    else try {
-      const v = parseFloat(amountRaw);
-      if (v > 0) return v;
-      else return undefined;
-    } catch (err) {
-      console.warn(err);
-      return undefined;
-    }
-  }, [amountRaw]);
-
-  const recalculateWidthFromAmountInputTransformRawValue = useCallback((sRawInput: string) => {
-    // CurrencyInput.transformRawValue is called on each keystroke, and we take advantage of that by using this callback to dynamically update the width of the CurrencyInput container so that its width always corresponds to the length of the current value, including decimal places and commas. The reason we have to do this is because if we don't explicitly set the width of CurrencyInput, its child <input> seems to default to a strange static max width. Other methods attempted here included styles like w-min, w-max, w-fit, min-width, and max-width, but none of those actually changed the default width of the input element. It seems to be necessary to explicitly set the width of the <input>. So, we do this by setting it to `w-full` and then dynamically varying the width of the parent container div. Note that our dynamic width implementation sets the width using an inline style instead of with tailing classes because tailwind styles are JIT-compiled so one can't dynamically generate custom tailwind styles at runtime (eg. you can't dynamically generate w-[8ch]).
-
-    const sRaw: string = (() => { // here we transform sRawInput based on a static list of UX edge cases
-      const droppedInvalidChars = sRawInput.replace(/[^\d.,]/g, ''); // sRawInput may contain up to one invalid chars (eg. if the person is mashing the keyboard). Valid chars are digits, decimals, and commas
-      // @eslint-no-use-below[sRawInput] -- sRawInput was mapped to dropInvalidChars
-      if (droppedInvalidChars.startsWith('.') && droppedInvalidChars.length === 2) return `0${droppedInvalidChars}`; // sRawInput can of the form ".<digit>" iff the user (repeatedly) hits backspace to fully clear the input and then initially types a period followed by a digit. If instead the user hits the "X" to clear the input amount or the input has initially loaded, then the amount is set to the default 0, and if the user then types a period, that period will be appended to the 0, resulting in an sRawInput value of "0.", which does not trigger the edge case here. But in this edge case of sRawInput being ".<digit>", CurrencyInput postprocess prepends a 0 and renders "0.<digit>", resulting in an incorrect render width because the width was calculated here using ".<digit>". So in this case we prepend the 0 before calculating render width
-      else return droppedInvalidChars;
-    })();
-
-    // The weird idea here is that we need to calculate the true render width using the passed sRaw, noting that the true on-screen render width that we'll calculate may often be different than a naive sRaw.length sRaw because the (unmodified) sRaw returned by this function will then have its length modified via being postprocessed by CurrencyInput. For example, if the user clears the input and then types "05", the passed sRaw will be "05" but CurrencyInput postprocess will correctly render only "5" (without the preceding "0"), and our rules here need to calculate the true render width of 1 character for the "5". This gives us the strange rules below:
-    const s = sRaw.replace(/,/g, ""); // for the purpose of calculating width, strip out any commas because they are provided inconsistently based on internal render status of CurrencyInput. We will count the expected commas in render manually.
-    const containsADecimal = s.indexOf('.') > -1;
-    const numberOfDigitsBeforeDecimal = s.indexOf('.') > -1 ? s.indexOf('.') : s.length; // NB there can be multiple decimal characters in the passed string due to CurrencyInput internal render state.
-    const numberOfCommas = Math.floor(numberOfDigitsBeforeDecimal / 4);
-    const numberOfDigitsAfterDecimal = Math.min(amountInputDecimalsLimit, countCharsAfterDecimal(s)); // NB there can be up to (amountInputDecimalsLimit+1) digits after the decimal due to CurrencyInput internal render state (but never +2), so here we cap the number of digits after decimal at amountInputDecimalsLimit.
-
-    const width = (
-      // +1 per digit before 1st decimal:
-      numberOfDigitsBeforeDecimal
-      // +1 per digit after decimal:
-      + numberOfDigitsAfterDecimal
-      // +0.5 if contains at least one decimal (0.5 because this isn't a fixed-width font and commas and decimals are narrower. We tried also 0.33 and 0.4 and found 0.5 to be most reliable to avoid width being too narrow on mobile):
-      + (containsADecimal ? 1 : 0) * 0.5
-      // +0.5 per each comma (0.5 because this isn't a fixed-width font and commas and decimals are narrower. We tried also 0.33 and 0.4 and found 0.5 to be most reliable to avoid width being too narrow on mobile):
-      + numberOfCommas * 0.5
-      // -1 if string doesn't have a decimal and begins with a 0 because when the element initially loads or resets, the user's first keystroke will result in the string eg. "04" (ie. this string never has a decimal which is why we use presence of a decimal to detect this case) which we want to interpret as "4":
-      + (!containsADecimal && sRaw.startsWith('0') ? -1 : 0)
-    );
-    setAmountInputWidth(Math.max(amountInputWidthDefault, width)); // don't allow the calculated width to be less than the default width because then the input appears to collapse and it looks bad. (width can be less than 1 if sRaw is the empty string or ".")
-    return sRaw; // NB we return the (unmodified) passed sRaw because we're only using this hook to calculate render width and not to actually transform the raw value.
-  }, [amountInputDecimalsLimit, setAmountInputWidth]);
-
-  useEffect(() => { // when currency changes, ensure that the currency input amount doesn't exceed the new currency's max decimals to render. This prevents eg. if the user types "0.1234 ETH" and then changes the currency to USD, we don't want to show "$0.1234" because the max render decimals for USD is 2 so we'll truncate to "$0.12". --> we also must force an input amount width recalculation, see note below.
-    if (amountRaw) {
-      const [whole, decimal] = amountRaw.split(".");
-      if (decimal && decimal.length > amountInputDecimalsLimit) {
-        const truncatedDecimal = decimal.substring(0, amountInputDecimalsLimit);
-        const newAmountRaw = `${whole}.${truncatedDecimal}`;
-        setAmountRaw(newAmountRaw);
-        recalculateWidthFromAmountInputTransformRawValue(newAmountRaw); // here we must force an amount input width recalculation because if we don't, then the old width will persist, which means, if amountInputDecimalsLimit has decreased, the input will be too wide for the new truncated input. The details for why we must force the recalculation are: when amountInputDecimalsLimit changes, CurrencyInput accepts that props change, updates its internal state, and actually does call recalculateWidthFromAmountInputTransformRawValue, but this call occurs before this effect and thus uses the stale (non-truncated, if narowing decimals) raw value. So, we then re-recalculate width here.
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- here we don't want to rerun the effect if amountRaw changes, only if the currency changes (or other definitional/callback deps)
-  }, [setAmountRaw, primaryLogicalAssetTicker, amountInputDecimalsLimit, recalculateWidthFromAmountInputTransformRawValue]);
+  const [amount, setAmount] = useState<number | undefined>(currencyAmountDefault);
 
   const [note, setNote] = useState<string>('');
 
@@ -326,20 +263,38 @@ export const RequestMoney: React.FC = () => {
     }
   }, [showAdvancedOptions, setPrivacyAndSecurityMode, setShowPassword, setPassword, setSuccessRedirectUrl, setSuccessRedirectCallToAction, setWebhookUrl]);
 
+  const [paymentModeType, setPaymentModeType] = useState<'FixedAmount' | 'PayWhatYouWant'>('FixedAmount');
+
+  const { payWhatYouWant, payWhatYouWantInputElement } = usePayWhatYouWantInput("PayWhatYouWant-input");
+
+  const paymentMode = useMemo((): PaymentMode | undefined => {
+    if (paymentModeType === 'FixedAmount' && amount && amount > 0) return { logicalAssetAmountAsBigNumberHexString: parseLogicalAssetAmount(amount.toString()).toHexString() };
+    else if (paymentModeType === 'PayWhatYouWant') return {
+      payWhatYouWant,
+    }; else return undefined;
+  }, [amount, paymentModeType, payWhatYouWant]);
+
   const checkoutSettings = useMemo<CheckoutSettings | undefined>(() => {
     if (
-      amount && amount > 0 // can't build checkoutSettings without an amount
+      paymentMode // can't build checkoutSettings without a payment mode
       && computedReceiver // can't build checkoutSettings without a receiver
       && (privacyAndSecurityMode === 'standard' || password.length > 0) // can't build checkoutSettings that requires a password if the password is empty
     ) {
-      return {
-        proposedPayment: { // TODO perhaps this ProposedPayment literal should be constructed in a centralized function to ensure that it's done correctly and consistently everywhere (but I think these literals are built nowhere else right now)
-          logicalAssetTickers: new PrimaryWithSecondaries(primaryLogicalAssetTicker, Array.from(secondaryLogicalAssetTickers).filter(t => t !== primaryLogicalAssetTicker)), // WARNING here we must filter out primaryLogicalAssetTicker from secondaryLogicalAssetTickers as by our definition it may be included
-          paymentMode: { // TODO support PayWhatYouWant
-            logicalAssetAmountAsBigNumberHexString: parseLogicalAssetAmount(amount.toString()).toHexString(),
-          },
+      const logicalAssetTickers = new PrimaryWithSecondaries(primaryLogicalAssetTicker, Array.from(secondaryLogicalAssetTickers).filter(t => t !== primaryLogicalAssetTicker)); // WARNING here we must filter out primaryLogicalAssetTicker from secondaryLogicalAssetTickers as by our definition it may be included
+      const proposedPayment: ProposedPayment = (() => {
+        // The following curious block of code is needed because until the type guard isPaymentModeWithFixedAmount is executed, TypeScript can't infer that `paymentMode` is assignable to ProposedPayment.paymentMode:
+        if (isPaymentModeWithFixedAmount(paymentMode)) return {
+          logicalAssetTickers,
+          paymentMode,
           receiver: computedReceiver,
-        },
+        }; else return {
+          logicalAssetTickers,
+          paymentMode,
+          receiver: computedReceiver,
+        };
+      })();
+      return {
+        proposedPayment,
         receiverStrategyPreferences: strategyPreferences || {},
         ...(note && { note: note.trim() }),
         senderNoteSettings: { mode: 'NONE' }, // TODO support senderNoteSettings
@@ -353,7 +308,7 @@ export const RequestMoney: React.FC = () => {
         ...(webhookUrl.length > 0 && { webhookUrl }),
       } satisfies CheckoutSettings;
     } else return undefined;
-  }, [primaryLogicalAssetTicker, secondaryLogicalAssetTickers, amount, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password, successRedirectUrl, successRedirectCallToAction, successRedirectOpenInNewTab, webhookUrl]);
+  }, [primaryLogicalAssetTicker, secondaryLogicalAssetTickers, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password, successRedirectUrl, successRedirectCallToAction, successRedirectOpenInNewTab, webhookUrl, paymentMode]);
 
   const { value: serializedCheckoutSettings, isLoading: serializedCheckoutSettingsIsLoading } = useAsyncMemo<string | undefined>(async () => {
     if (checkoutSettings) {
@@ -375,10 +330,6 @@ export const RequestMoney: React.FC = () => {
     else return undefined;
   }, [serializedCheckoutSettings, serializedCheckoutSettingsIsLoading]);
 
-  const amountInputContainerStyle = useMemo(() => {
-    return { width: `${amountInputWidth}ch` };
-  }, [amountInputWidth]);
-
   const [showModalNonce, setShowModalNonce] = useState(0);
   const incrementShowModalNonce = useCallback(() => setShowModalNonce(n => n + 1), [setShowModalNonce]);
   useEffect(() => {
@@ -393,26 +344,14 @@ export const RequestMoney: React.FC = () => {
     return () => { isMounted = false; };
   }, [recacheRecentlyUsedReceivers]);
 
-  const renderedLogicalAssetAmount: string | undefined = checkoutSettings && isProposedPaymentWithFixedAmount(checkoutSettings.proposedPayment) ? renderLogicalAssetAmount({ // TODO support PayWhatYouWant
+  const renderedProposedPaymentFixedAmount: string | undefined = checkoutSettings && isProposedPaymentWithFixedAmount(checkoutSettings.proposedPayment) ? renderLogicalAssetAmount({
     logicalAssetTicker: checkoutSettings.proposedPayment.logicalAssetTickers.primary,
     amountAsBigNumberHexString: checkoutSettings.proposedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString,
   }) : undefined;
 
-  const checkoutTextToShare: string = (() => {
-    if (renderedLogicalAssetAmount) return `Hey, can you please pay me ${renderedLogicalAssetAmount} using this link`;
-    else return ' ';
-  })();
+  const checkoutTextToShare: string = (() => `Hey, can you please pay me${renderedProposedPaymentFixedAmount !== undefined ? ` ${renderedProposedPaymentFixedAmount}` : ''} using this link`)();
 
   const { disconnect } = useDisconnect();
-
-  const currencyInputRef = useRef<HTMLInputElement>(null);
-  useEffect(() => { // when the user is typing the currency amount, we automatically blur the currency amount input if the user hits the enter key. On mobile, this has the convenient effect of enabling the user to close the number pad by hitting the enter key instead of having to tap outside the number pad.
-    const handleKeyDown = (event: KeyboardEvent) => { // TODO right now, this handler fires if Enter is pressed any time the page is loaded. Can we apply the event handler only to currencyInputRef? Eg. can we check that the passed event's target is currencyInputRef?
-      if (event.key === 'Enter' || event.keyCode === 13) currencyInputRef.current?.blur();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   // TODO add a required warning that at least one token/chain are required if using allowlists and it's empty. Otherwise, the UI appears to say 'zero tokens allowed' but the generated link works and accepts all tokens (due to empty strategy prefs generated --> empty denylist)
 
@@ -435,11 +374,11 @@ export const RequestMoney: React.FC = () => {
       addToRecentlyUsed(recentlyUsedReceiversKey, checkoutSettings.proposedPayment.receiver.address || checkoutSettings.proposedPayment.receiver.ensName).then(recacheRecentlyUsedReceivers);
     } else {
       // NB here we set each warning flag to true if its required data are missing, but we never set them to false here because, as a UX design decision, we never clear warnings until the checkout link has been successfully generated (at which point we clear all warning flags, ie. in the if branch of this conditional)
-      if (!(amount && amount > 0)) setShowAmountRequiredWarning(true);
+      if (paymentModeType === 'FixedAmount' && !(amount && amount > 0)) setShowAmountRequiredWarning(true);
       if (!computedReceiver) setShowReceiverRequiredWarning(true);
       if (!(privacyAndSecurityMode === 'standard' || password.length > 0)) setShowPasswordRequiredWarning(true);
     }
-  }, [incrementShowModalNonce, setShowAmountRequiredWarning, setShowReceiverRequiredWarning, setShowPasswordRequiredWarning, amount, checkoutSettings, computedReceiver, recacheRecentlyUsedReceivers, privacyAndSecurityMode, password]);
+  }, [incrementShowModalNonce, setShowAmountRequiredWarning, setShowReceiverRequiredWarning, setShowPasswordRequiredWarning, amount, paymentModeType, checkoutSettings, computedReceiver, recacheRecentlyUsedReceivers, privacyAndSecurityMode, password]);
 
   const { modal: privacyAndSecurityInfoModal, showModal: showPrivacyAndSecurityInfoModal } = useModal(<div className="w-full h-fit flex flex-col items-center justify-center gap-6">
     <span className="text-left w-full text-xl">Privacy & Security Options</span>
@@ -448,67 +387,34 @@ export const RequestMoney: React.FC = () => {
     <span className="text-left w-full text-lg"><span className="font-bold">Anti-phishing</span> - Like Standard Security, not encrypted, but tamper-proof. Share password separately.</span>
   </div>);
 
-  const er: ExchangeRates | undefined = useExchangeRates();
-
-  const amountUsdEquivalent: bigint | undefined = useMemo(() => {
-    return amount && er && primaryLogicalAssetTicker !== 'USD' ? convert({
-      fromTicker: primaryLogicalAssetTicker,
-      toTicker: 'USD',
-      fromAmount: parseLogicalAssetAmount(amount.toString()).toBigInt(),
-      er,
-    }) : undefined;
-  }, [primaryLogicalAssetTicker, amount, er]);
-
   return <div className="mt-[3vh] w-full max-w-sm mx-auto flex flex-col items-center justify-center">
     <div className="w-full flex justify-start items-center gap-1">
       <span className="font-semibold">Amount</span>
       {showAmountRequiredWarning && <span className="text-red-600">(required)</span>}
     </div>
-    {/* TODO extract this into a useCurrencyAmountInput hook similar to useInput (also see "convert manual <input>s into useInput" note at top of this file): */}
-    <div className="relative flex items-center justify-center">
-      {amountUsdEquivalent ? <span className="absolute bottom-[-1.5em] w-fit text-lg text-gray-500"><RenderLogicalAssetAmount logicalAssetTicker={"USD"} amountAsBigNumberHexString={BigNumber.from(amountUsdEquivalent).toHexString()} /></span> : undefined}
-      <label className={`flex-none text-6xl font-medium text-black ${primaryLogicalAsset.symbol.prefix ? '' : 'invisible pl-6'}`} htmlFor={amountInputId}>{primaryLogicalAsset.symbol.prefix}{primaryLogicalAsset.symbol.suffix}</label>
-      <div className="text-6xl font-bold" style={amountInputContainerStyle}>
-        <CurrencyInput
-          ref={currencyInputRef}
-          autoFocus={false /* NB autofocus on mobile will only successfully pop up the number pad if a user action triggered the script --> eg. if user refreshes page on /pay-link, this won't pop up automatically, it's an anti-spam browser feature. But if the user switches routes eg. by clicking 'request money' then the pad will pop-up automatically on autofocous --> but here we unconditionally set autoFocus=false so that users can initially see the entire pay link widget without the spammy number pad popping up and disrupting that first impression. */}
-          className={"rounded-md bg-inherit focus:outline-none w-full placeholder-black"}
-          id={amountInputId}
-          name="amount"
-          placeholder="0"
-          prefix=""
-          allowNegativeValue={false}
-          defaultValue={0}
-          decimalsLimit={amountInputDecimalsLimit}
-          value={amountRaw}
-          transformRawValue={recalculateWidthFromAmountInputTransformRawValue}
-          onValueChange={(vs) => setAmountRaw(vs)}
-        />
-      </div>
-      <label className={`flex-none text-6xl font-medium text-black ${primaryLogicalAsset.symbol.suffix ? '' : 'hidden'}`} htmlFor={amountInputId}>{primaryLogicalAsset.symbol.prefix}{primaryLogicalAsset.symbol.suffix}</label>
-      <div className={`self-start p-1 ${primaryLogicalAsset.symbol.suffix ? 'pr-0' : 'pr-3'} text-xl`} onClick={() => {
-        setAmountRaw(amountRawDefault);
-        setAmountInputWidth(amountInputWidthDefault); // here we must manually reset amountInputWidth as it's only automatically updated on CurrencyInput keystrokes or other CurrencyInput internal state changes
-        const inputElement = document.getElementById(amountInputId);
-        if (inputElement) inputElement.focus();
-        else console.error(`Could not find element with id ${amountInputId} to focus after reseting amount to 0.`);
-      }}>
-        <FaTimesCircle className="text-gray-500" />
-      </div>
+    <div className="w-full flex justify-between mt-2">
+      <button
+        type="button"
+        disabled={paymentModeType === 'FixedAmount'}
+        className="focus:outline-none rounded-md px-2 py-1 font-medium border border-primary enabled:active:scale-95 enabled:bg-white enabled:text-primary sm:enabled:hover:bg-primary sm:enabled:hover:text-white disabled:bg-primary disabled:text-white disabled:cursor-not-allowed"
+        onClick={() => setPaymentModeType("FixedAmount")}
+      >
+        Receiver sets amount
+      </button>
+      <button
+        type="button"
+        disabled={paymentModeType === 'PayWhatYouWant'}
+        className="focus:outline-none rounded-md px-2 py-1 font-medium border border-primary enabled:active:scale-95 enabled:bg-white enabled:text-primary sm:enabled:hover:bg-primary sm:enabled:hover:text-white disabled:bg-primary disabled:text-white disabled:cursor-not-allowed"
+        onClick={() => setPaymentModeType("PayWhatYouWant")}
+      >
+        Sender sets amount
+      </button>
     </div>
+    {paymentModeType === 'FixedAmount' && <div className="w-full mt-2"><CurrencyAmountInput logicalAsset={logicalAssetsByTicker[primaryLogicalAssetTicker]} inputId="amount-input" setAmount={setAmount} /></div>}
+    {paymentModeType === 'PayWhatYouWant' && <div className="w-full mt-4">{payWhatYouWantInputElement}</div>}
     <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-4">
       <span className="w-full font-semibold">Currency</span>
-      <div className="grow flex justify-between gap-4">
-        {(['USD', 'ETH', 'EUR'] satisfies LogicalAssetTicker[]).map((t: LogicalAssetTicker) => logicalAssetsByTicker[t]).map(la => <button
-          key={la.ticker}
-          type="button"
-          disabled={la.ticker === primaryLogicalAssetTicker}
-          className="focus:outline-none rounded-md px-2 py-1 font-medium border border-primary enabled:active:scale-95 enabled:bg-white enabled:text-primary sm:enabled:hover:bg-primary sm:enabled:hover:text-white disabled:bg-primary disabled:text-white disabled:cursor-not-allowed"
-          onClick={() => setPrimaryLogicalAssetTicker(la.ticker)}
-        >
-          {la.shortDescription}
-        </button>)}
-      </div>
+      {logicalAssetTickerSelectionInputElement}
     </div>
     <div className="w-full flex justify-start items-center gap-1 mt-4">
       <span className="font-semibold">Receive at</span>
@@ -733,8 +639,8 @@ export const RequestMoney: React.FC = () => {
       Send Pay Link
     </button>
     {
-      renderedLogicalAssetAmount && checkoutLink && <Modal showModalNonce={showModalNonce}>
-        <SharePayLinkModalContent checkoutLink={checkoutLink} checkoutTextToShare={checkoutTextToShare} renderedLogicalAssetAmount={renderedLogicalAssetAmount} />
+      checkoutLink && <Modal showModalNonce={showModalNonce}>
+        <SharePayLinkModalContent checkoutLink={checkoutLink} checkoutTextToShare={checkoutTextToShare} />
       </Modal>
     }
   </div >;
@@ -743,19 +649,18 @@ export const RequestMoney: React.FC = () => {
 type SharePayLinkModalContentProps = {
   checkoutLink: string,
   checkoutTextToShare: string,
-  renderedLogicalAssetAmount: string,
 }
 
-const SharePayLinkModalContent: React.FC<SharePayLinkModalContentProps> = ({ checkoutLink, checkoutTextToShare, renderedLogicalAssetAmount }) => {
+const SharePayLinkModalContent: React.FC<SharePayLinkModalContentProps> = ({ checkoutLink, checkoutTextToShare }) => {
   const [isCheckoutLinkCopied, setIsCheckoutLinkCopied] = useClipboard(checkoutLink || ' ', { // here we exclude checkoutTextToShare from the string copied to  clipboard because users seem to prefer that what's copied to the clipboard is the pure link vs the webshare API having the additional context provided by checkoutTextToShare
     successDuration: 2000,
   });
 
-  const [isHtmlEmbedCopied, setIsHtmlEmbedCopied] = useClipboard(checkoutLink ? `<button style="color:#fff;background-color:#007bff;border-radius:5px;padding:10px 15px;border:none;cursor:pointer;" onclick="(function(){let m=document.createElement('div');m.style='position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';m.onclick=function(e){if(e.target===m){removeModal();}};let removeModal=function(){if(document.body.contains(m)){document.body.removeChild(m);document.removeEventListener('keydown',escListener);}};let escListener=function(e){if(e.key==='Escape'){removeModal();}};document.addEventListener('keydown',escListener);let mc=document.createElement('div');let maxWidth = window.innerWidth < 420 ? (window.innerWidth - 30) + 'px' : '390px';mc.style='background-color:#f1f1f1;padding:8px;width:100%;max-width:' + maxWidth + ';height:95vh;max-height:1024px;border-radius:10px;position:relative;box-shadow:0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);margin:auto;';let i=document.createElement('iframe');i.style='width:100%;height:100%;border:0;';i.src='${checkoutLink}';let c=document.createElement('div');c.style='position:absolute;top:5px;right:5px;width:24px;height:24px;cursor:pointer;z-index:10;';c.innerHTML='<svg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 20 20\\' fill=\\'currentColor\\' style=\\'width:100%;height:100%;\\'><path fill-rule=\\'evenodd\\' clip-rule=\\'evenodd\\' d=\\'M10 9.293l5.146-5.147a.5.5 0 01.708.708L10.707 10l5.147 5.146a.5.5 0 01-.708.708L10 10.707l-5.146 5.147a.5.5 0 01-.708-.708L9.293 10 4.146 4.854a.5.5 0 11.708-.708L10 9.293z\\'></path></svg>';c.onclick=function(){removeModal();};mc.appendChild(i);mc.appendChild(c);m.appendChild(mc);document.body.appendChild(m);})();">Pay ${renderedLogicalAssetAmount}</button>` : ' ', {
+  const [isHtmlEmbedCopied, setIsHtmlEmbedCopied] = useClipboard(checkoutLink ? `<button style="color:#fff;background-color:#007bff;border-radius:5px;padding:10px 15px;border:none;cursor:pointer;" onclick="(function(){let m=document.createElement('div');m.style='position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';m.onclick=function(e){if(e.target===m){removeModal();}};let removeModal=function(){if(document.body.contains(m)){document.body.removeChild(m);document.removeEventListener('keydown',escListener);}};let escListener=function(e){if(e.key==='Escape'){removeModal();}};document.addEventListener('keydown',escListener);let mc=document.createElement('div');let maxWidth = window.innerWidth < 420 ? (window.innerWidth - 30) + 'px' : '390px';mc.style='background-color:#f1f1f1;padding:8px;width:100%;max-width:' + maxWidth + ';height:95vh;max-height:1024px;border-radius:10px;position:relative;box-shadow:0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);margin:auto;';let i=document.createElement('iframe');i.style='width:100%;height:100%;border:0;';i.src='${checkoutLink}';let c=document.createElement('div');c.style='position:absolute;top:5px;right:5px;width:24px;height:24px;cursor:pointer;z-index:10;';c.innerHTML='<svg xmlns=\\'http://www.w3.org/2000/svg\\' viewBox=\\'0 0 20 20\\' fill=\\'currentColor\\' style=\\'width:100%;height:100%;\\'><path fill-rule=\\'evenodd\\' clip-rule=\\'evenodd\\' d=\\'M10 9.293l5.146-5.147a.5.5 0 01.708.708L10.707 10l5.147 5.146a.5.5 0 01-.708.708L10 10.707l-5.146 5.147a.5.5 0 01-.708-.708L9.293 10 4.146 4.854a.5.5 0 11.708-.708L10 9.293z\\'></path></svg>';c.onclick=function(){removeModal();};mc.appendChild(i);mc.appendChild(c);m.appendChild(mc);document.body.appendChild(m);})();">Pay</button>` : ' ', {
     successDuration: 4000,
   });
 
-  const [isReactEmbedCopied, setIsReactEmbedCopied] = useClipboard(checkoutLink ? `<span dangerouslySetInnerHTML={{ __html: \`<button style="color:#fff;background-color:#007bff;border-radius:5px;padding:10px 15px;border:none;cursor:pointer;" onClick="(function(){let m=document.createElement('div');m.style='position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';m.onclick=function(e){if(e.target===m){removeModal();}};let removeModal=function(){if(document.body.contains(m)){document.body.removeChild(m);document.removeEventListener('keydown',escListener);}};let escListener=function(e){if(e.key==='Escape'){removeModal();}};document.addEventListener('keydown',escListener);let mc=document.createElement('div');let maxWidth = window.innerWidth < 440 ? (window.innerWidth - 50) + 'px' : '390px';mc.style='background-color:#f1f1f1;padding:8px;width:100%;max-width:' + maxWidth + ';height:95vh;max-height:1024px;border-radius:10px;position:relative;box-shadow:0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);margin:auto;';let i=document.createElement('iframe');i.style='width:100%;height:100%;border:0;';i.src='${checkoutLink}';let c=document.createElement('div');c.style='position:absolute;top:5px;right:5px;width:24px;height:24px;cursor:pointer;z-index:10;';c.innerHTML='<svg xmlns=\\\\'http://www.w3.org/2000/svg\\\\' viewBox=\\\\'0 0 20 20\\\\' fill=\\\\'currentColor\\\\' style=\\\\'width:100%;height:100%;\\\\'><path fill-rule=\\\\'evenodd\\\\' clip-rule=\\\\'evenodd\\\\' d=\\\\'M10 9.293l5.146-5.147a.5.5 0 01.708.708L10.707 10l5.147 5.146a.5.5 0 01-.708.708L10 10.707l-5.146 5.147a.5.5 0 01-.708-.708L9.293 10 4.146 4.854a.5.5 0 11.708-.708L10 9.293z\\\\'></path></svg>';c.onclick=function(){removeModal();};mc.appendChild(i);mc.appendChild(c);m.appendChild(mc);document.body.appendChild(m);})();">Pay ${renderedLogicalAssetAmount}</button>\` }}></span>` : ' ', {
+  const [isReactEmbedCopied, setIsReactEmbedCopied] = useClipboard(checkoutLink ? `<span dangerouslySetInnerHTML={{ __html: \`<button style="color:#fff;background-color:#007bff;border-radius:5px;padding:10px 15px;border:none;cursor:pointer;" onClick="(function(){let m=document.createElement('div');m.style='position:fixed;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center;';m.onclick=function(e){if(e.target===m){removeModal();}};let removeModal=function(){if(document.body.contains(m)){document.body.removeChild(m);document.removeEventListener('keydown',escListener);}};let escListener=function(e){if(e.key==='Escape'){removeModal();}};document.addEventListener('keydown',escListener);let mc=document.createElement('div');let maxWidth = window.innerWidth < 440 ? (window.innerWidth - 50) + 'px' : '390px';mc.style='background-color:#f1f1f1;padding:8px;width:100%;max-width:' + maxWidth + ';height:95vh;max-height:1024px;border-radius:10px;position:relative;box-shadow:0 4px 6px rgba(0,0,0,0.1), 0 2px 4px rgba(0,0,0,0.06);margin:auto;';let i=document.createElement('iframe');i.style='width:100%;height:100%;border:0;';i.src='${checkoutLink}';let c=document.createElement('div');c.style='position:absolute;top:5px;right:5px;width:24px;height:24px;cursor:pointer;z-index:10;';c.innerHTML='<svg xmlns=\\\\'http://www.w3.org/2000/svg\\\\' viewBox=\\\\'0 0 20 20\\\\' fill=\\\\'currentColor\\\\' style=\\\\'width:100%;height:100%;\\\\'><path fill-rule=\\\\'evenodd\\\\' clip-rule=\\\\'evenodd\\\\' d=\\\\'M10 9.293l5.146-5.147a.5.5 0 01.708.708L10.707 10l5.147 5.146a.5.5 0 01-.708.708L10 10.707l-5.146 5.147a.5.5 0 01-.708-.708L9.293 10 4.146 4.854a.5.5 0 11.708-.708L10 9.293z\\\\'></path></svg>';c.onclick=function(){removeModal();};mc.appendChild(i);mc.appendChild(c);m.appendChild(mc);document.body.appendChild(m);})();">Pay</button>\` }}></span>` : ' ', {
     successDuration: 4000,
   });
 
@@ -822,10 +727,3 @@ const SharePayLinkModalContent: React.FC<SharePayLinkModalContentProps> = ({ che
     {!isProduction && <a href={checkoutLink} target="_blank" rel="noopener noreferrer"><span className="text-xl text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer">Open Link</span></a> /* this is a development feature to make it easy to access the Pay UI for this request */}
   </div>;
 };
-
-function countCharsAfterDecimal(s: string): number {
-  const decimalIndex = s.indexOf('.');
-  if (decimalIndex > -1) {
-    return s.length - decimalIndex - 1;
-  } else return 0;
-}
