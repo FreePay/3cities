@@ -71,7 +71,7 @@ export const About: React.FC = () => {
       Currencies: {allLogicalAssetTickers.filter(lat => getAllNativeCurrenciesAndTokensForLogicalAssetTicker(lat).length > 0).join(", ") /* ie. our customer-facing list of supported currencies are the logical assets with at least one supported native currecny or token */}
     </p>
     <p className="mb-4">
-      Tokens: {allLogicalAssetTickers.flatMap(lat => allTokenTickers.filter(isTokenTickerSupportedByLogicalAsset.bind(null, lat))).join(', ')}
+      Tokens: {allLogicalAssetTickers.flatMap(lat => allTokenTickers.filter(isTokenTickerSupportedByLogicalAsset.bind(null, lat))).join(', ')}. We&apos;ve partnered with the stablecoin ratings agency <a href="https://bluechip.org/" target="_blank" rel="noreferrer" className="text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker">Bluechip</a> and support all stablecoins rated B+ or higher by Bluechip.
     </p>
     <p>
       Chains: {chainsSupportedBy3cities.map(c => c.name).join(", ")}
