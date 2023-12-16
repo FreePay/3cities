@@ -13,8 +13,8 @@ import { tokensByTicker } from "./tokens";
 // doesn't exist, it'll be ignored silently at runtime.
 const logicalAssetsToSupportedNativeCurrencyAndTokenTickers: Readonly<{ [lat in LogicalAssetTicker]: Immutable<Set<Uppercase<string>>> }> = {
   // WARNING here the illegal state is representable where a native currency or token ticker should be supported by at most one logical asset but the data structure allows token tickers to appear in multiple logical assets --> one way to attempt to fix this is to define the mapping in its natural form as Readonly<{ [tt: Uppercase<string>]: LogicalAssetTicker }>, but clients want supported tokens indexed by logical asset tickers, and the reverse mapping is impossible to generate dynamically in typescript without casts (because the mapped type `{ [lat in LogicalAssetTicker]: true }` requires the codomain to be the complete set of all LogicalAssetTickers, and that can't be constructed dynamically). TODO consider using casts to eliminate this representable illegal state
-  'ETH': castImmutable(new Set(['ETH', 'WETH'])),
-  'USD': castImmutable(new Set(['DAI', 'USDC', 'USDT', 'LUSD'])),
+  'ETH': castImmutable(new Set(['ETH', 'WETH', 'STETH'])),
+  'USD': castImmutable(new Set(['DAI', 'USDC', 'USDT', 'LUSD', 'GUSD', 'USDP', 'PYUSD'])),
   'CAD': castImmutable(new Set(['CADC'])),
   'EUR': castImmutable(new Set(['EURC', 'EURT'])),
 };
