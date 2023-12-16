@@ -27,12 +27,22 @@ function ConversionHeader() {
 }
 
 export const ConversionWrapper = () => {
+  return <ConversionWrapperWithChildren>
+    <Outlet />
+  </ConversionWrapperWithChildren>;
+};
+
+type ConversionWrapperWithChildrenProps = {
+  children?: React.ReactNode;
+}
+
+export const ConversionWrapperWithChildren: React.FC<ConversionWrapperWithChildrenProps> = ({ children }) => {
   return (
     <div className="min-h-screen flex flex-col text-black">
       <ConversionHeader />
       <div className="grow flex flex-col items-center justify-start bg-gray-100">
         <div className="w-full max-w-sm overflow-hidden px-5 pb-5">
-          <Outlet />
+          {children}
         </div>
       </div>
     </div>
