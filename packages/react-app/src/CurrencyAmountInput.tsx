@@ -4,21 +4,19 @@ import CurrencyInput from "react-currency-input-field";
 import { FaTimesCircle } from "react-icons/fa";
 import { ExchangeRates, convert } from "./ExchangeRates";
 import { RenderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
-import { LogicalAsset, getDecimalsToRenderForLogicalAssetTicker, parseLogicalAssetAmount } from "./logicalAssets";
+import { LogicalAsset, LogicalAssetTicker, getDecimalsToRenderForLogicalAssetTicker, logicalAssetsByTicker, parseLogicalAssetAmount } from "./logicalAssets";
 import { useExchangeRates } from "./useExchangeRates";
 
-export const currencyAmountDefault = 0; // currencyAmountDefault provides a default for clients of CurrencyAmountInput that don't want to wait for the first async render flush to obtain an initial value
-
 interface CurrencyAmountInputProps {
-  logicalAsset: LogicalAsset;
+  logicalAssetTicker: LogicalAssetTicker;
   inputId: string;
   setAmount: (amount: number | undefined) => void;
 }
 
 // CurrencyAmountInput is the 3cities canonical currency amouunt input
 // UX.
-export const CurrencyAmountInput: React.FC<CurrencyAmountInputProps> = ({ logicalAsset, inputId, setAmount }) => {
-  const { amount, amountInputElement } = useCurrencyAmountInput(logicalAsset, inputId);
+export const CurrencyAmountInput: React.FC<CurrencyAmountInputProps> = ({ logicalAssetTicker, inputId, setAmount }) => {
+  const { amount, amountInputElement } = useCurrencyAmountInput(logicalAssetTicker, inputId);
   useEffect(() => {
     setAmount(amount);
   }, [setAmount, amount]);
@@ -32,7 +30,7 @@ const amountInputWidthDefault = 1; // width to fit amountRawDefault
 // denominated in the passed logical asset, as well as the amount the
 // user has typed into this input element. This is the 3cities canonical
 // currency amount input UX.
-function useCurrencyAmountInput(logicalAsset: LogicalAsset, inputId: string): {
+function useCurrencyAmountInput(logicalAssetTicker: LogicalAssetTicker, inputId: string): {
   amount: number | undefined;
   amountInputElement: JSX.Element;
 } {
@@ -41,7 +39,7 @@ function useCurrencyAmountInput(logicalAsset: LogicalAsset, inputId: string): {
     return { width: `${amountInputWidth}ch` };
   }, [amountInputWidth]);
 
-  const amountInputDecimalsLimit = getDecimalsToRenderForLogicalAssetTicker(logicalAsset.ticker); // specify the currency input to have as many decimals as we'd canonically render for a given currency. For example, two decimals for USD ($2.04) and four decimals for ETH (0.1256e)
+  const amountInputDecimalsLimit = getDecimalsToRenderForLogicalAssetTicker(logicalAssetTicker); // specify the currency input to have as many decimals as we'd canonically render for a given currency. For example, two decimals for USD ($2.04) and four decimals for ETH (0.1256e)
 
   const [amountRaw, setAmountRaw] = useState<string | undefined>(amountRawDefault);
   const amount: number | undefined = useMemo(() => {
@@ -100,18 +98,18 @@ function useCurrencyAmountInput(logicalAsset: LogicalAsset, inputId: string): {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- here we don't want to rerun the effect if amountRaw changes, only if the currency changes (or other definitional/callback deps)
-  }, [setAmountRaw, logicalAsset.ticker, amountInputDecimalsLimit, recalculateWidthFromAmountInputTransformRawValue]);
+  }, [setAmountRaw, logicalAssetTicker, amountInputDecimalsLimit, recalculateWidthFromAmountInputTransformRawValue]);
 
   const er: ExchangeRates | undefined = useExchangeRates();
 
   const amountUsdEquivalent: bigint | undefined = useMemo(() => {
-    return amount && er && logicalAsset.ticker !== 'USD' ? convert({
-      fromTicker: logicalAsset.ticker,
+    return amount && er && logicalAssetTicker !== 'USD' ? convert({
+      fromTicker: logicalAssetTicker,
       toTicker: 'USD',
       fromAmount: parseLogicalAssetAmount(amount.toString()).toBigInt(),
       er,
     }) : undefined;
-  }, [logicalAsset.ticker, amount, er]);
+  }, [logicalAssetTicker, amount, er]);
 
   const currencyInputRef = useRef<HTMLInputElement>(null);
   useEffect(() => { // when the user is typing the currency amount, we automatically blur the currency amount input if the user hits the enter key. On mobile, this has the convenient effect of enabling the user to close the number pad by hitting the enter key instead of having to tap outside the number pad.
@@ -123,9 +121,10 @@ function useCurrencyAmountInput(logicalAsset: LogicalAsset, inputId: string): {
   }, []);
 
   const amountInputElement = useMemo<JSX.Element>(() => {
+    const la: LogicalAsset = logicalAssetsByTicker[logicalAssetTicker];
     return <div className="relative flex items-center justify-center">
       {amountUsdEquivalent ? <span className="absolute bottom-[-1.5em] w-fit text-lg text-gray-500"><RenderLogicalAssetAmount logicalAssetTicker={"USD"} amountAsBigNumberHexString={BigNumber.from(amountUsdEquivalent).toHexString()} /></span> : undefined}
-      <label className={`flex-none text-6xl font-medium text-black ${logicalAsset.symbol.prefix ? '' : 'invisible pl-6'}`} htmlFor={inputId}>{logicalAsset.symbol.prefix}{logicalAsset.symbol.suffix}</label>
+      <label className={`flex-none text-6xl font-medium text-black ${la.symbol.prefix ? '' : 'invisible pl-6'}`} htmlFor={inputId}>{la.symbol.prefix}{la.symbol.suffix}</label>
       <div className="text-6xl font-bold" style={amountInputContainerStyle}>
         <CurrencyInput
           ref={currencyInputRef}
@@ -135,6 +134,7 @@ function useCurrencyAmountInput(logicalAsset: LogicalAsset, inputId: string): {
           name="amount"
           placeholder="0"
           prefix=""
+          autoComplete="off"
           allowNegativeValue={false}
           defaultValue={0}
           decimalsLimit={amountInputDecimalsLimit}
@@ -143,8 +143,8 @@ function useCurrencyAmountInput(logicalAsset: LogicalAsset, inputId: string): {
           onValueChange={(vs) => setAmountRaw(vs)}
         />
       </div>
-      <label className={`flex-none text-6xl font-medium text-black ${logicalAsset.symbol.suffix ? '' : 'hidden'}`} htmlFor={inputId}>{logicalAsset.symbol.prefix}{logicalAsset.symbol.suffix}</label>
-      <div className={`self-start p-1 ${logicalAsset.symbol.suffix ? 'pr-0' : 'pr-3'} text-xl`} onClick={() => {
+      <label className={`flex-none text-6xl font-medium text-black ${la.symbol.suffix ? '' : 'hidden'}`} htmlFor={inputId}>{la.symbol.prefix}{la.symbol.suffix}</label>
+      <div className={`self-start p-1 ${la.symbol.suffix ? 'pr-0' : 'pr-3'} text-xl`} onClick={() => {
         setAmountRaw(amountRawDefault);
         setAmountInputWidth(amountInputWidthDefault); // here we must manually reset amountInputWidth as it's only automatically updated on CurrencyInput keystrokes or other CurrencyInput internal state changes
         const inputElement = document.getElementById(inputId);
@@ -154,7 +154,7 @@ function useCurrencyAmountInput(logicalAsset: LogicalAsset, inputId: string): {
         <FaTimesCircle className="text-gray-500" />
       </div>
     </div>;
-  }, [logicalAsset, inputId, amountInputContainerStyle, amountInputDecimalsLimit, amountRaw, recalculateWidthFromAmountInputTransformRawValue, amountUsdEquivalent]);
+  }, [logicalAssetTicker, inputId, amountInputContainerStyle, amountInputDecimalsLimit, amountRaw, recalculateWidthFromAmountInputTransformRawValue, amountUsdEquivalent]);
 
   const ret = useMemo((): ReturnType<typeof useCurrencyAmountInput> => {
     return {

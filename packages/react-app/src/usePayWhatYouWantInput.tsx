@@ -40,7 +40,9 @@ export function usePayWhatYouWantInput(inputId: string): {
     } catch {
       return undefined;
     }
-  }))).sort().filter(a => a >= 0n).map(a => BigNumber.from(a).toHexString()), [rawSuggestedLogicalAssetAmounts]);
+  }))).sort((a, b) => (a > b) ? 1 : (a < b) ? -1 : 0) // ascending order so that smaller suggested amounts appear first
+    .filter(a => a > 0n) // NB we don't currently support checking out for a zero amount, so we'll disallow a suggestion of 0
+    .map(a => BigNumber.from(a).toHexString()), [rawSuggestedLogicalAssetAmounts]);
 
   const [isDynamicPricingEnabled, setIsDynamicPricingEnabled] = useState(true);
 
