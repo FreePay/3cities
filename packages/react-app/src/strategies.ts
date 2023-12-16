@@ -2,7 +2,7 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { AddressContext } from "./AddressContext";
 import { ExchangeRates, convert } from "./ExchangeRates";
 import { Intersection } from "./Intersection";
-import { Payment, ProposedPayment, isPayment } from "./Payment";
+import { PaymentWithFixedAmount, ProposedPaymentWithFixedAmount, isPayment } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import { StrategyPreferences } from "./StrategyPreferences";
 import { NativeCurrency, Token, isToken } from "./Token";
@@ -14,6 +14,8 @@ import { LogicalAssetTicker, convertLogicalAssetUnits } from "./logicalAssets";
 import { getAllNativeCurrenciesAndTokensForLogicalAssetTicker, getLogicalAssetTickerForTokenOrNativeCurrencyTicker } from "./logicalAssetsToTokens";
 import { ProposedTokenTransfer, TokenTransfer, TokenTransferForNativeCurrency, TokenTransferForToken } from "./tokenTransfer";
 import { allTokenTickers, getTokenKey, isTokenSupported } from "./tokens";
+
+// TODO consider s/Strategy.payment/Strategy.paymentWithFixedAmount` and same for ProposedStrategy --> on the other hand, the requirement that strategies operate on payments with fixed amounts represents unresolved tension between the concept of a Payment, Strategy, and the steps taken to settle a payment. In theory, a Payment of "can donate any asset from sender to receiver" should be able to be settled with some Strategy. But today, our strategy generation pipeline requires that token transfers be constructed from payments with fixed amounts. Today we have the concept "Payment with non-fixed amount must be pre-resovled by upstream into a payment with a fixed amount before it can have strategies generated" but in the future, we could have the concept "Payment with fixed or non-fixedd amount can have strategies generated, given sufficient context"
 
 // TODO consider replacing "Strategy" with "PaymentMethod" in every context
 
@@ -33,7 +35,7 @@ function isTokenPermittedByStrategyPreferences(prefs: StrategyPreferences, token
 // strategy. The idea here is for a payment to generate a set of
 // strategies, and then the user picks one of the strategies to execute.
 export type Strategy = Readonly<{
-  payment: Payment, // the payment which is being settled by this strategy
+  payment: PaymentWithFixedAmount, // the payment which is being settled by this strategy
   tokenTransfer: TokenTransfer, // the single token transfer which, once executed, will represent the settling of this payment. NB here we have restricted the concept of which actions a strategy may take to single token transfers. In future it might become appropriate for Strategy to have a more complex relationship with the actions it describes, eg. `tokenTransfers: TokenTransfer[]`, `actions: (TokenTransfer | FutureType)[]`, etc.
 }>
 
@@ -46,7 +48,7 @@ export type Strategy = Readonly<{
 // showing you an example of the actions you could take to settle this
 // payment".
 export type ProposedStrategy = Readonly<{
-  proposedPayment: ProposedPayment, // the proposed payment which this proposed strategy may end up settling if the proposal is accepted
+  proposedPayment: ProposedPaymentWithFixedAmount, // the proposed payment which this proposed strategy may end up settling if the proposal is accepted
   proposedTokenTransfer: ProposedTokenTransfer, // the single proposed token transfer which once accepted and executed will settle the proposed payment in this proposed strategy. See design note on Strategy.tokenTransfer
 }>
 
@@ -55,7 +57,7 @@ export type ProposedStrategy = Readonly<{
 // payment's receiver accepts to settle the passed (proposed) payment.
 // Precondition: the passed receiver strategy preferences are for the
 // same receiver as the passed (proposed) payment's receiver.
-function getAllNativeCurrenciesAndTokensAcceptedByReceiverForPayment(receiverStrategyPreferences: StrategyPreferences, p: Intersection<Payment, ProposedPayment>): (NativeCurrency | Token)[] {
+function getAllNativeCurrenciesAndTokensAcceptedByReceiverForPayment(receiverStrategyPreferences: StrategyPreferences, p: Intersection<PaymentWithFixedAmount, ProposedPaymentWithFixedAmount>): (NativeCurrency | Token)[] {
   return [
     ...getAllNativeCurrenciesAndTokensForLogicalAssetTicker(p.logicalAssetTickers.primary),
     ...p.logicalAssetTickers.secondaries.flatMap(getAllNativeCurrenciesAndTokensForLogicalAssetTicker),
@@ -98,7 +100,7 @@ function getAllNativeCurrenciesAndTokensAcceptedByReceiverForPayment(receiverStr
 // passed receiver strategy preferences. Precondition: the passed
 // receiver strategy preferences are for the same receiver as the passed
 // proposed payment's receiver.
-export function getProposedStrategiesForProposedPayment(er: ExchangeRates | undefined, receiverStrategyPreferences: StrategyPreferences, p: ProposedPayment): ProposedStrategy[] {
+export function getProposedStrategiesForProposedPayment(er: ExchangeRates | undefined, receiverStrategyPreferences: StrategyPreferences, p: ProposedPaymentWithFixedAmount): ProposedStrategy[] {
   const ts: (NativeCurrency | Token)[] = getAllNativeCurrenciesAndTokensAcceptedByReceiverForPayment(receiverStrategyPreferences, p);
   const pss: ProposedStrategy[] = [];
 
@@ -126,7 +128,7 @@ export function getProposedStrategiesForProposedPayment(er: ExchangeRates | unde
 // strategy preferences are for the same receiver as the passed
 // payment's receiver, and the passed sender address context is for the
 // same sender as the passed payment's sender.
-export function getStrategiesForPayment(er: ExchangeRates | undefined, receiverStrategyPreferences: StrategyPreferences, p: Payment, senderAddressContext: AddressContext): Strategy[] {
+export function getStrategiesForPayment(er: ExchangeRates | undefined, receiverStrategyPreferences: StrategyPreferences, p: PaymentWithFixedAmount, senderAddressContext: AddressContext): Strategy[] {
   const ts: (NativeCurrency | Token)[] = getAllNativeCurrenciesAndTokensAcceptedByReceiverForPayment(receiverStrategyPreferences, p);
   const ss: Strategy[] = [];
 
@@ -157,75 +159,72 @@ export function getStrategiesForPayment(er: ExchangeRates | undefined, receiverS
 // constrictive precondition that the client must have already safely
 // determined that the passed (proposed) payment can be settled in the
 // passed token.
-function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: Payment, token: Token | NativeCurrency): TokenTransfer | undefined
-function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: ProposedPayment, token: Token | NativeCurrency): ProposedTokenTransfer | undefined
-function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: Payment | ProposedPayment, token: Token | NativeCurrency): TokenTransfer | ProposedTokenTransfer | undefined
-function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: Payment | ProposedPayment, token: Token | NativeCurrency): TokenTransfer | ProposedTokenTransfer | undefined {
-  if (p.paymentMode.payWhatYouWant) return undefined; // NB in "pay what you want" mode, no canonical token transfer can be derived from the Payment because there's no single specific amount to be paid. Instead, "pay what you want" mode must be handled upstream by obtaining the sender's preference(s) as to what amount(s) they may want to pay and then constructing ordinary payment(s) (that don't use "pay what you want" mode)in those amount(s), and then those ordinary payments can have canonical token transfers derived normally
-  else {
-    const amountDenominatedInToken: undefined | bigint = (() => {
-      const amountDenominatedInPrimaryLogicalAssetWithTokensDecimals: bigint = convertLogicalAssetUnits(BigNumber.from(p.paymentMode.logicalAssetAmountAsBigNumberHexString), token.decimals).toBigInt(); // WARNING this amount is denominated in the passed Payment's primary logical asset and using the passed token's decimals. But, any exchange rate conversion that may need to be applied has not yet been applied
-      const logicalAssetTickerForThisTokenTransfer: LogicalAssetTicker | undefined = getLogicalAssetTickerForTokenOrNativeCurrencyTicker(token.ticker);
-      if (logicalAssetTickerForThisTokenTransfer === undefined) {
-        // case 1. the passed token is not supported by any logical asset. For example, UNI's is not supported by any logical asset because 1 unit of UNI is not pegged to any logical asset. Since the token transfer we're attempting to construct is not supported by any logical asset, we'll attempt an exchange rate conversion directly from the Payment's primary logical asset to the token
-        if (er === undefined) return undefined;
-        else {
-          const _amountDenominatedInToken: undefined | bigint = convert({ er, fromTicker: p.logicalAssetTickers.primary, toTicker: token.ticker, fromAmount: amountDenominatedInPrimaryLogicalAssetWithTokensDecimals });
-          return _amountDenominatedInToken;
-        }
-      } else if (logicalAssetTickerForThisTokenTransfer === p.logicalAssetTickers.primary) {
-        // case 2. the passed token is supported by the passed payment's primary logical asset, and no exchange rate conversion is needed
-        return amountDenominatedInPrimaryLogicalAssetWithTokensDecimals;
-      } else {
-        // case 3. the passed token is supported by a logical asset other than the passed payment's primary logical asset, so exchange rate conversion between the two logical assets is needed
-        if (er === undefined) return undefined;
-        else {
-          const _amountDenominatedInToken: undefined | bigint = convert({ er, fromTicker: p.logicalAssetTickers.primary, toTicker: logicalAssetTickerForThisTokenTransfer, fromAmount: amountDenominatedInPrimaryLogicalAssetWithTokensDecimals });
-          return _amountDenominatedInToken;
-        }
+function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: PaymentWithFixedAmount, token: Token | NativeCurrency): TokenTransfer | undefined
+function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: ProposedPaymentWithFixedAmount, token: Token | NativeCurrency): ProposedTokenTransfer | undefined
+function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: PaymentWithFixedAmount | ProposedPaymentWithFixedAmount, token: Token | NativeCurrency): TokenTransfer | ProposedTokenTransfer | undefined
+function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: PaymentWithFixedAmount | ProposedPaymentWithFixedAmount, token: Token | NativeCurrency): TokenTransfer | ProposedTokenTransfer | undefined {
+  const amountDenominatedInToken: undefined | bigint = (() => {
+    const amountDenominatedInPrimaryLogicalAssetWithTokensDecimals: bigint = convertLogicalAssetUnits(BigNumber.from(p.paymentMode.logicalAssetAmountAsBigNumberHexString), token.decimals).toBigInt(); // WARNING this amount is denominated in the passed Payment's primary logical asset and using the passed token's decimals. But, any exchange rate conversion that may need to be applied has not yet been applied
+    const logicalAssetTickerForThisTokenTransfer: LogicalAssetTicker | undefined = getLogicalAssetTickerForTokenOrNativeCurrencyTicker(token.ticker);
+    if (logicalAssetTickerForThisTokenTransfer === undefined) {
+      // case 1. the passed token is not supported by any logical asset. For example, UNI's is not supported by any logical asset because 1 unit of UNI is not pegged to any logical asset. Since the token transfer we're attempting to construct is not supported by any logical asset, we'll attempt an exchange rate conversion directly from the Payment's primary logical asset to the token
+      if (er === undefined) return undefined;
+      else {
+        const _amountDenominatedInToken: undefined | bigint = convert({ er, fromTicker: p.logicalAssetTickers.primary, toTicker: token.ticker, fromAmount: amountDenominatedInPrimaryLogicalAssetWithTokensDecimals });
+        return _amountDenominatedInToken;
       }
-    })();
-    if (amountDenominatedInToken === undefined) return undefined;
-    else {
-      const ttPartial: Pick<Intersection<TokenTransfer, ProposedTokenTransfer>, 'amountAsBigNumberHexString'> = {
-        amountAsBigNumberHexString: BigNumber.from(amountDenominatedInToken).toHexString(),
-      };
-      if (isPayment(p)) {
-        const ttPartial2: Omit<TokenTransfer, 'token'> = Object.assign({}, ttPartial, {
-          receiverAddress: p.receiverAddress,
-          senderAddress: p.senderAddress,
-        });
-        // The following curious block of code is needed because until the type guard isToken is executed, TypeScript can't infer that `token` is assignable to TokenTransfer.token:
-        if (isToken(token)) {
-          const tt: TokenTransferForToken = Object.assign(ttPartial2, { token });
-          return tt;
-        } else {
-          const tt: TokenTransferForNativeCurrency = Object.assign(ttPartial2, { token });
-          return tt;
-        }
-        //  NB I asked GPT why the isToken type guard is needed to
-        //  construct a TokenTransfer but isn't needed to construct a
-        //  ProposedTokenTransfer, which is extremely weird given that
-        //  ProposedTokenTransfer.token has an identical type to
-        //  TokenTransfer.token. GPT gave this unsatisfying answer, "The
-        //  issue is likely stemming from TypeScript's strictness
-        //  regarding the type compatibility of discriminated unions when
-        //  you try to assign the object to TokenTransfer, which is a
-        //  union type.When you are constructing ProposedTokenTransfer,
-        //  it's a single type, so TypeScript is less strict. For
-        //  TokenTransfer, TypeScript has to make sure that the
-        //  constructed object strictly adheres to one of the possible
-        //  union types (TokenTransferForToken or
-        //  TokenTransferForNativeCurrency), and the types must align
-        //  exactly."
+    } else if (logicalAssetTickerForThisTokenTransfer === p.logicalAssetTickers.primary) {
+      // case 2. the passed token is supported by the passed payment's primary logical asset, and no exchange rate conversion is needed
+      return amountDenominatedInPrimaryLogicalAssetWithTokensDecimals;
+    } else {
+      // case 3. the passed token is supported by a logical asset other than the passed payment's primary logical asset, so exchange rate conversion between the two logical assets is needed
+      if (er === undefined) return undefined;
+      else {
+        const _amountDenominatedInToken: undefined | bigint = convert({ er, fromTicker: p.logicalAssetTickers.primary, toTicker: logicalAssetTickerForThisTokenTransfer, fromAmount: amountDenominatedInPrimaryLogicalAssetWithTokensDecimals });
+        return _amountDenominatedInToken;
+      }
+    }
+  })();
+  if (amountDenominatedInToken === undefined) return undefined;
+  else {
+    const ttPartial: Pick<Intersection<TokenTransfer, ProposedTokenTransfer>, 'amountAsBigNumberHexString'> = {
+      amountAsBigNumberHexString: BigNumber.from(amountDenominatedInToken).toHexString(),
+    };
+    if (isPayment(p)) {
+      const ttPartial2: Omit<TokenTransfer, 'token'> = Object.assign({}, ttPartial, {
+        receiverAddress: p.receiverAddress,
+        senderAddress: p.senderAddress,
+      });
+      // The following curious block of code is needed because until the type guard isToken is executed, TypeScript can't infer that `token` is assignable to TokenTransfer.token:
+      if (isToken(token)) {
+        const tt: TokenTransferForToken = Object.assign(ttPartial2, { token });
+        return tt;
       } else {
-        const tt: ProposedTokenTransfer = Object.assign({}, ttPartial, {
-          receiver: p.receiver,
-          token,
-          ...(p.senderAddress && { senderAddress: p.senderAddress }),
-        });
+        const tt: TokenTransferForNativeCurrency = Object.assign(ttPartial2, { token });
         return tt;
       }
+      //  NB I asked GPT why the isToken type guard is needed to
+      //  construct a TokenTransfer but isn't needed to construct a
+      //  ProposedTokenTransfer, which is extremely weird given that
+      //  ProposedTokenTransfer.token has an identical type to
+      //  TokenTransfer.token. GPT gave this unsatisfying answer, "The
+      //  issue is likely stemming from TypeScript's strictness
+      //  regarding the type compatibility of discriminated unions when
+      //  you try to assign the object to TokenTransfer, which is a
+      //  union type.When you are constructing ProposedTokenTransfer,
+      //  it's a single type, so TypeScript is less strict. For
+      //  TokenTransfer, TypeScript has to make sure that the
+      //  constructed object strictly adheres to one of the possible
+      //  union types (TokenTransferForToken or
+      //  TokenTransferForNativeCurrency), and the types must align
+      //  exactly."
+    } else {
+      const tt: ProposedTokenTransfer = Object.assign({}, ttPartial, {
+        receiver: p.receiver,
+        token,
+        ...(p.senderAddress && { senderAddress: p.senderAddress }),
+      });
+      return tt;
     }
   }
 }
