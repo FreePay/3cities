@@ -10,7 +10,7 @@ export class PrimaryWithSecondaries<K extends PropertyKey> {
   private readonly _primary: K;
   private readonly _secondaries: readonly K[];
 
-  constructor(primary: K, secondaries: K[] = []) {
+  constructor(primary: K, secondaries: readonly K[] = []) {
     if (new Set([primary, ...secondaries]).size !== 1 + secondaries.length) throw new Error(`PrimaryWithSecondaries: primary and secondaries must be unique ${String(primary)} ${secondaries}`);
     this._primary = primary;
     this._secondaries = Object.freeze([...secondaries]); // create a frozen copy of the secondaries array so that the internal secondaries can't be modified via the client's reference to passed secondaries or secondaries()

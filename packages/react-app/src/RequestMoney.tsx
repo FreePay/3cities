@@ -8,7 +8,7 @@ import { useAccount, useDisconnect } from "wagmi";
 import { CheckoutSettings } from "./CheckoutSettings";
 import { serializedCheckoutSettingsUrlParam } from "./CheckoutSettingsProvider";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
-import { CurrencyAmountInput, currencyAmountDefault } from "./CurrencyAmountInput";
+import { CurrencyAmountInput } from "./CurrencyAmountInput";
 import { Modal, useModal } from "./Modal";
 import { PaymentMode, ProposedPayment, isPaymentModeWithFixedAmount, isProposedPaymentWithFixedAmount } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
@@ -20,7 +20,7 @@ import { ToggleSwitch } from "./ToggleSwitch";
 import { allSupportedChainIds, getSupportedChainName } from "./chains";
 import { isLikelyAnEnsName } from "./isLikelyAnEnsName";
 import { isProduction } from "./isProduction";
-import { LogicalAssetTicker, logicalAssetsByTicker, parseLogicalAssetAmount } from "./logicalAssets";
+import { LogicalAssetTicker, parseLogicalAssetAmount } from "./logicalAssets";
 import { isTokenTickerSupportedByLogicalAsset } from "./logicalAssetsToTokens";
 import { addToRecentlyUsed, getMostRecentlyUsed, removeFromRecentlyUsed } from "./recentlyUsed";
 import { serializeCheckoutSettings, serializeCheckoutSettingsWithEncryption, serializeCheckoutSettingsWithSignature } from "./serialize";
@@ -72,7 +72,7 @@ export const RequestMoney: React.FC = () => {
     });
   }, [setSecondaryLogicalAssetTickers]);
 
-  const [amount, setAmount] = useState<number | undefined>(currencyAmountDefault);
+  const [amount, setAmount] = useState<number | undefined>(undefined);
 
   const [note, setNote] = useState<string>('');
 
@@ -410,7 +410,7 @@ export const RequestMoney: React.FC = () => {
         Sender sets amount
       </button>
     </div>
-    {paymentModeType === 'FixedAmount' && <div className="w-full mt-2"><CurrencyAmountInput logicalAsset={logicalAssetsByTicker[primaryLogicalAssetTicker]} inputId="amount-input" setAmount={setAmount} /></div>}
+    {paymentModeType === 'FixedAmount' && <div className="w-full mt-2"><CurrencyAmountInput logicalAssetTicker={primaryLogicalAssetTicker} inputId="amount-input" setAmount={setAmount} /></div>}
     {paymentModeType === 'PayWhatYouWant' && <div className="w-full mt-4">{payWhatYouWantInputElement}</div>}
     <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-4">
       <span className="w-full font-semibold">Currency</span>

@@ -1,3 +1,5 @@
+// TODO disallow `as` keyword
+// TODO merge that branch with more typesafe eslint rules
 const path = require('path');
 const rulesDirPlugin = require('eslint-plugin-rulesdir');
 rulesDirPlugin.RULES_DIR = [path.resolve(__dirname, 'eslint-rules')];
