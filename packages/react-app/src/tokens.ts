@@ -2,9 +2,15 @@ import { Chain } from 'wagmi';
 import { NonEmptyArray } from "./NonEmptyArray";
 import { Optional } from './Optional';
 import { NativeCurrency, Token, isToken } from "./Token";
-import { allSupportedChainIds, arbitrum, arbitrumGoerli, arbitrumNova, baseGoerli, goerli, lineaTestnet, mainnet, optimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvm, polygonZkEvmTestnet, scrollTestnet, taikoTestnet, zkSync, zkSyncTestnet } from './chains';
+import { allSupportedChainIds, arbitrum, arbitrumGoerli, arbitrumNova, base, baseGoerli, goerli, linea, lineaTestnet, mainnet, optimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvm, polygonZkEvmTestnet, scroll, scrollTestnet, zkSync, zkSyncTestnet, zora } from './chains';
 import { isProduction } from "./isProduction";
 import { toUppercase } from './toUppercase';
+
+// TODO switch to matrix-style token definitions, such that constants like eg. ArbitrumNovaLUSD don't need to exist, and instead, we get something like `const lusd = abstractToken({ name: 'Liquidty USD', ticker: 'LUSD', }); tokens.push(t(arbitrumNova, lusd, { c: '<contract address' }));` or perhaps `tokens.push(ts(arbitrumNova, { lusd: '<contract address'>, usdc: '<contract address>' })) --> need to consider how these succinct definitions would handle overrides, eg. if a token has a different number of definitions on one chain or a canonicalTicker --> another feature of these new definitions could be that the tokens produce their own canonical ordering given a canonical chain ordering and canonical ticker ordering: today, it's laborious to ensure that the token order (as defined by the manual order of token identifiers in the final tokens array) is consistent for all tickers/chains --> see how OP's multichain tokenlist does this https://github.com/ethereum-optimism/ethereum-optimism.github.io/blob/master/data/WETH/data.json
+
+// TODO split out individual testnet token definitions from non-testnet defs. Eg. don't put arbitrum and arbitrumTestnet tokens in the spam block, it's spammy and hard to read. This change just reorders slocs
+
+// TODO fill in missing tokens that require bridging when L1 gas is cheaper. Eg. USDP, PYUSD, GUSD on Arb One/Nova, and others.
 
 // TODO consider verbose token names like {TOKEN_SYMBOL}-{NETWORK_VERBOSE_NAME}.
 
@@ -68,6 +74,7 @@ export function nativeCurrency(chain: Chain, args?: Pick<NativeCurrency, 'name' 
 const ETH = nativeCurrency(mainnet);
 const GoerliETH = nativeCurrency(goerli);
 const WETH = token(mainnet, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2' });
+const stETH = token(mainnet, { name: 'Lido Staked Ether', ticker: 'STETH', tickerCanonical: 'stETH', contractAddress: '0xae7ab96520de3a18e5e111b5eaab095312d7fe84' });
 const GoerliWETH = token(goerli, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0xB4FBF271143F4FBf7B91A5ded31805e42b2208d6' });
 const DAI = token(mainnet, { name: 'Dai', ticker: 'DAI', contractAddress: '0x6B175474E89094C44Da98b954EedeAC495271d0F' });
 const GoerliDAI = token(goerli, { name: 'Dai', ticker: 'DAI', contractAddress: '0x11fE4B6AE13d2a6055C8D9cF65c55bac32B5d844' });
@@ -77,9 +84,13 @@ const USDT = token(mainnet, { name: 'Tether USD', ticker: 'USDT', contractAddres
 const GoerliUSDT = token(goerli, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0xC2C527C0CACF457746Bd31B2a698Fe89de2b6d49', decimals: 6 });
 const LUSD = token(mainnet, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x5f98805A4E8be255a32880FDeC7F6728C6568bA0' });
 const GoerliLUSD = token(goerli, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x1B881E518f8CA8a7ccf7e7AFA459e7303F8f5939' });
+const USDP = token(mainnet, { name: 'Pax Dollar', ticker: 'USDP', contractAddress: '0x8e870d67f660d95d5be530380d0ec0bd388289e1' });
+const PYUSD = token(mainnet, { name: 'PayPal USD', ticker: 'PYUSD', contractAddress: '0x6c3ea9036406852006290770bedfcaba0e23a0e8', decimals: 6 });
+const GUSD = token(mainnet, { name: 'Gemini Dollar', ticker: 'GUSD', contractAddress: '0x056fd409e1d7a124bd7017459dfea2f387b6d5cd', decimals: 2 });
 
 // optimism and optimismGoerli
-// token list https://github.com/ethereum-optimism/ethereum-optimism.github.io
+// how to add new tokens on optimism: look up the address in https://github.com/ethereum-optimism/ethereum-optimism.github.io/tree/master/data, verify decimals in same json files, and then add the token
+// NB optimism bridge UI only allows a limited whitelist of tokens, excluding many of our supported tokens, but the OP Stack codebase allows programmatic bridging of any token, so if we want to have complete token definitions even beyond the official json registry above, then we could programmatically bridged from L1 to OP Mainnet and add the resulting token contract addresses here, eg. https://docs.base.org/tools/bridges#programmatic-bridging https://github.com/wilsoncusack/op-stack-bridge-example
 const OptimismETH = nativeCurrency(optimism);
 const OptimismGoerliETH = nativeCurrency(optimismGoerli);
 const OptimismWETH = token(optimism, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0x4200000000000000000000000000000000000006' });
@@ -93,9 +104,12 @@ const OptimismUSDT = token(optimism, { name: 'Tether USD', ticker: 'USDT', contr
 const OptimismGoerliUSDT = token(optimismGoerli, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0x853eb4bA5D0Ba2B77a0A5329Fd2110d5CE149ECE', decimals: 6 });
 const OptimismLUSD = token(optimism, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0xc40F949F8a4e094D1b49a23ea9241D289B7b2819' });
 // TODO OptimismGoerliLUSD
+// const optimismUSDP = token(optimism, { name: 'Pax Dollar', ticker: 'USDP', contractAddress: '' }); // not currently added to optimism bridge. TODO programmatically bridge it ourselves and add it
+// const optimismPYUSD = token(optimism, { name: 'PayPal USD', ticker: 'PYUSD', contractAddress: '', decimals: 6 }); // not currently added to optimism bridge. TODO programmatically bridge it ourselves and add it
+// const optimismGUSD = token(optimism, { name: 'Gemini Dollar', ticker: 'GUSD', contractAddress: '', decimals: 2 }); // not currently added to optimism bridge. TODO programmatically bridge it ourselves and add it
 
 // arbitrum and arbitrumGoerli
-// arbitrum token list: https://tokenlist.arbitrum.io/ArbTokenLists/arbed_arb_whitelist_era.json
+// how to add new tokens on arbitrum: look up the address in https://bridge.arbitrum.io/?l2ChainId=42161 (L2 token addresses can be seen without executing a bridge operation. If the L2 token address doesn't load, nobody may have bridged it yet)
 const ArbitrumETH = nativeCurrency(arbitrum);
 const ArbitrumGoerliETH = nativeCurrency(arbitrumGoerli);
 const ArbitrumWETH = token(arbitrum, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1' });
@@ -111,42 +125,85 @@ const ArbitrumLUSD = token(arbitrum, { name: 'Liquity USD', ticker: 'LUSD', cont
 const ArbitrumGoerliLUSD = token(arbitrumGoerli, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0xF4AcA3d17F30eD982b65A33F7DD2180d9EB65c56' });
 
 // arbitrumNova (has no testnet)
+// how to add new tokens on arbitrumNova: look up the address in https://bridge.arbitrum.io/?l2ChainId=42170 (L2 token addresses can be seen without executing a bridge operation. If the L2 token address doesn't load, nobody may have bridged it yet), confirm decimals in the explorer, and then add the token
 const ArbitrumNovaETH = nativeCurrency(arbitrumNova);
-// const ArbitrumNovaWETH // Slingshot DEX and a few other sources seem to report the ArbitrumNovaWETH contract as https://nova-explorer.arbitrum.io/token/0x722E8BdD2ce80A4422E880164f2079488e115365/token-transfers . However, I don't understand why this contract is an upgradable proxy instead of an immutable WETH contract, so I have not listed it for now. TODO investigate
+const ArbitrumNovaWETH = token(arbitrumNova, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0x722E8BdD2ce80A4422E880164f2079488e115365' });
 const ArbitrumNovaDAI = token(arbitrumNova, { name: 'Dai', ticker: 'DAI', contractAddress: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1' });
 const ArbitrumNovaUSDC = token(arbitrumNova, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x750ba8b76187092B0D1E87E28daaf484d1b5273b', decimals: 6 });
-// TODO USDT
-// TODO LUSD
+const ArbitrumNovaUSDT = token(arbitrumNova, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0xed9d63a96c27f87b07115b56b2e3572827f21646', decimals: 6 });
+const ArbitrumNovaLUSD = token(arbitrumNova, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x14B580e57D0827D7B0F326D73AC837C51d62627D' });
 
 // zkSync and zkSyncTestnet
+// how to add new tokens on zkSync: look up address in both of https://portal.txsync.io/bridge/withdraw and https://syncswap.xyz/ and compare the two addresses, if they match, confirm decimals in explorer (https://explorer.zksync.io/), and then add the token
 const zkSyncETH = nativeCurrency(zkSync);
 const zkSyncTestnetETH = nativeCurrency(zkSyncTestnet);
-// TODO does zkSync use WETH?
+const zkSyncWETH = token(zkSync, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0x5aea5775959fbc2557cc8789bc1bf90a239d9a91' });
 const zkSyncUSDC = token(zkSync, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x3355df6D4c9C3035724Fd0e3914dE96A5a83aaf4', decimals: 6 });
+const zkSyncUSDT = token(zkSync, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0x493257fd37edb34451f62edf8d2a0c418852ba4c', decimals: 6 });
+const zkSyncDAI = token(zkSync, { name: 'Dai', ticker: 'DAI', contractAddress: '0x4b9eb6c0b6ea15176bbf62841c6b2a8a398cb656' });
+const zkSyncLUSD = token(zkSync, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x503234f203fc7eb888eec8513210612a43cf6115' });
 const zkSyncTestnetUSDC = token(zkSyncTestnet, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x0faF6df7054946141266420b43783387A78d82A9', decimals: 6 });
-// TODO mainnet DAI
 const zkSyncTestnetDAI = token(zkSyncTestnet, { name: 'Dai', ticker: 'DAI', contractAddress: '0x3e7676937A7E96CFB7616f255b9AD9FF47363D4b' });
-// TODO USDT
-// TODO LUSD
+
+// scroll
+// how to add new tokens on scroll: look up the address in https://scroll.io/bridge (L2 addresses can be seen in withdraw section without executing a bridge operation), verify decimals in explorer, and then add token
+const scrollETH = nativeCurrency(scroll);
+const scrollWETH = token(scroll, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0x5300000000000000000000000000000000000004' });
+const scrollUSDC = token(scroll, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4', decimals: 6 });
+const scrollUSDT = token(scroll, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0xf55BEC9cafDbE8730f096Aa55dad6D22d44099Df', decimals: 6 });
+const scrollDAI = token(scroll, { name: 'Dai', ticker: 'DAI', contractAddress: '0xcA77eB3fEFe3725Dc33bccB54eDEFc3D9f764f97' });
+const scrollLUSD = token(scroll, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0xeDEAbc3A1e7D21fE835FFA6f83a710c70BB1a051' });
+// const scrollUSDP = token(scroll, { name: 'Pax Dollar', ticker: 'USDP', contractAddress: '' }); // not currently added to scroll bridge (or its underlying token list). TODO programmatically bridge it ourselves and add it
+// const scrollPYUSD = token(scroll, { name: 'PayPal USD', ticker: 'PYUSD', contractAddress: '', decimals: 6 }); // not currently added to scroll bridge (or its underlying token list). TODO programmatically bridge it ourselves and add it
+// const scrollGUSD = token(scroll, { name: 'Gemini Dollar', ticker: 'GUSD', contractAddress: '', decimals: 2 }); // not currently added to scroll bridge (or its underlying token list). TODO programmatically bridge it ourselves and add it
+
+// linea
+// how to add new tokens on linea: look up the address in https://syncswap.xyz/ (L2 addresses can be seen without swapping), verify decimals in explorer (https://lineascan.build), and then add token
+const lineaETH = nativeCurrency(linea);
+const lineaWETH = token(linea, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0xe5D7C2a44FfDDf6b295A15c148167daaAf5Cf34f' });
+const lineaUSDCBridged = token(linea, { name: 'USD Coin', ticker: 'USDC', tickerCanonical: 'USDC.e', contractAddress: '0x176211869cA2b568f2A7D4EE941E073a821EE1ff', decimals: 6 });
+const lineaUSDT = token(linea, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0xA219439258ca9da29E9Cc4cE5596924745e12B93', decimals: 6 });
+const lineaDAI = token(linea, { name: 'Dai', ticker: 'DAI', contractAddress: '0x4AF15ec2A0BD43Db75dd04E62FAA3B8EF36b00d5' });
+// const lineaLUSD = token(linea, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '' }); // not currently deployed to linea. TODO bridge it ourselves and add it
+// const lineaUSDP = token(linea, { name: 'Pax Dollar', ticker: 'USDP', contractAddress: '' }); // not currently deployed to linea. TODO bridge it ourselves and add it
+// const lineaPYUSD = token(linea, { name: 'PayPal USD', ticker: 'PYUSD', contractAddress: '', decimals: 6 }); // not currently deployed to linea. TODO bridge it ourselves and add it
+// const lineaGUSD = token(linea, { name: 'Gemini Dollar', ticker: 'GUSD', contractAddress: '', decimals: 2 }); // not currently deployed to linea. TODO bridge it ourselves and add it
+
+// zora
+const zoraETH = nativeCurrency(zora);
+// TODO zora does not yet officially support any tokens, they are an ETH-only network. They are based on OP Stack, so we could bridge ERC20s ourselves, but nobody is using them rn, so there's no point.
+
 
 // polygonZkEvm and polygonZkEvmTestnet
-// mainnet bridge https://bridge.zkevm-rpc.com
-// testnet bridge https://public.zkevm-test.net/login
+// mainnet bridge https://portal.polygon.technology/bridge
+// how to add new tokens on polygonZkEvm: swap into them on https://www.sushi.com/swap?chainId=1101&token0=NATIVE, and look up new balances in explorer (https://zkevm.polygonscan.com/), verify decimals, and then add tokens
 const PolygonZkEvmETH = nativeCurrency(polygonZkEvm);
 const PolygonZkEvmTestnetETH = nativeCurrency(polygonZkEvmTestnet);
-// TODO PolygonZkEvmWETH
+const PolygonZkEvmWETH = token(polygonZkEvm, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0x4F9A0e7FD2Bf6067db6994CF12E4495Df938E6e9' });
 const PolygonZkEvmTestnetWETH = token(polygonZkEvmTestnet, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0x3ce1bab7b7bAE26775F81Ee3576a99f0EAd5B33C' });
 const PolygonZkEvmUSDC = token(polygonZkEvm, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0xA8CE8aee21bC2A48a5EF670afCc9274C7bbbC035', decimals: 6 });
-// const PolygonZkEvmTestnetUSDC = token(polygonZkEvmTestnet, { name: 'USD Coin', ticker: 'USDC', contractAddress: '', decimals: 6 }); // TODO get contract address (I couldn't bridge test USDC because I couldn't find any test USDC matching the contract polygon's test bridge uses, and I stopped there.)
+const PolygonZkEvmUSDT = token(polygonZkEvm, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0x1E4a5963aBFD975d8c9021ce480b42188849D41d', decimals: 6 });
 const PolygonZkEvmDAI = token(polygonZkEvm, { name: 'Dai', ticker: 'DAI', contractAddress: '0xC5015b9d9161Dca7e18e32f6f25C4aD850731Fd4' });
-// const PolygonZkEvmTestnetDAI = token(polygonZkEvmTestnet, { name: 'Dai', ticker: 'DAI', contractAddress: '' }); // TODO get contract address (I couldn't bridge test USDC their test bridge doesn't list USDC, and I wasn't sure which goerli USDC contract might be preferred, and I stopped there.)
-// TODO USDT
 const PolygonZkEvmLUSD = token(polygonZkEvm, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x01E9A866c361eAd20Ab4e838287DD464dc67A50e' });
-// TODO PolygonZkEvmTestnetLUSD
 
-// base (mainnet not yet launched) and baseGoerli
+
+// baseGoerli
 const BaseGoerliETH = nativeCurrency(baseGoerli);
 const BaseGoerliDAI = token(baseGoerli, { name: 'Dai', ticker: 'DAI', contractAddress: '0x7805e80523536fb4872a1cee2c53c4f354953b96' });
+
+// base
+// how to add new tokens on base: look up the address in https://github.com/ethereum-optimism/ethereum-optimism.github.io/tree/master/data, verify decimals in same json files, and then add the token
+// NB base bridge UI only allows a limited whitelist of tokens, excluding many of our supported tokens, but base's OP Stack codebase allows programmatic bridging of any token, so if we want to have complete token definitions even beyond the official json registry above, then we could programmatically bridged from L1 to Base and add the resulting token contract addresses here https://docs.base.org/tools/bridges#programmatic-bridging https://github.com/wilsoncusack/op-stack-bridge-example
+const baseETH = nativeCurrency(base);
+const baseWETH = token(base, { name: 'Wrapped Ether', ticker: 'WETH', contractAddress: '0x4200000000000000000000000000000000000006' });
+const baseUSDCBridged = token(base, { name: 'USD Coin', ticker: 'USDC', tickerCanonical: 'USDbC', contractAddress: '0xd9aAEc86B65D86f6A7B5B1b0c42FFA531710b6CA', decimals: 6 });
+const baseUSDCNative = token(base, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', decimals: 6 });
+// const baseUSDT = token(base, { name: 'Tether USD', ticker: 'USDT', contractAddress: '', decimals: 6 }); // not currently added to the base tokenlist. TODO bridge it ourselves and add it
+const baseDAI = token(base, { name: 'Dai', ticker: 'DAI', contractAddress: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb' });
+// const baseLUSD = token(base, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '' }); // not currently added to the base tokenlist. TODO bridge it ourselves and add it
+// const baseUSDP = token(base, { name: 'Pax Dollar', ticker: 'USDP', contractAddress: '' }); // not currently added to base bridge. TODO programmatically bridge it ourselves and add it
+// const basePYUSD = token(base, { name: 'PayPal USD', ticker: 'PYUSD', contractAddress: '', decimals: 6 }); // not currently added to base bridge. TODO programmatically bridge it ourselves and add it
+// const baseGUSD = token(base, { name: 'Gemini Dollar', ticker: 'GUSD', contractAddress: '', decimals: 2 }); // not currently added to base bridge. TODO programmatically bridge it ourselves and add it
 
 // linea (mainnet not yet launched) and lineaTestnet
 const lineaTestnetETH = nativeCurrency(lineaTestnet);
@@ -156,11 +213,6 @@ const lineaTestnetUSDC = token(lineaTestnet, { name: 'USD Coin', ticker: 'USDC',
 const ScrollTestnetETH = nativeCurrency(scrollTestnet);
 const ScrollTestnetUSDC = token(scrollTestnet, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0xa0d71b9877f44c744546d649147e3f1e70a93760' }); // NB this particular test USDC has 18 decimals instead of USDC's usual 6
 const ScrollTestnetDAI = token(scrollTestnet, { name: 'Dai', ticker: 'DAI', contractAddress: '0x3dF3514437FcdF5c4F714b7025b625b9Acb3e9E1' }); // this is a random DAI plucked from the explorer and isn't listed in the scroll bridge
-
-// Taiko testnet
-const TaikoTestnetETH = nativeCurrency(taikoTestnet);
-const TaikoTestnetUSDC = token(taikoTestnet, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0xCea5BFE9542eDf828Ebc2ed054CA688f0224796f' }); // NB this is actually the HORSE token on taiko A2 https://explorer.a2.taiko.xyz/token/0xCea5BFE9542eDf828Ebc2ed054CA688f0224796f/token-transfers
-const TaikoTestnetDAI = token(taikoTestnet, { name: 'Dai', ticker: 'DAI', contractAddress: '0x6048e5ca54c021D39Cd33b63A44980132bcFA66d' }); // NB this is actually the BLL (Bull) token on taiko A2 https://explorer.a2.taiko.xyz/token/0x6048e5ca54c021D39Cd33b63A44980132bcFA66d/token-transfers
 
 // polygon and polygonMumbai
 // https://github.com/maticnetwork/polygon-token-list
@@ -191,7 +243,11 @@ export const nativeCurrencies: Readonly<NonEmptyArray<NativeCurrency>> = (() => 
     ArbitrumETH,
     ArbitrumNovaETH,
     zkSyncETH,
+    scrollETH,
+    lineaETH,
+    zoraETH,
     PolygonZkEvmETH,
+    baseETH,
     polygonMATIC,
   ] : [
     GoerliETH,
@@ -202,7 +258,6 @@ export const nativeCurrencies: Readonly<NonEmptyArray<NativeCurrency>> = (() => 
     BaseGoerliETH,
     lineaTestnetETH,
     ScrollTestnetETH,
-    TaikoTestnetETH,
     polygonMumbaiMATIC,
   ]).filter(isTokenOnASupportedChain); // here we must drop tokens on unsupported chains to ensure that all tokens in our registry are in fact on supported chains so that our token and chain registries are consistent with each other
   const t0 = ts[0];
@@ -214,12 +269,20 @@ export const nativeCurrencies: Readonly<NonEmptyArray<NativeCurrency>> = (() => 
 export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
   const ts = (isProduction ? [
     // Here we group the tokens by ticker and not chain because `tokens` is used to generate the canonical token ordering in allTokenKeys and our supposition is that in a multichain UX, the user would rather see all their DAIs together than all their Optimism assets, although this is somewhat contrary to how the rest of the ecosystem works right now where most apps support connecting to only one chain at a time and so naturally render all assets for one chain, effectively sorting by chain before ticker
+    polygonETH, // NB ETH is a token on polygon PoS, so we list it before WETH
     // WETH zero'th, as it's a native currency
     WETH,
     OptimismWETH,
     ArbitrumWETH,
-    polygonETH,
-    // USDC first, as it's most popular
+    ArbitrumNovaWETH,
+    zkSyncWETH,
+    scrollWETH,
+    lineaWETH,
+    baseWETH,
+    PolygonZkEvmWETH,
+    // stETH after WETH, as it's the most popular ETH-pegged token
+    stETH,
+    // USDC first among stablecoins, as it's most popular
     USDC,
     OptimismUSDCBridged,
     OptimismUSDCNative,
@@ -227,6 +290,10 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     ArbitrumUSDCNative,
     ArbitrumNovaUSDC,
     zkSyncUSDC,
+    scrollUSDC,
+    lineaUSDCBridged,
+    baseUSDCBridged,
+    baseUSDCNative,
     PolygonZkEvmUSDC,
     polygonUSDCBridged,
     polygonUSDCNative,
@@ -234,20 +301,39 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     USDT,
     OptimismUSDT,
     ArbitrumUSDT,
+    ArbitrumNovaUSDT,
+    zkSyncUSDT,
+    scrollUSDT,
+    lineaUSDT,
+    PolygonZkEvmUSDT,
     polygonUSDT,
     // DAI third, as it's third most popular
     DAI,
     OptimismDAI,
     ArbitrumDAI,
     ArbitrumNovaDAI,
+    zkSyncDAI,
+    scrollDAI,
+    lineaDAI,
+    baseDAI,
     PolygonZkEvmDAI,
     polygonDAI,
     // LUSD fourth, as it's the only other one we support rn
     LUSD,
     OptimismLUSD,
     ArbitrumLUSD,
+    ArbitrumNovaLUSD,
+    zkSyncLUSD,
+    scrollLUSD,
     PolygonZkEvmLUSD,
     polygonLUSD,
+    // Other stablecoins are prioritized by market cap:
+    // USDP
+    USDP,
+    // PYUSD
+    PYUSD,
+    // GUSD
+    GUSD,
   ] : [
     // WETH zero'th, as it's a native currency
     GoerliWETH,
@@ -262,7 +348,6 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     zkSyncTestnetUSDC,
     lineaTestnetUSDC,
     ScrollTestnetUSDC,
-    TaikoTestnetUSDC,
     // USDT second, as it's second most popular
     GoerliUSDT,
     OptimismGoerliUSDT,
@@ -273,7 +358,6 @@ export const tokens: Readonly<NonEmptyArray<Token>> = (() => {
     ArbitrumGoerliDAI,
     zkSyncTestnetDAI,
     ScrollTestnetDAI,
-    TaikoTestnetDAI,
     BaseGoerliDAI,
     polygonMumbaiDAI,
     // LUSD fourth, as it's the only other one we support rn
@@ -355,7 +439,8 @@ export const tokensByTicker: Readonly<{ [ticker: Uppercase<string>]: NonEmptyArr
   return r;
 })();
 
-// allTokenTickers is the set of all token tickers we support
+// allTokenTickers is the set of all token and native currency tickers
+// we support
 export const allTokenTickers: Uppercase<string>[] = Object.keys(tokensByTicker).map(toUppercase); // here we must map toUppercase because Object.keys loses the type information that tokensByTicker tickers are Uppercase<string>
 
 // getTokenByTokenKey returns a NativeCurrency or Token for the passed
@@ -369,8 +454,6 @@ export function getTokenByTokenKey(tk: TokenKey): NativeCurrency | Token {
   if (t === undefined) throw new Error(`getTokenByTokenKey: unknown TokenKey: ${tk}`);
   return t;
 }
-
-// TODO debug facility that scans all chain Ids, all token tickers, and prints out to console which tokens are missing on which chains, including native currencies (as I accidentally once omitted a native currency). This would be a good one for conditional compilation using macros.
 
 // Sanity tests:
 // TODO conditional compilation of these sanity tests using macros. Compile them in dev, prod-test (to be released at test.3cities.xyz), and prod-preview (a new environment and released at preview.3cities.xyz. preview is a production environment with the only difference between preview and prod being REACT_APP_ENABLE_SANITY_TESTS=true).
@@ -394,7 +477,7 @@ if (tokens.find(t => t.ticker === 'WETH' && t.decimals !== 18) !== undefined) {
   console.error(tokens);
   throw new Error(`not all WETH tokens had decimals=18`);
 }
-if (tokens.find(t => t.ticker === 'USDC' && t.decimals !== 6 && t.chainId !== taikoTestnet.id && t.chainId !== scrollTestnet.id) !== undefined) { // 1) for taikoTestnet, we are currently pretending that the HORSE token with 18 decimals is USDC. 2) for scrollTestnet, the USDC instance we're using actually has 18 decimals
+if (tokens.find(t => t.ticker === 'USDC' && t.decimals !== 6 && t.chainId !== scrollTestnet.id) !== undefined) { // for scrollTestnet, the USDC instance we're using actually has 18 decimals
   console.error(tokens);
   throw new Error(`not all USDC tokens had decimals=6`);
 }
@@ -410,3 +493,83 @@ if (tokens.find(t => t.ticker === 'LUSD' && t.decimals !== 18) !== undefined) {
   console.error(tokens);
   throw new Error(`not all LUSD tokens had decimals=18`);
 }
+if (tokens.find(t => t.ticker === 'PYUSD' && t.decimals !== 6) !== undefined) {
+  console.error(tokens);
+  throw new Error(`not all PYUSD tokens had decimals=6`);
+}
+if (tokens.find(t => t.ticker === 'GUSD' && t.decimals !== 2) !== undefined) {
+  console.error(tokens);
+  throw new Error(`not all GUSD tokens had decimals=2`);
+}
+// if (isProduction) allSupportedChainIds.forEach(chainId => { // ensure all supported tokens are defined on all supported chains, including native currencies. Run in production only as not all tokens are defined on all chains in testnet
+//   // TODO ensure this reports missing native currencies (as I accidentally once omitted a native currency)
+//   const ignoreOnAllChains = Symbol("IgnoreOnAllChains");
+//   const tickersToIgnoreChecking: { [ticker: Uppercase<string>]: number[] | typeof ignoreOnAllChains } = {
+//     MATIC: ignoreOnAllChains, // we support MATIC only as the native token of polygon PoS and not on other chains
+//     WETH: [
+//       zora.id,
+//       polygon.id, // polygon PoS doesn't have WETH because ETH is already a token because MATIC is the native token
+//     ],
+//     STETH: ignoreOnAllChains, // stETH is only rebasing and pegged to ETH on the L1, and we don't yet support non-rebasing wstETH
+//     USDC: [
+//       zora.id,
+//     ],
+//     USDT: [
+//       zora.id,
+//       base.id,
+//     ],
+//     DAI: [
+//       zora.id,
+//     ],
+//     LUSD: [
+//       linea.id,
+//       zora.id,
+//       base.id,
+//     ],
+//     USDP: [
+//       arbitrum.id,
+//       arbitrumNova.id,
+//       optimism.id,
+//       zkSync.id,
+//       scroll.id,
+//       linea.id,
+//       zora.id,
+//       base.id,
+//       polygon.id,
+//       polygonZkEvm.id,
+//     ],
+//     PYUSD: [
+//       arbitrum.id,
+//       arbitrumNova.id,
+//       optimism.id,
+//       zkSync.id,
+//       scroll.id,
+//       linea.id,
+//       zora.id,
+//       base.id,
+//       polygon.id,
+//       polygonZkEvm.id,
+//     ],
+//     GUSD: [
+//       arbitrum.id,
+//       arbitrumNova.id,
+//       optimism.id,
+//       zkSync.id,
+//       scroll.id,
+//       linea.id,
+//       zora.id,
+//       base.id,
+//       polygon.id,
+//       polygonZkEvm.id,
+//     ],
+//   }
+//   allTokenTickers.forEach(ticker => {
+//     const ig = tickersToIgnoreChecking[ticker];
+//     const isFound = [...tokens, ...nativeCurrencies].find(t => t.chainId === chainId && t.ticker === ticker) !== undefined;
+//     if (!isFound && !(ig !== undefined && (ig === ignoreOnAllChains || ig.includes(chainId)))) {
+//       console.error(`token missing: ${ticker} on ${getChain(chainId)?.name} ${chainId}`);
+//     } else if (isFound && ig !== undefined && ig !== ignoreOnAllChains && ig.includes(chainId)) { // sanity check to ensure that specific (ticker, chainId) are removed from tickersToIgnoreChecking as the tickers are added
+//       console.error(`token ${ticker} on ${getChain(chainId)?.name} ${chainId} is errogenously registered in tickersToIgnoreChecking`);
+//     }
+//   });
+// });

@@ -7,7 +7,7 @@ import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import { StrategyPreferences } from "./StrategyPreferences";
 import { NativeCurrency, Token, isToken } from "./Token";
 import { canAfford } from "./canAfford";
-import { arbitrum, arbitrumGoerli, arbitrumNova, chainsSupportedBy3cities, mainnet, optimism, polygon, polygonZkEvm, zkSync } from './chains';
+import { arbitrum, arbitrumGoerli, arbitrumNova, base, chainsSupportedBy3cities, linea, mainnet, optimism, optimismGoerli, polygon, polygonZkEvm, scroll, zkSync, zora } from './chains';
 import { flatMap } from "./flatMap";
 import { isProduction } from "./isProduction";
 import { LogicalAssetTicker, convertLogicalAssetUnits } from "./logicalAssets";
@@ -316,7 +316,7 @@ function getStrategyLogicalAssetPriority(s: Strategy | ProposedStrategy): number
   }
 }
 
-const staticChainIdPriority: ChainIdPriority = {
+const staticChainIdPriority: ChainIdPriority = { // TODO move this to a new file with an api like `getChainStaticPriority(chainId): number | undefined`
   // Here we attempt to prioritize chains with lower fees. Of course,
   // fee structures are always changing, and fees can differ for more
   // complex reasons, so this is just a start.
@@ -327,27 +327,37 @@ const staticChainIdPriority: ChainIdPriority = {
   [optimism.id]: 800,
   [polygonZkEvm.id]: 750,
   [zkSync.id]: 700,
+  [scroll.id]: 650,
+  [linea.id]: 625,
+  [zora.id]: 600,
+  [base.id]: 550,
   [polygon.id]: 500, // polygon is currently an alt L1 and so we assign it lowest priority since we prefer L2s
   [mainnet.id]: 1,
 
   // Testnet priorities below here (higher priority is better):
   [arbitrumGoerli.id]: 100,
+  [optimismGoerli.id]: 50,
 };
 
 if (isProduction) chainsSupportedBy3cities.forEach(c => {
   if (staticChainIdPriority[c.id] === undefined) console.warn("chain not assigned a strategy priority", c);
 });
 
-const staticTokenTickerPriority: TokenTickerPriority = {
+const staticTokenTickerPriority: TokenTickerPriority = {  // TODO move this to a new file with an api like `getTokenOrNativeCurrencyTickerStaticPriority(chainId): number | undefined`
   // This is intended to be a complete set of prioritized production token tickers (higher priority is better):
   USDC: 1000, // USDC first, as it's most popular
   USDT: 900, // USDT second, as it's second most popular
   DAI: 800, // DAI third, as it's third most popular
-  LUSD: 700,
+  LUSD: 700, // LUSD fourth, and it's one of the most reliable stablecoins
+  // Other stablecoins prioritized by market cap:
+  USDP: 600,
+  PYUSD: 500,
+  GUSD: 400,
 
   // People generally want to pay with stablecoins, so non-stables have lower priority:
   ETH: 150, // ETH is prioritized above WETH because it's more natural (naturalness principle)
   WETH: 100,
+  STETH: 75,
   MATIC: 50,
 };
 
