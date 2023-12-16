@@ -151,3 +151,12 @@ export function addVerboseFormatToLogicalAssetValue(lat: LogicalAssetTicker, val
   const la = logicalAssetsByTicker[lat];
   return `${la.verboseFormat.prefix ?? ''}${value}${la.verboseFormat.suffix ?? ''}`;
 }
+
+// defaultSmallAmountsPerLogicalAsset provides arbitrary, fixed small
+// amounts in each logical asset for illustrative purposes.
+export const defaultSmallAmountsPerLogicalAsset: Readonly<{ [key in LogicalAssetTicker]: bigint }> = {
+  ETH: parseLogicalAssetAmount('0.0005').toBigInt(), // approximately $1 in ETH
+  USD: parseLogicalAssetAmount('1').toBigInt(),
+  CAD: parseLogicalAssetAmount('1').toBigInt(),
+  EUR: parseLogicalAssetAmount('1').toBigInt(),
+}
