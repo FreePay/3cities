@@ -571,7 +571,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         const allProposedStrategiesChainIds: number[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.chainId))];
         return <>
           <div className="font-bold text-lg">Payment method</div>
-          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">Instantly picks your best of {allProposedStrategiesTokenTickers.length} token{allProposedStrategiesTokenTickers.length > 1 ? 's' : ''} across {allProposedStrategiesChainIds.length} chain{allProposedStrategiesChainIds.length > 1 ? 's' : ''} this payment accepts</div>
+          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">{allProposedStrategiesTokenTickers.length} token{allProposedStrategiesTokenTickers.length > 1 ? 's' : ''} across {allProposedStrategiesChainIds.length} chain{allProposedStrategiesChainIds.length > 1 ? 's' : ''} accepted by this payment</div>
         </>;
       })()}
     </div>, [isConnected, statusIsSuccess, proposedStrategies]);
