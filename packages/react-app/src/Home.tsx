@@ -8,19 +8,15 @@ export const Home: React.FC = () => {
       <Link to="/pay-link">
         <button
           type="button"
-          className="mt-4 w-40 focus:outline-none rounded-md p-3.5 font-medium bg-primary sm:hover:bg-primary-darker active:scale-95 text-white"
+          className="mt-4 w-64 focus:outline-none rounded-md p-3.5 font-medium bg-primary sm:hover:bg-primary-darker active:scale-95 text-white"
         >
-          Send Pay Link
+          Custom Pay Request Link
         </button>
       </Link>
-      <Link to="/about">
-        <button
-          type="button"
-          className="mt-4 w-40 focus:outline-none rounded-md p-3.5 font-medium bg-primary sm:hover:bg-primary-darker active:scale-95 text-white"
-        >
-          Learn More
-        </button>
-      </Link>
+    </div>
+    <div className="flex flex-col gap-4 justify-center items-center mt-24">
+      <h2 className="text-center text-3xl">Partners</h2>
+      <a href="https://bluechip.org/" target="_blank" rel="noreferrer" className="sm:hover:cursor-pointer max-w-md"><img src="/bluechip-wordmark.png" alt="Bluechip" /></a>
     </div>
   </div>;
 };
