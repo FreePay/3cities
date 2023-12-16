@@ -1,7 +1,7 @@
 import { BigNumber } from "@ethersproject/bignumber";
 import { CheckoutSettings, SenderNoteSettings } from "./CheckoutSettings";
 import { NonEmptyArray, ensureNonEmptyArray } from "./NonEmptyArray";
-import { PaymentMode, ProposedPayment } from "./Payment";
+import { PaymentMode, ProposedPayment, isPaymentModeWithFixedAmount } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import { StrategyPreferences } from "./StrategyPreferences";
 import { modifiedBase64Decode, modifiedBase64Encode } from "./base64";
@@ -32,7 +32,7 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
   type ProposedPaymentPaymentMode = Exclude<typeof CheckoutSettingsPb.prototype.proposedPaymentPaymentMode, { case: undefined; value?: undefined }>;
   const proposedPaymentPaymentMode = ((): ProposedPaymentPaymentMode => {
     const pm = cs.proposedPayment.paymentMode;
-    if (pm.payWhatYouWant) {
+    if (!isPaymentModeWithFixedAmount(pm)) {
       const p = pm.payWhatYouWant;
       const flags = ((): PayWhatYouWantFlagsPb | undefined => {
         if (!p.isDynamicPricingEnabled && !p.canPayAnyAsset) return undefined;
@@ -163,7 +163,12 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
         }
       })();
 
-      return {
+      // The following curious block of code is needed because until the type guard isPaymentModeWithFixedAmount is executed, TypeScript can't infer that `proposedPaymentPaymentMode` is assignable to paymentMode:
+      if (isPaymentModeWithFixedAmount(proposedPaymentPaymentMode)) return {
+        receiver: proposedPaymentReceiver,
+        logicalAssetTickers: proposedPaymentLogicalAssetTickers,
+        paymentMode: proposedPaymentPaymentMode,
+      } satisfies ProposedPayment; else return {
         receiver: proposedPaymentReceiver,
         logicalAssetTickers: proposedPaymentLogicalAssetTickers,
         paymentMode: proposedPaymentPaymentMode,

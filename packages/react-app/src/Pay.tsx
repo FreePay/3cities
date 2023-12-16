@@ -1,5 +1,5 @@
 import { BigNumber } from "@ethersproject/bignumber";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { FaEye } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import useClipboard from "react-use-clipboard";
@@ -8,8 +8,10 @@ import { useAccount } from "wagmi";
 import { CheckoutSettings } from "./CheckoutSettings";
 import { CheckoutSettingsRequiresPassword, isCheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
 import { ConnectWalletButton } from "./ConnectWalletButton";
+import { CurrencyAmountInput } from "./CurrencyAmountInput";
 import { ExchangeRates, convert } from "./ExchangeRates";
-import { Payment, ProposedPaymentWithFixedAmount, ProposedPaymentWithReceiverAddress, acceptProposedPayment, isProposedPaymentWithFixedAmount } from "./Payment";
+import { Payment, PaymentWithFixedAmount, ProposedPaymentWithFixedAmount, ProposedPaymentWithReceiverAddress, acceptProposedPayment, isPaymentWithFixedAmount, isProposedPaymentWithFixedAmount } from "./Payment";
+import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import QRCode from "./QRCode";
 import { RenderLogicalAssetAmount, renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
 import { RenderTokenBalance } from "./RenderTokenBalance";
@@ -18,7 +20,7 @@ import { ToggleSwitch } from "./ToggleSwitch";
 import { getBlockExplorerUrlForAddress, getBlockExplorerUrlForTransaction } from "./blockExplorerUrls";
 import { getChain, getSupportedChainName } from "./chains";
 import { formatFloat } from "./formatFloat";
-import { LogicalAssetTicker } from "./logicalAssets";
+import { LogicalAssetTicker, defaultSmallAmountsPerLogicalAsset, parseLogicalAssetAmount } from "./logicalAssets";
 import { getLogicalAssetTickerForTokenOrNativeCurrencyTicker } from "./logicalAssetsToTokens";
 import { ProposedStrategy, Strategy, getProposedStrategiesForProposedPayment, getStrategiesForPayment } from "./strategies";
 import { TokenTransfer } from "./tokenTransfer";
@@ -29,15 +31,19 @@ import { useActiveDemoAccount } from "./useActiveDemoAccount";
 import { useBestStrategy } from "./useBestStrategy";
 import { useCheckoutSettings } from "./useCheckoutSettings";
 import { useConnectedAccountContext } from "./useConnectedAccountContext";
+import useDebounce from "./useDebounce";
 import { useExchangeRates } from "./useExchangeRates";
 import { useInitialLoadTimeInSeconds } from "./useInitialLoadTimeInSeconds";
 import { useInput } from "./useInput";
+import { useLogicalAssetTickerSelectionInput } from "./useLogicalAssetTickerSelectionInput";
 import { useProposedPaymentReceiverAddressAndEnsName } from "./useProposedPaymentReceiverAddressAndEnsName";
 import { applyVariableSubstitutions } from "./variableSubstitutions";
 
-// TODO add a big "continue" button at bottom of "select payment method" because if you don't want to change the method, it's unclear that you have to click on the current method. --> see the "continue" button at bottom of Amazon's payment method selection during mobile checkout.
+// TODO support isDynamicPricingEnabled --> eg. add derivedSuggestedPaymentAmounts which calculates suggested amounts when ac finishes loading, and never recalculates them unless page reloads to avoid suggested amount UI jank
 
-// TODO support Payment.paymentMode.PayWhatYouWant. A design idea to here is for the root Payment (with pay what you want mode) to be passed into getStrategiesForPayment normally, and for getStrategiesForPayment to take a new parameter indicating the buyer's preferences of what they want to pay, and then during strategy generation, derived/synthetic Payment(s) are generated in fixed amounts and those synthetic payments are recursively fed into getStrategiesForPayment, and the resulting strategies for all synthetic payments are returned as a single collection. This takes advantage of the fact that Strategy.payment does not have to be the root payment, ie. the strategies can have a diversity of payments. --> a possible scenario to handle is that today, when the sender's wallet is disconnected, we display the accepted tokens and chains by extracting them from proposed strategies, so we'd want to ensure that proposed strategies for "pay what you want" mode still facilitate this, which can be done by eg. defaulting to synthetic payments craeted created from PayWhatYouWant.suggestedLogicalAssetAmountsAsBigNumberHexStrings and if that's empty, a default list of suggetsed amounts. --> WARNING when refactoring the code to support "pay what you want mode", we'll have to handle the fact that some Pay features assume that the passed proposedPayment is the same payment that ended up being settled for this checkout, but that assumption is no longer true in "pay what you want mode". For example, paymentSuccessfulBaseText extracts the logical amount from proposedPayment, but during "pay what you want mode", the logical amount paid will depend on which synthetic payment was chosen for settlement.
+// TODO add smart contract wallet protection --> eg. useDoesReceiveAddressSeemSafe(receiverAddress): undefined | { seemsSafe: true, unsafeReason: undefined } | { seemsSafe: false, unsafeReason: 'receiverAddressIsATokenContract', token: Token } | { seemsSafe: false, unsafeReason: 'receiverAddressIsASmartContract', confirmedAcceptedChainIds: [ /* chainIds for which a contract with this address has the same bytecode on the addresses it was detected... ? need to confirm this algorithm with an expert eg. obront */ ] }
+
+// TODO add a big "continue" button at bottom of "select payment method" because if you don't want to change the method, it's unclear that you have to click on the current method. --> see the "continue" button at bottom of Amazon's payment method selection during mobile checkout.
 
 export const Pay: React.FC = () => {
   const cs: CheckoutSettings | CheckoutSettingsRequiresPassword = useCheckoutSettings();
@@ -110,21 +116,16 @@ type PayInnerProps = {
 }
 
 const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
+  const startTransition = useTransition()[1];
+
   const { isConnected, address: connectedAddress } = useAccount();
 
-  const proposedPaymentWithFixedAmount: ProposedPaymentWithFixedAmount = (() => { // NB no useMemo is needed here because we are copying checkoutSettings.proposedPayment into proposedPaymentWithFixedAmount and this object reference is stable across renders because checkoutSettings is stable across renders
+  const proposedPaymentWithFixedAmount: ProposedPaymentWithFixedAmount | undefined = (() => { // NB no useMemo is needed here because we are copying checkoutSettings.proposedPayment into proposedPaymentWithFixedAmount and this object reference is stable across renders because checkoutSettings is stable across renders
     if (isProposedPaymentWithFixedAmount(checkoutSettings.proposedPayment)) return checkoutSettings.proposedPayment;
-    else throw new Error("unexpected proposed payment with 'pay what you want' mode"); // TODO support 'pay what you want' mode
+    else return undefined;
   })();
 
   const { receiverAddress, receiverEnsName, receiverAddressIsLoading } = useProposedPaymentReceiverAddressAndEnsName(checkoutSettings.proposedPayment);
-
-  const proposedPaymentWithReceiverAddress = useMemo<ProposedPaymentWithReceiverAddress | undefined>(() => {
-    if (receiverAddress === undefined) return undefined;
-    else return Object.assign({}, checkoutSettings.proposedPayment, {
-      receiver: { address: receiverAddress },
-    });
-  }, [checkoutSettings.proposedPayment, receiverAddress]);
 
   const ac = useConnectedAccountContext();
 
@@ -138,7 +139,49 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     return () => clearTimeout(timerId);
   }, [setIsDuringConnectedAccountContextInitialLoadGracePeriod, connectedAddress]);
 
-  const payment = useMemo<Payment | undefined>(() => proposedPaymentWithReceiverAddress && ac && acceptProposedPayment(ac.address, proposedPaymentWithReceiverAddress), [ac, proposedPaymentWithReceiverAddress]);
+  const [payWhatYouWantSelectedSuggestedAmount, setPayWhatYouWantSelectedSuggestedAmount] = useState<bigint | 'other' | undefined>(undefined); // fixed payment amount chosen by sender from suggested amounts in PayWhatYouWant mode. Denominated in logical asset decimals
+
+  const [rawPayWhatYouWantAmountFromInput, setRawPayWhatYouWantAmountFromInput] = useState<number | undefined>(undefined); // fixed payment amount specified by sender in PayWhatYouWant mode. Denominated in canonical units (eg. $1 = 1.0) and not in logical asset decimals
+  const payWhatYouWantAmountFromInput: number | undefined = useDebounce(rawPayWhatYouWantAmountFromInput, 250, rawPayWhatYouWantAmountFromInput === undefined); // debounce amount to avoid regenerating strategies as user is typing. Flush debounce iff new amount undefined so the UI feels snappier when clearing amount
+
+  const { logicalAssetTicker: payWhatYouWantLogicalAssetTickerFromInput, logicalAssetTickerSelectionInputElement: payWhatYouWantLogicalAssetTickerSelectionInputElement } = useLogicalAssetTickerSelectionInput(checkoutSettings.proposedPayment.logicalAssetTickers.primary); // logical asset ticker specified by sender in PayWhatYouWantMode
+
+  const derivedPaymentWithFixedAmount = useMemo<PaymentWithFixedAmount | undefined>(() => { // the final computed payment that the sender will actually send up settling. WARNING derivedPaymentWithFixedAmount may contain payment details different than the passed CheckoutSettings.proposedPayment, eg. due to sender picking a new amount in PayWhatYouWant mode, or for other reasons
+    const proposedPaymentWithReceiverAddress: ProposedPaymentWithReceiverAddress | undefined = receiverAddress === undefined ? undefined : Object.assign({}, checkoutSettings.proposedPayment, {
+      receiver: { address: receiverAddress },
+    });
+
+    const payment: Payment | undefined = proposedPaymentWithReceiverAddress && ac && acceptProposedPayment(ac.address, proposedPaymentWithReceiverAddress);
+
+    const payWhatYouWantAmount: bigint | undefined = (() => { // final amount specified by sender in PayWhatYouWant mode. Denominated in logical asset decimals
+      // there are two ways for the sender to specify payWhatYouWantAmount: by typing in an amount or selecting a suggested amount:
+      if ((payWhatYouWantSelectedSuggestedAmount === undefined || payWhatYouWantSelectedSuggestedAmount === 'other') && payWhatYouWantAmountFromInput !== undefined) return parseLogicalAssetAmount(payWhatYouWantAmountFromInput.toString()).toBigInt(); // here we prioritize payWhatYouWantAmountFromInput as it's defined only if amount input is displayed and user has typed into it, which happens if we're in pay what you want mode AND (there's no suggested amounts OR there are suggested amounts and user picked 'other' to type in amount) --> WARNING must explicitly check for either no suggested amounts or suggested amount set to "other", otherwise a previously typed "other" amount will be used after the user selects a suggested amount because `payWhatYouWantAmountFromInput` is not set back to undefined after deselecting "other"
+      else if (payWhatYouWantSelectedSuggestedAmount !== undefined && payWhatYouWantSelectedSuggestedAmount !== 'other') return payWhatYouWantSelectedSuggestedAmount; // NB payWhatYouWantSelectedSuggestedAmount is already denominated in logical asset decimals
+      else return undefined;
+    })();
+
+    const payWhatYouWantLogicalAssetTicker = payWhatYouWantSelectedSuggestedAmount === 'other' || payWhatYouWantSelectedSuggestedAmount === undefined ? payWhatYouWantLogicalAssetTickerFromInput : checkoutSettings.proposedPayment.logicalAssetTickers.primary; // the final derived logical asset ticker in which the sender's payment will be denominated
+
+    if (payment && isPaymentWithFixedAmount(payment)) return payment;
+    else if (payment && payWhatYouWantAmount !== undefined && payWhatYouWantAmount > 0) {
+      const derivedPayment: PaymentWithFixedAmount = {
+        ...payment,
+        logicalAssetTickers: new PrimaryWithSecondaries(payWhatYouWantLogicalAssetTicker, ((): readonly LogicalAssetTicker[] => {
+          if (payWhatYouWantLogicalAssetTicker === checkoutSettings.proposedPayment.logicalAssetTickers.primary) return checkoutSettings.proposedPayment.logicalAssetTickers.secondaries; // sender has not changed the payment's logical asset ticker from the original, so we'll simply copy the original secondaries into the derived payment
+          else { // sender changed the payment's logical asset ticker from the original, so we'll compute new secondaries
+            const s = new Set(checkoutSettings.proposedPayment.logicalAssetTickers.secondaries);
+            s.add(checkoutSettings.proposedPayment.logicalAssetTickers.primary); // as an opinionated simplification, we'll add the original primary to the derived secondaries. This lets the sender settle payment in the original primary, which is convenient for both the sender (who benefits from greater variety of payment methods) and receiver (who picked the original primary as the default)
+            s.delete(payWhatYouWantLogicalAssetTicker); // we must remove the new primary from secondaries as a primary may not appear in the secondaries
+            return Array.from(s);
+          }
+        })()),
+        paymentMode: {
+          logicalAssetAmountAsBigNumberHexString: BigNumber.from(payWhatYouWantAmount).toHexString(),
+        },
+      };
+      return derivedPayment;
+    } else return undefined;
+  }, [checkoutSettings.proposedPayment, receiverAddress, ac, payWhatYouWantSelectedSuggestedAmount, payWhatYouWantAmountFromInput, payWhatYouWantLogicalAssetTickerFromInput]);
 
   const [status, setStatus] = useState<ExecuteTokenTransferButtonStatus | undefined>(undefined);
   const statusIsError = status?.isError === true; // local var for use as a hook dependency to prevent unnecessary rerenders when this bool goes from undefined to false
@@ -157,8 +200,12 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         body: JSON.stringify({
           event: 'success', // TODO call webhookUrl for more checkout lifecycle events
           // TODO status.successData should be a product type that includes the token transfer for the successful transfer, the transaction receipt, and perhaps other data. status.successData.tokenTransfer should be used here instead of activeTokenTransfer
-          chainId: status?.activeTokenTransfer?.token.chainId,
+          chainId: status.activeTokenTransfer.token.chainId,
           transactionHash: status.successData.transactionHash,
+          senderAddress: status.successData.from,
+          currency: getLogicalAssetTickerForTokenOrNativeCurrencyTicker(status.activeTokenTransfer.token.ticker),
+          amount: BigNumber.from(status.activeTokenTransfer.amountAsBigNumberHexString).toString(),
+          tokenContractAddress: status.activeTokenTransfer.token.contractAddress || 'native',
           // TODO sender/buyer note
           // TODO the pay link itself?
           // TODO block explorer url and/or 3cities in-app receipt url
@@ -168,7 +215,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       })/*.then(data => console.info("success webhook response", data))*/ // NB due to no-cors mode the response is opaque and we can't access any response data, including response status
         .catch(e => console.error("success webhook error", e));
     }
-  }, [checkoutSettings.webhookUrl, statusIsSuccess, status?.successData, status?.activeTokenTransfer?.token.chainId]);
+  }, [checkoutSettings.webhookUrl, statusIsSuccess, status?.successData, status?.activeTokenTransfer]);
 
   const sr = status?.reset; // local var to have this useCallback depend only on status.reset
   const doReset = useCallback(() => {
@@ -199,21 +246,33 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
 
   const exchangeRates: ExchangeRates | undefined = useExchangeRates();
 
-  const proposedStrategies = useMemo<ProposedStrategy[]>(() => getProposedStrategiesForProposedPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment), [checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment, exchangeRates]);
+  const proposedStrategies = useMemo<ProposedStrategy[]>(() => { // WARNING proposedStrategies are computed without considering any connected wallet, and may contain synthetic (non-real) payment amounts for illustrative purposes
+    const p = ((): ProposedPaymentWithFixedAmount => {
+      const csp = checkoutSettings.proposedPayment;
+      if (isProposedPaymentWithFixedAmount(csp)) return csp;
+      else return {
+        ...csp,
+        paymentMode: {
+          logicalAssetAmountAsBigNumberHexString: csp.paymentMode.payWhatYouWant.suggestedLogicalAssetAmountsAsBigNumberHexStrings[0] || BigNumber.from(defaultSmallAmountsPerLogicalAsset[csp.logicalAssetTickers.primary]).toHexString(), // WARNING here we fall back to synthetic (non-real, arbitrary) payment amounts for illustrative purposes
+        },
+      };
+    })();
+    return getProposedStrategiesForProposedPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, p);
+  }, [checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment, exchangeRates]);
 
   const strategies = useMemo<Strategy[] | undefined>(() => {
-    if (payment && ac) return getStrategiesForPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, payment, ac);
+    if (derivedPaymentWithFixedAmount && ac) return getStrategiesForPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, derivedPaymentWithFixedAmount, ac);
     else return undefined;
-  }, [checkoutSettings.receiverStrategyPreferences, payment, ac, exchangeRates]);
+  }, [checkoutSettings.receiverStrategyPreferences, derivedPaymentWithFixedAmount, ac, exchangeRates]);
 
   const { bestStrategy, otherStrategies, disableAllStrategiesOriginatingFromChainId, selectStrategy } = useBestStrategy(strategies);
 
   const receiverAddressBlockExplorerLink = useMemo<string | undefined>(() => {
-    if (proposedPaymentWithReceiverAddress) {
-      return getBlockExplorerUrlForAddress((status?.activeTokenTransfer || bestStrategy?.tokenTransfer || proposedStrategies[0]?.proposedTokenTransfer)?.token.chainId, proposedPaymentWithReceiverAddress.receiver.address); // the idea here is we'll show an explorer link for the chain that's most relevant to the payment
+    if (receiverAddress) {
+      return getBlockExplorerUrlForAddress((status?.activeTokenTransfer || bestStrategy?.tokenTransfer || proposedStrategies[0]?.proposedTokenTransfer)?.token.chainId, receiverAddress); // the idea here is we'll show an explorer link for the chain that's most relevant to the payment
     }
     else return undefined;
-  }, [proposedPaymentWithReceiverAddress, status?.activeTokenTransfer, proposedStrategies, bestStrategy?.tokenTransfer]);
+  }, [receiverAddress, status?.activeTokenTransfer, proposedStrategies, bestStrategy?.tokenTransfer]);
 
   const [showFullReceiverAddress, setShowFullReceiverAddress] = useState(false);
 
@@ -282,6 +341,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     | 'receiverAddressCouldNotBeDetermined' // the CheckoutSettings.proposedPayment used an ens name for the receiver, and resolving this ens name into an address failed
     | 'senderAccountNotConnected' // ie. this page is has no wallet connected
     | 'senderAddressContextLoading' // this page has a wallet connected, but the connected wallet's AddressContext is still loading
+    | 'senderMustSpecifyFixedAmount' // the CheckoutSettings.proposedPayment uses PayWhatYouWantMode, and a fixed amount must be specified by the sender to proceed with checkout
     | 'senderHasNoPaymentOptions' // based on the connected wallet's address context, the sender has no payment options
     | 'ready'
     = (() => {
@@ -289,13 +349,14 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       else if (receiverAddress === undefined) return 'receiverAddressCouldNotBeDetermined';
       else if (!isConnected) return 'senderAccountNotConnected';
       else if (ac === undefined || (bestStrategy === undefined && isDuringConnectedAccountContextInitialLoadGracePeriod)) return 'senderAddressContextLoading';
+      else if (ac !== undefined && derivedPaymentWithFixedAmount === undefined) return 'senderMustSpecifyFixedAmount';
       else if (ac !== undefined && bestStrategy === undefined) return 'senderHasNoPaymentOptions';
       else return 'ready';
     })();
 
   const activeDemoAccount: string | undefined = useActiveDemoAccount();
 
-  const makeExecuteTokenTransferButton = useCallback((tt: TokenTransfer | undefined) => <div className="relative"><ExecuteTokenTransferButton
+  const makeExecuteTokenTransferButton = useCallback((tt: TokenTransfer | undefined, disabled?: true | string) => <div className="relative"><ExecuteTokenTransferButton
     tt={tt}
     autoReset={true}
     loadForeverOnTransactionFeeUnaffordableError={true}
@@ -308,7 +369,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     warningClassName="text-black"
     loadingSpinnerClassName="text-gray-200 fill-primary"
     {...(activeDemoAccount === undefined && { setStatus })}
-    {...(activeDemoAccount !== undefined && { disabled: true })}
+    {...((activeDemoAccount !== undefined || disabled !== undefined) && { disabled: typeof disabled === 'string' ? disabled : true })}
   />
     {!retryButton && activeDemoAccount && (
       <span className="absolute right-2 top-1/2 transform -translate-y-1/2 text-black text-sm whitespace-nowrap text-center">
@@ -323,80 +384,148 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   const paymentScreen: false | JSX.Element = useMemo(() => !statusIsSuccess && <div className={`${selectingPaymentMethod ? 'hidden' : '' /* WARNING here we hide the payment screen when selecting payment method instead of destroying it. This avoids an ExecuteTokenTransferButton remount each time the payment method changes, which is a mechanism to test reset logic and code paths. */}`}>
     <div className="w-full py-6">
       {(() => {
+        const payWhatYouWantAmountHeader = <span className="w-full font-semibold">Select amount to pay</span>;
+
+        const makePayWhatYouWantAmountUiNoSuggestedAmounts = ({ includeAmountHeader }: { includeAmountHeader: boolean }): JSX.Element => {
+          return <div className="w-full flex flex-col items-center justify-center mb-6">
+            {includeAmountHeader === true && payWhatYouWantAmountHeader}
+            <div className="w-full mt-2"><CurrencyAmountInput logicalAssetTicker={payWhatYouWantLogicalAssetTickerFromInput} inputId="CurrencyAmountInput" setAmount={setRawPayWhatYouWantAmountFromInput} /></div>
+            <div className="w-full flex flex-wrap justify-between items-center gap-2 mt-6">
+              <span className="w-full font-semibold">Currency</span>
+              {payWhatYouWantLogicalAssetTickerSelectionInputElement}
+            </div>
+          </div>;
+        };
+
+        const maybeMakePayWhatYouWantAmountUiNoSuggestedAmounts = (el: JSX.Element) => { // see design note on maybeMakeFixedAmountUiMaybeWithSuggestedAmounts
+          if (checkoutSettings.proposedPayment.paymentMode.payWhatYouWant !== undefined && checkoutSettings.proposedPayment.paymentMode.payWhatYouWant.suggestedLogicalAssetAmountsAsBigNumberHexStrings.length < 1) return <div>{makePayWhatYouWantAmountUiNoSuggestedAmounts({ includeAmountHeader: true })}{el}</div>; else return el;
+        }
+
+        const payWhatYouWantAmountUiWithSuggestedAmounts: JSX.Element = (() => {
+          return <>
+            <div className="w-full flex flex-col items-center justify-center gap-2 mb-6">
+              {payWhatYouWantAmountHeader}
+              <div className="w-full flex flex-wrap items-center justify-between gap-6">
+                {(checkoutSettings.proposedPayment.paymentMode.payWhatYouWant?.suggestedLogicalAssetAmountsAsBigNumberHexStrings || []).map((a, i) => {
+                  const abn: bigint = BigNumber.from(a).toBigInt();
+                  return <button
+                    key={i}
+                    type="button"
+                    disabled={payWhatYouWantSelectedSuggestedAmount === abn}
+                    className="focus:outline-none rounded-md min-w-[6em] px-2 py-1 font-medium border border-primary enabled:active:scale-95 enabled:bg-white enabled:text-primary sm:enabled:hover:bg-primary sm:enabled:hover:text-white disabled:bg-primary disabled:text-white disabled:cursor-not-allowed"
+                    onClick={() => startTransition(() => { // NB wrap this state update in startTransition because it causes strategies to be synchronously regenerated and we want the UI to remain snappy during this process
+                      setPayWhatYouWantSelectedSuggestedAmount(abn);
+                      setRawPayWhatYouWantAmountFromInput(undefined); // clear any previously set "other" amount so that the next time the user clicks on "other", the old, stale amount isn't still there, which causes UI jank where the old, stale amount is briefly used to generate a strategy pipeline before the newly mounted CurrencyAmountInput sets it to undefined
+                    })}
+                  >
+                    <RenderLogicalAssetAmount
+                      logicalAssetTicker={checkoutSettings.proposedPayment.logicalAssetTickers.primary /* suggested amounts always use the original logical asset ticker, or else the suggested amount denominations would change when the sender selects a different logical asset during 'Other' */}
+                      amountAsBigNumberHexString={a}
+                    />
+                  </button>;
+                })}
+                <button
+                  type="button"
+                  disabled={payWhatYouWantSelectedSuggestedAmount === "other"}
+                  className="focus:outline-none rounded-md  min-w-[6em] px-2 py-1 font-medium border border-primary enabled:active:scale-95 enabled:bg-white enabled:text-primary sm:enabled:hover:bg-primary sm:enabled:hover:text-white disabled:bg-primary disabled:text-white disabled:cursor-not-allowed"
+                  onClick={() => setPayWhatYouWantSelectedSuggestedAmount("other")}
+                >Other</button>
+              </div>
+            </div>
+            {payWhatYouWantSelectedSuggestedAmount === "other" && makePayWhatYouWantAmountUiNoSuggestedAmounts({ includeAmountHeader: false })}
+          </>;
+        })();
+
+        const maybeMakePayWhatYouWantAmountUiMaybeWithSuggestedAmounts = (el: JSX.Element) => { // the idea here with maybeMakeFixedAmountUiNoSuggestedAmounts vs. maybeMakeFixedAmountUiMaybeWithSuggestedAmounts is that if we may show a fixed amount UI that includes suggested amounts, then we never want to show it until the sender's account context had a chance to load because the suggested amounts may be adjusted based on the sender's wallet contents, so if we eagerly displayed suggested amounts, then they'd jankily change as the sender's account context loads. In contrast, if we won't show suggested amounts (ie. because the payment has no suggested amounts), then we'll show the amount input widget earlier during rendering, before the sender's account context is loaded and even before the receiver's address is loaded
+          if (checkoutSettings.proposedPayment.paymentMode.payWhatYouWant !== undefined) {
+            if (checkoutSettings.proposedPayment.paymentMode.payWhatYouWant.suggestedLogicalAssetAmountsAsBigNumberHexStrings.length < 1) return <div>{makePayWhatYouWantAmountUiNoSuggestedAmounts({ includeAmountHeader: true })}{el}</div>;
+            else return <div>{payWhatYouWantAmountUiWithSuggestedAmounts}{el}</div>;
+          } else return el;
+        }
+
         if (!isConnected) return <ConnectWalletButton disconnectedLabel="Connect Wallet to Pay" />; // TODO replace this with ConnectWalletButtonCustom where the styling props passed are from local variables shared with ExecuteTokenTransferButton. This ensures the styles of the two buttons are exactly the same (whereas today, they are only coincidentally the same), preventing UI jank after connecting wallet
         else switch (checkoutReadinessState) {
-          case 'receiverAddressCouldNotBeDetermined': return <button
+          case 'receiverAddressCouldNotBeDetermined': return maybeMakePayWhatYouWantAmountUiNoSuggestedAmounts(<button
             type="button"
             className="rounded-md p-3.5 bg-tertiary text-black pointer-events-none w-full"
           >
             Receiver ENS name has no address
-          </button>
+          </button>); // here we include the fixed amount UI to avoid jank even though the sender can't complete the payment due to no receiver address
           case 'senderAccountNotConnected': throw new Error("expected checkoutReadinessState to not be receiverAddressReadyButSenderAccountNotConnected when sender account is connected"); // here we never expect receiverAddressReadyButSenderAccountNotConnected because this switch statement is `else isConnected`
-          case 'senderHasNoPaymentOptions': return <button
+          case 'senderHasNoPaymentOptions': return maybeMakePayWhatYouWantAmountUiMaybeWithSuggestedAmounts(<button
             type="button"
             className="rounded-md p-3.5 bg-tertiary text-black pointer-events-none w-full"
           >
             Connected wallet has no payment options
-          </button>;
-          case 'receiverAddressLoading': return makeExecuteTokenTransferButton(undefined);
-          case 'senderAddressContextLoading': return makeExecuteTokenTransferButton(undefined);
-          case 'ready': if (bestStrategy === undefined) throw new Error("expected bestStrategy to be defined when checkoutReadinessState is 'ready'"); else return makeExecuteTokenTransferButton(bestStrategy.tokenTransfer);
+          </button>);
+          case 'receiverAddressLoading': return maybeMakePayWhatYouWantAmountUiNoSuggestedAmounts(makeExecuteTokenTransferButton(undefined));
+          case 'senderAddressContextLoading': return maybeMakePayWhatYouWantAmountUiNoSuggestedAmounts(makeExecuteTokenTransferButton(undefined));
+          case 'senderMustSpecifyFixedAmount': return maybeMakePayWhatYouWantAmountUiMaybeWithSuggestedAmounts(makeExecuteTokenTransferButton(undefined, 'Pay Now'));
+          case 'ready': if (bestStrategy === undefined) throw new Error("expected bestStrategy to be defined when checkoutReadinessState is 'ready'"); else return maybeMakePayWhatYouWantAmountUiMaybeWithSuggestedAmounts(makeExecuteTokenTransferButton(bestStrategy.tokenTransfer));
         }
       })()}
     </div>
-    <div className="p-4 flex items-center gap-4 justify-between w-full border border-gray-300 bg-white rounded-t-md">
-      <span>To:</span>
-      <span className="font-bold inline-flex gap-1 place-content-between" style={{ overflowWrap: 'anywhere' }}>
-        <span>{!showFullReceiverAddress && (truncateEnsName(receiverEnsName) || truncateEthAddress(receiverAddress))}{showFullReceiverAddress && receiverAddress && `${receiverAddress}${receiverEnsName ? ` (${receiverEnsName})` : ''}`}{showFullReceiverAddress && !receiverAddress && receiverEnsName}{showFullReceiverAddress && receiverAddressBlockExplorerLink && <a href={receiverAddressBlockExplorerLink} target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker ml-1">explorer</a>}</span>
-        <span className="flex place-items-center"><FaEye onClick={() => setShowFullReceiverAddress(v => !v)} className="w-4 sm:hover:text-gray-500 sm:hover:cursor-pointer" /></span>
-      </span>
-    </div>
-    {checkoutSettings.note !== undefined && <div className="p-4 flex items-center w-full border-b border-x border-gray-300 bg-white">
-      <span className="text-left">{checkoutSettings.note}</span>
-    </div>}
-    <div className="p-4 grid grid-cols-6 w-full border-b border-x border-gray-300 bg-white rounded-b-md">
-      <span className="font-bold text-lg col-span-2">Total:</span>
-      <span className="font-bold text-lg text-right col-span-4"><RenderLogicalAssetAmount
-        logicalAssetTicker={proposedPaymentWithFixedAmount.logicalAssetTickers.primary}
-        amountAsBigNumberHexString={proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString}
-      /></span>
-      {(() => {
-        // We'll attempt to display a secondary logical asset amount below the primary logical asset amount. NB here we have a bias for USD in that if the payment's primary logical asset is not USD, we unconditionally attempt to show its USD equivalent, but if the payment's primary logical asset is USD, we only conditionally attempt to show its non-USD equivalent. This asymmetry (USD bias) is because most users seem to prefer USD.
-        type OtherLogicalAssetAmountToDisplay = {
-          lat: LogicalAssetTicker;
-          amount: bigint;
-        }
-        const otherLogicalAssetAmountToDisplay: OtherLogicalAssetAmountToDisplay | 'preserve space' | 'collapse space' = (() => {
-          if (proposedPaymentWithFixedAmount.logicalAssetTickers.primary === 'USD') {
-            const mostRelevantSecondaryLat = ((): LogicalAssetTicker | undefined => {
-              if (status?.activeTokenTransfer) return getLogicalAssetTickerForTokenOrNativeCurrencyTicker(status.activeTokenTransfer.token.ticker); // we'll define the most relevant secondary logical asset ticker as the one associated with the current active token transfer, if any, since the active token transfer is the one is currently to be used for payment. NB if the activeTokenTransfer is denominated in USD, then the most relevant "secondary" lat will be the same as the primary lat (and then not displayed below)
-              else return proposedStrategies.map(ps => getLogicalAssetTickerForTokenOrNativeCurrencyTicker(ps.proposedTokenTransfer.token.ticker)).find(lat => lat !== undefined && lat !== 'USD') // we'll define the second most relevant secondary logical asset ticker as the one associated with the highest-priority proposed strategy that's not denominated in USD because these proposed strategies are based on live exchange rates and contextual prioritization. Here, we use the first non-USD proposed strategy even if a USD proposed strategy may be higher priority to showcase 3cities's exchange rate functionality
-                || (!isConnected ? proposedPaymentWithFixedAmount.logicalAssetTickers.secondaries[0] : undefined); // we'll define the least relevant secondary logical asset ticker as the highest-priority of the payment secondaries only if the wallet not connected. This helps showcase 3cities's exchange rate capability when the wallet isn't connected, while avoiding UI jank if the wallet is connected because then, it's likely that soon (eg. after strategies finish loading), activeTokenTransfer will become USD-denominated, resulting in no secondary logical asset equivalent being displayed (as we don't display a non-USD equivalent if activeTokenTransfer is in USD for a USD payment). Ie. if we were to drop `!isConnected` here, then a typical page load for a USD payment with an already-connected wallet would have jank where the extra space for secondary equivalent is shown briefly until strategies finish loading and activeTokenTransfer likely becomes USD-denominated (and if activeTokenTransfer becomes non-USD-denominated, then we'll show a bit of jank where the space soon expands to display the non-USD equivalent, which is fine)
+    {(() => {
+      const fixedPayment: PaymentWithFixedAmount | ProposedPaymentWithFixedAmount | undefined = derivedPaymentWithFixedAmount || proposedPaymentWithFixedAmount;
+      const willShowTotalSection: boolean = fixedPayment !== undefined;
+      const willShowNoteSection: boolean = checkoutSettings.note !== undefined;
+      return <>
+        <div className={`p-4 flex items-center gap-4 justify-between w-full border border-gray-300 bg-white ${!willShowTotalSection && !willShowNoteSection ? 'rounded-md' /* if neither the total or note sections will display, then the To section is both the first and last section and needs all of its corners rounded */ : 'rounded-t-md'}`}>
+          <span>To:</span>
+          <span className="font-bold inline-flex gap-1 place-content-between" style={{ overflowWrap: 'anywhere' }}>
+            <span>{!showFullReceiverAddress && (truncateEnsName(receiverEnsName) || truncateEthAddress(receiverAddress))}{showFullReceiverAddress && receiverAddress && `${receiverAddress}${receiverEnsName ? ` (${receiverEnsName})` : ''}`}{showFullReceiverAddress && !receiverAddress && receiverEnsName}{showFullReceiverAddress && receiverAddressBlockExplorerLink && <a href={receiverAddressBlockExplorerLink} target="_blank" rel="noreferrer" className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker ml-1">explorer</a>}</span>
+            <span className="flex place-items-center"><FaEye onClick={() => setShowFullReceiverAddress(v => !v)} className="w-4 sm:hover:text-gray-500 sm:hover:cursor-pointer" /></span>
+          </span>
+        </div>
+        {willShowNoteSection && <div className={`p-4 flex items-center w-full border-b border-x border-gray-300 bg-white ${!willShowTotalSection ? 'rounded-b-md' /* if the total section won't display, then the Note section is the last section and needs its bottom corners rounded */ : ''}`}>
+          <span className="text-left">{checkoutSettings.note}</span>
+        </div>}
+        {willShowTotalSection && fixedPayment !== undefined && <div className="p-4 grid grid-cols-6 w-full border-b border-x border-gray-300 bg-white text-lg rounded-b-md">
+          <span className="font-bold col-span-2">Total:</span>
+          <span className="font-bold text-right col-span-4"><RenderLogicalAssetAmount
+            logicalAssetTicker={fixedPayment.logicalAssetTickers.primary}
+            amountAsBigNumberHexString={fixedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString}
+          /></span>
+          {(() => {
+            // We'll attempt to display a secondary logical asset amount below the primary logical asset amount. NB here we have a bias for USD in that if the payment's primary logical asset is not USD, we unconditionally attempt to show its USD equivalent, but if the payment's primary logical asset is USD, we only conditionally attempt to show its non-USD equivalent. This asymmetry (USD bias) is because most users seem to prefer USD.
+            type OtherLogicalAssetAmountToDisplay = {
+              lat: LogicalAssetTicker;
+              amount: bigint;
+            }
+            const otherLogicalAssetAmountToDisplay: OtherLogicalAssetAmountToDisplay | 'preserve space' | 'collapse space' = (() => {
+              if (fixedPayment.logicalAssetTickers.primary === 'USD') {
+                const mostRelevantSecondaryLat = ((): LogicalAssetTicker | undefined => {
+                  const activeTokenTransferOrBestStrategyTokenTicker: Uppercase<string> | undefined = (status?.activeTokenTransfer || bestStrategy?.tokenTransfer)?.token.ticker;
+                  if (activeTokenTransferOrBestStrategyTokenTicker) return getLogicalAssetTickerForTokenOrNativeCurrencyTicker(activeTokenTransferOrBestStrategyTokenTicker); // we'll define the most relevant secondary logical asset ticker as the one associated with the current active token transfer (falling back to bestStrategy to avoid UI jank where it's known that active token transfer will soon become defined), if any, since the active token transfer is the one is currently to be used for payment. NB if the activeTokenTransfer is denominated in USD, then the most relevant "secondary" lat will be the same as the primary lat (and then not displayed below)
+                  else return proposedStrategies.map(ps => getLogicalAssetTickerForTokenOrNativeCurrencyTicker(ps.proposedTokenTransfer.token.ticker)).find(lat => lat !== undefined && lat !== 'USD') // we'll define the second most relevant secondary logical asset ticker as the one associated with the highest-priority proposed strategy that's not denominated in USD because these proposed strategies are based on live exchange rates and contextual prioritization. Here, we use the first non-USD proposed strategy even if a USD proposed strategy may be higher priority to showcase 3cities's exchange rate functionality
+                    || (!isConnected ? fixedPayment.logicalAssetTickers.secondaries[0] : undefined); // we'll define the least relevant secondary logical asset ticker as the highest-priority of the payment secondaries only if the wallet not connected. This helps showcase 3cities's exchange rate capability when the wallet isn't connected, while avoiding UI jank if the wallet is connected because then, it's likely that soon (eg. after strategies finish loading), activeTokenTransfer will become USD-denominated, resulting in no secondary logical asset equivalent being displayed (as we don't display a non-USD equivalent if activeTokenTransfer is in USD for a USD payment). Ie. if we were to drop `!isConnected` here, then a typical page load for a USD payment with an already-connected wallet would have jank where the extra space for secondary equivalent is shown briefly until strategies finish loading and activeTokenTransfer likely becomes USD-denominated (and if activeTokenTransfer becomes non-USD-denominated, then we'll show a bit of jank where the space soon expands to display the non-USD equivalent, which is fine)
+                })();
+                if (mostRelevantSecondaryLat && mostRelevantSecondaryLat !== 'USD') {
+                  const paymentAmountInMostRelevantSecondaryLat: bigint | undefined = convert({ er: exchangeRates, fromTicker: 'USD', toTicker: mostRelevantSecondaryLat, fromAmount: BigNumber.from(fixedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString).toBigInt() });
+                  if (paymentAmountInMostRelevantSecondaryLat !== undefined) return {
+                    lat: mostRelevantSecondaryLat,
+                    amount: paymentAmountInMostRelevantSecondaryLat,
+                  }; else return 'preserve space'; // here we 'preserve space' because the most likely reason that paymentAmountInMostRelevantSecondaryLat is undefined is because exchange rates are initially loading, so we don't want to collapse the space now only to have it un-collapse after rates finish loading and cause UI jank
+                } else return 'collapse space'; // no relevant non-USD secondary lat was found and one is unlikely to be automatically found soon, so we collapse space to avoid the ugly blank space
+              } else { // the payment's primary logical asset is not USD, so we always show the USD equivalent (see note above on our asymmetric bias for USD)
+                const usdAmount: bigint | undefined = convert({ er: exchangeRates, fromTicker: fixedPayment.logicalAssetTickers.primary, toTicker: 'USD', fromAmount: BigNumber.from(fixedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString).toBigInt() });
+                if (usdAmount !== undefined) return {
+                  lat: 'USD',
+                  amount: usdAmount,
+                }; else return 'preserve space';
+              }
             })();
-            if (mostRelevantSecondaryLat && mostRelevantSecondaryLat !== 'USD') {
-              const paymentAmountInMostRelevantSecondaryLat: bigint | undefined = convert({ er: exchangeRates, fromTicker: 'USD', toTicker: mostRelevantSecondaryLat, fromAmount: BigNumber.from(proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString).toBigInt() });
-              if (paymentAmountInMostRelevantSecondaryLat !== undefined) return {
-                lat: mostRelevantSecondaryLat,
-                amount: paymentAmountInMostRelevantSecondaryLat,
-              }; else return 'preserve space'; // here we 'preserve space' because the most likely reason that paymentAmountInMostRelevantSecondaryLat is undefined is because exchange rates are initially loading, so we don't want to collapse the space now only to have it un-collapse after rates finish loading and cause UI jank
-            } else return 'collapse space'; // no relevant non-USD secondary lat was found and one is unlikely to be automatically found soon, so we collapse space to avoid the ugly blank space
-          } else { // the payment's primary logical asset is not USD, so we always show the USD equivalent (see note above on our asymmetric bias for USD)
-            const usdAmount: bigint | undefined = convert({ er: exchangeRates, fromTicker: proposedPaymentWithFixedAmount.logicalAssetTickers.primary, toTicker: 'USD', fromAmount: BigNumber.from(proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString).toBigInt() });
-            if (usdAmount !== undefined) return {
-              lat: 'USD',
-              amount: usdAmount,
-            }; else return 'preserve space';
-          }
-        })();
-        return otherLogicalAssetAmountToDisplay !== 'collapse space' ? <>
-          <span className="col-span-2"></span> {/* empty span to align grid cols*/}
-          <span className="text-lg text-gray-500 text-right col-span-4">{otherLogicalAssetAmountToDisplay !== 'preserve space' ? <RenderLogicalAssetAmount
-            logicalAssetTicker={otherLogicalAssetAmountToDisplay.lat}
-            amountAsBigNumberHexString={BigNumber.from(otherLogicalAssetAmountToDisplay.amount).toHexString()}
-          /> : <span>&nbsp;</span>}</span>
-        </> : undefined;
-      })()}
-    </div>
+            return otherLogicalAssetAmountToDisplay !== 'collapse space' ? <>
+              <span className="col-span-2"></span> {/* empty span to align grid cols*/}
+              <span className="text-gray-500 text-right col-span-4">{otherLogicalAssetAmountToDisplay !== 'preserve space' ? <RenderLogicalAssetAmount
+                logicalAssetTicker={otherLogicalAssetAmountToDisplay.lat}
+                amountAsBigNumberHexString={BigNumber.from(otherLogicalAssetAmountToDisplay.amount).toHexString()}
+              /> : <span>&nbsp;</span>}</span>
+            </> : undefined;
+          })()}
+        </div>}
+      </>;
+    })()}
     {isConnected && /* WARNING here render payment method section only if isConnected as a render optimization because when disconnecting the wallet, bestStrategy does not become undefined until event callbacks clear the ExecuteTokenTransferButton status because bestStrategy is computed using status.activeTokenTransfer. So here, we don't render Payment Method if disconnected to avoid briefly rendering it with a stale bestStrategy after wallet becomes disconnected */ bestStrategy !== undefined && <div className="mt-6 w-full">
       <div className="font-bold text-lg">Payment method</div>
       <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md flex flex-col gap-2 justify-between items-start">
@@ -418,7 +547,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         <span className="text-gray-500 text-xs">{(otherStrategies || []).length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment method{(otherStrategies || []).length > 0 ? 's' : ''} across {[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length} chain{[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length > 1 ? 's' : ''} {initialLoadTimeInSeconds ? <span>({formatFloat(initialLoadTimeInSeconds, 2)} seconds)</span> : undefined}</span>
       </div>
     </div>}
-  </div>, [isConnected, checkoutSettings.note, proposedPaymentWithFixedAmount.logicalAssetTickers, proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, exchangeRates, proposedStrategies, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod, initialLoadTimeInSeconds]);
+  </div>, [startTransition, isConnected, checkoutSettings.note, checkoutSettings.proposedPayment.logicalAssetTickers.primary, checkoutSettings.proposedPayment.paymentMode.payWhatYouWant, proposedPaymentWithFixedAmount, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, payWhatYouWantSelectedSuggestedAmount, setPayWhatYouWantSelectedSuggestedAmount, setRawPayWhatYouWantAmountFromInput, payWhatYouWantLogicalAssetTickerFromInput, payWhatYouWantLogicalAssetTickerSelectionInputElement, derivedPaymentWithFixedAmount, exchangeRates, proposedStrategies, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod, initialLoadTimeInSeconds]);
 
   const acceptedTokensAndChainsElement: false | JSX.Element = useMemo(() => !statusIsSuccess // NB here we must check statusIsSuccess because the sender may have no payment options after successful payment (eg. if they paid using their only payment method and it was exhausted by the payment) and so `checkoutReadinessState === 'senderHasNoPaymentOptions'` may be true after paying
     && checkoutReadinessState === 'senderHasNoPaymentOptions' && <div className="w-full">
@@ -434,6 +563,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       })()}
     </div>, [statusIsSuccess, checkoutReadinessState, proposedStrategies]);
 
+  // TODO update acceptedTokensAndChainsSummaryElement to stop using "Instantly..." language and start using a summary of tokens and chains similar to acceptedTokensAndChainsElement but in a single payment method box
   const acceptedTokensAndChainsSummaryElement: false | JSX.Element = useMemo(() => !statusIsSuccess // NB here we must check statusIsSuccess because success status may be preserved even if the sender disconnects their wallet after successful payment, so `!isConnected` may be true after successful payment
     && !isConnected && <div className="mt-6 w-full">
       {(() => {
@@ -495,10 +625,10 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   }, [checkoutSettings.successRedirect, statusIsSuccess, paymentSuccessfulBlockExplorerReceiptLink]);
 
   const paymentSuccessfulBaseText: string = (() => {
-    if (status?.isSuccess) {
+    if (derivedPaymentWithFixedAmount && status?.isSuccess) {
       return `Hey, I paid you ${renderLogicalAssetAmount({
-        logicalAssetTicker: proposedPaymentWithFixedAmount.logicalAssetTickers.primary,
-        amountAsBigNumberHexString: proposedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString,
+        logicalAssetTicker: derivedPaymentWithFixedAmount.logicalAssetTickers.primary,
+        amountAsBigNumberHexString: derivedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString,
       })}${checkoutSettings.note ? ` for ${checkoutSettings.note}` : ''} using 3cities.xyz`;
     } else return ' ';
   })();
