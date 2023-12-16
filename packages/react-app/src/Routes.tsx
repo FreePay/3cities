@@ -10,6 +10,7 @@ import { GlobalProviders } from "./GlobalProviders";
 import { HideFooterOnMobile } from "./HideFooter";
 import { Home } from "./Home";
 import { MainWrapper } from "./MainWrapper";
+import { MaybeUserPage } from "./MaybeUserPage";
 import { Me } from "./Me";
 import { Pay } from "./Pay";
 import { PayLinkNotFound } from "./PayLinkNotFound";
@@ -56,5 +57,6 @@ export const router = createHashRouter(createRoutesFromElements(
         {/* <Route path="checkout" element={<Checkout />} /> */}
       </Route>
     </Route>
+    <Route path=":pageName" element={<MaybeUserPage />} />
   </Route>
 ));
