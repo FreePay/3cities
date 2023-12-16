@@ -1,7 +1,8 @@
 import React from "react";
-import { isRouteErrorResponse, Link, useRouteError } from "react-router-dom";
+import { Link, useRouteError } from "react-router-dom";
 import useClipboard from "react-use-clipboard";
 import { useAccount } from "wagmi";
+import { hasOwnPropertyOfType } from "./hasOwnProperty";
 
 const styleOuterDiv: React.CSSProperties = {
   position: 'absolute',
@@ -33,7 +34,7 @@ const styleSpan: React.CSSProperties = {
 
 export const GlobalErrorBoundary = () => {
   const error = useRouteError();
-  const errorExplanation = isRouteErrorResponse(error) ? `${error.status} ${error.statusText}` : 'Internal Error';
+  const errorExplanation = hasOwnPropertyOfType(error, 'status', 'number') && hasOwnPropertyOfType(error, 'statusText', 'string') ? `${error.status} ${error.statusText}` : 'Internal Error';
 
   const { address } = useAccount();
   const errMsgToCopy = (() => {
