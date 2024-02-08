@@ -405,7 +405,7 @@ export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
     zkSyncTestnet, // TODO sepolia
     polygonZkEvmTestnet,  // TODO sepolia
     // lineaTestnet, // TODO lineaTestnet's rpc CORS setting currently doesn't allow requests from http://localhost:3000. This produces spammy linea errors in dev. I have disabled lineaTestnet for now until they fix this, even though it should work fine in staging. --> TODO retry this and use lineaSepolia if exists
-    scrollTestnet, // TODO scrollSepolia?
+    // scrollTestnet, // TODO switch to scrollSepolia
     baseGoerli, // TODO rm
     baseSepolia,
     polygonMumbai,
