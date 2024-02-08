@@ -355,6 +355,32 @@ export const lineaTestnet: Readonly<Chain> = Object.freeze<Chain>({ // wagmi doe
   testnet: true,
 });
 
+export const fluentTestnet: Readonly<Chain> = Object.freeze<Chain>({
+  id: 1337,
+  network: 'Fluent Testnet',
+  name: 'Fluent Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: ['https://rpc.dev1.fluentlabs.xyz/'],
+    },
+    public: {
+      http: ['https://rpc.dev1.fluentlabs.xyz/'],
+    },
+  },
+  blockExplorers: {
+    blockscout: {
+      name: 'Blockscout',
+      url: 'https://blockscout.dev1.fluentlabs.xyz/',
+    },
+    default: {
+      name: 'Blockscout',
+      url: 'https://blockscout.dev1.fluentlabs.xyz/',
+    },
+  },
+  testnet: true,
+});
+
 export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
   const cs = (isProduction ? [
     // ********* BEGIN PRODUCTION networks *********
@@ -384,6 +410,7 @@ export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
     baseSepolia,
     polygonMumbai,
     // TODO immutable zkEVM testnet -- https://docs.immutable.com/docs/zkEVM/architecture/chain-config
+    fluentTestnet,
     // ********* END TEST networks *********
   ].filter((c: Chain) => !isTestShorterListOfChains || c.id === scrollTestnet.id)
   );

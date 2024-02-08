@@ -2,7 +2,7 @@ import { Chain } from 'wagmi';
 import { NonEmptyArray } from "./NonEmptyArray";
 import { Optional } from './Optional';
 import { NativeCurrency, Token, isToken } from "./Token";
-import { allSupportedChainIds, arbitrum, arbitrumGoerli, arbitrumNova, base, baseGoerli, goerli, linea, lineaTestnet, mainnet, optimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvm, polygonZkEvmTestnet, scroll, scrollTestnet, zkSync, zkSyncTestnet, zora } from './chains';
+import { allSupportedChainIds, arbitrum, arbitrumGoerli, arbitrumNova, base, baseGoerli, fluentTestnet, goerli, linea, lineaTestnet, mainnet, optimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvm, polygonZkEvmTestnet, scroll, scrollTestnet, zkSync, zkSyncTestnet, zora } from './chains';
 import { isProduction } from "./isProduction";
 import { toUppercase } from './toUppercase';
 
@@ -230,6 +230,9 @@ const polygonUSDT = token(polygon, { name: 'Tether USD', ticker: 'USDT', contrac
 const polygonLUSD = token(polygon, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x23001f892c0C82b79303EDC9B9033cD190BB21c7' });
 // const polygonMumbaiLUSD = token(polygonMumbai, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '' });
 
+// Fluent Testnet https://docs.fluentlabs.xyz/fluent-private-beta-testnet/0aaRq0munng2A9mxZvt2/developer-preview/fluent-private-testnet
+const fluentTestnetETH = nativeCurrency(fluentTestnet);
+
 function isTokenOnASupportedChain(t: NativeCurrency | Token): boolean {
   return allSupportedChainIds.indexOf(t.chainId) > -1;
 }
@@ -258,6 +261,7 @@ export const nativeCurrencies: Readonly<NonEmptyArray<NativeCurrency>> = (() => 
     BaseGoerliETH,
     lineaTestnetETH,
     ScrollTestnetETH,
+    fluentTestnetETH,
     polygonMumbaiMATIC,
   ]).filter(isTokenOnASupportedChain); // here we must drop tokens on unsupported chains to ensure that all tokens in our registry are in fact on supported chains so that our token and chain registries are consistent with each other
   const t0 = ts[0];
