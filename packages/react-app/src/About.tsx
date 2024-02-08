@@ -85,7 +85,7 @@ export const About: React.FC = () => {
         . Request money from anyone by sending them a link. They can pay with any Ethereum wallet. The link is private unless publicly posted.
       </li>
       <li className="mb-2">
-        Donations. Accept donations. <span className="text-secondary">(coming soon)</span>
+        Donations. Accept donations on ten L2s. Help them donate assets they didn&apos;t even know they had in their wallet.
       </li>
       <li className="mb-2">
         Paywall. Allow users to unlock paid content. <span className="text-secondary">(roadmap)</span>
