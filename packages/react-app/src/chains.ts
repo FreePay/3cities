@@ -7,7 +7,7 @@ import { isProduction } from './isProduction';
 // TODO migrate off of goerli to sepolia --> sepolia chains here https://github.com/wevm/viem/tree/main/src/chains/definitions --> ie. add zoraSepolia, lineaSepolia, scrollSepolia, etc, rm goerli, scrollTestnet (?), baseGoerli, etc.
 
 const mainnet = Object.assign({}, wagmiMainnet, {
-  name: "Ethereum L1", // rename to "Ethereum L1" as the wagmi name of "Ethereum" is confusing for users
+  name: "Ethereum Mainnet", // rename to "Ethereum Mainnet" as the wagmi name of "Ethereum" is confusing for users
 });
 
 const optimism = Object.assign({}, wagmiOptimism, {
