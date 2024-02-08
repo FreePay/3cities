@@ -118,6 +118,11 @@ type PayInnerProps = {
 const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   const startTransition = useTransition()[1];
 
+  const checkoutVerbLowercase: Lowercase<string> = checkoutSettings.mode === "deposit" ? "deposit" : "pay";
+  const checkoutVerbCapitalized: Capitalize<string> = checkoutSettings.mode === "deposit" ? "Deposit" : "Pay";
+  const checkoutNounLowercase: Lowercase<string> = checkoutSettings.mode === "deposit" ? "deposit" : "payment";
+  const checkoutNounCapitalized: Capitalize<string> = checkoutSettings.mode === "deposit" ? "Deposit" : "Payment";
+
   const { isConnected, address: connectedAddress } = useAccount();
 
   const proposedPaymentWithFixedAmount: ProposedPaymentWithFixedAmount | undefined = (() => { // NB no useMemo is needed here because we are copying checkoutSettings.proposedPayment into proposedPaymentWithFixedAmount and this object reference is stable across renders because checkoutSettings is stable across renders
@@ -294,15 +299,15 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         // here we have just disabled a strategy because the user can't afford to pay the transaction fee, but the user also clicked a button for this strategy at least once (either the 'pay now' button or selecting this strategy from the payment method screeen), so we are removing a strategy they interacted with, so we'll show a helpful indicator to make this less jarring.
         setFeeUnaffordableToastDisplayedForCurrentStrategy(true); // here, we flag the current strategy as having already displayed a "fee unaffordable" toast. This avoids a race condition where if both `status.buttonClickedAtLeastOnce` and `userSelectedCurrentStrategy` are both true, we'll display the toast twice because this effect is re-run when userSelectedCurrentStrategy is set to false before the next strategy has updated its initial status. An alternative to this flag would be the exclude userSelectedCurrentStrategy from this useEffect's dependencies, but I'd rather not do that because there's no eslint flag to disable a single dependency and I don't want to disable exhaustive dependencies for the entire hook as it's dangerous.
         toast.error(<div>
-          <div className="text-xl">Payment Failed (no {getChain(status.activeTokenTransfer.token.chainId)?.nativeCurrency.symbol || 'ETH'} to pay fee)</div>
-          <div className="text-lg">Payment method updated</div>
+          <div className="text-xl">{checkoutNounCapitalized} Failed (no {getChain(status.activeTokenTransfer.token.chainId)?.nativeCurrency.symbol || 'ETH'} to pay fee)</div>
+          <div className="text-lg">{checkoutNounCapitalized} method updated</div>
           <div className="text-lg">Please try again</div>
         </div>, {
           duration: 5000,
         });
       }
     }
-  }, [strategies, disableAllStrategiesOriginatingFromChainId, status?.error, status?.activeTokenTransfer, status?.buttonClickedAtLeastOnce, userSelectedCurrentStrategy, feeUnaffordableToastDisplayedForCurrentStrategy, setFeeUnaffordableToastDisplayedForCurrentStrategy]);
+  }, [checkoutNounCapitalized, strategies, disableAllStrategiesOriginatingFromChainId, status?.error, status?.activeTokenTransfer, status?.buttonClickedAtLeastOnce, userSelectedCurrentStrategy, feeUnaffordableToastDisplayedForCurrentStrategy, setFeeUnaffordableToastDisplayedForCurrentStrategy]);
 
   const canSelectNewStrategy: boolean = !( // user may select a new strategy (ie payment method) unless...
     (status?.userSignedTransaction // the user signed the transaction
@@ -360,7 +365,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     tt={tt}
     autoReset={true}
     loadForeverOnTransactionFeeUnaffordableError={true}
-    label="Pay Now"
+    label={`${checkoutVerbCapitalized} Now`}
     successLabel="Paid ✅"
     className="rounded-md p-3.5 font-medium bg-primary sm:enabled:hover:bg-primary-darker focus:outline-none active:scale-95 w-full"
     disabledClassName="text-gray-200 pointer-events-none"
@@ -377,14 +382,14 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       </span>
     )}
     {retryButton}
-  </div>, [activeDemoAccount, retryButton]);
+  </div>, [checkoutVerbCapitalized, activeDemoAccount, retryButton]);
 
   const initialLoadTimeInSeconds: number | undefined = useInitialLoadTimeInSeconds([bestStrategy, ac && ac.address === connectedAddress], [checkoutSettings, connectedAddress]);
 
   const paymentScreen: false | JSX.Element = useMemo(() => !statusIsSuccess && <div className={`${selectingPaymentMethod ? 'hidden' : '' /* WARNING here we hide the payment screen when selecting payment method instead of destroying it. This avoids an ExecuteTokenTransferButton remount each time the payment method changes, which is a mechanism to test reset logic and code paths. */}`}>
     <div className="w-full py-6">
       {(() => {
-        const payWhatYouWantAmountHeader = <span className="w-full font-semibold">Select amount to pay</span>;
+        const payWhatYouWantAmountHeader = <span className="w-full font-semibold">Select amount to {checkoutVerbLowercase}</span>;
 
         const makePayWhatYouWantAmountUiNoSuggestedAmounts = ({ includeAmountHeader }: { includeAmountHeader: boolean }): JSX.Element => {
           return <div className="w-full flex flex-col items-center justify-center mb-6">
@@ -443,7 +448,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
           } else return el;
         }
 
-        if (!isConnected) return <ConnectWalletButton disconnectedLabel="Connect Wallet to Pay" />; // TODO replace this with ConnectWalletButtonCustom where the styling props passed are from local variables shared with ExecuteTokenTransferButton. This ensures the styles of the two buttons are exactly the same (whereas today, they are only coincidentally the same), preventing UI jank after connecting wallet
+        if (!isConnected) return <ConnectWalletButton disconnectedLabel={`Connect Wallet to ${checkoutVerbCapitalized}`} />; // TODO replace this with ConnectWalletButtonCustom where the styling props passed are from local variables shared with ExecuteTokenTransferButton. This ensures the styles of the two buttons are exactly the same (whereas today, they are only coincidentally the same), preventing UI jank after connecting wallet
         else switch (checkoutReadinessState) {
           case 'receiverAddressCouldNotBeDetermined': return maybeMakePayWhatYouWantAmountUiNoSuggestedAmounts(<button
             type="button"
@@ -456,11 +461,11 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
             type="button"
             className="rounded-md p-3.5 bg-tertiary text-black pointer-events-none w-full"
           >
-            Connected wallet has no payment options
+            Connected wallet has no {checkoutNounLowercase} options
           </button>);
           case 'receiverAddressLoading': return maybeMakePayWhatYouWantAmountUiNoSuggestedAmounts(makeExecuteTokenTransferButton(undefined));
           case 'senderAddressContextLoading': return maybeMakePayWhatYouWantAmountUiNoSuggestedAmounts(makeExecuteTokenTransferButton(undefined));
-          case 'senderMustSpecifyFixedAmount': return maybeMakePayWhatYouWantAmountUiMaybeWithSuggestedAmounts(makeExecuteTokenTransferButton(undefined, 'Pay Now'));
+          case 'senderMustSpecifyFixedAmount': return maybeMakePayWhatYouWantAmountUiMaybeWithSuggestedAmounts(makeExecuteTokenTransferButton(undefined, `${checkoutVerbCapitalized} Now`));
           case 'ready': if (bestStrategy === undefined) throw new Error("expected bestStrategy to be defined when checkoutReadinessState is 'ready'"); else return maybeMakePayWhatYouWantAmountUiMaybeWithSuggestedAmounts(makeExecuteTokenTransferButton(bestStrategy.tokenTransfer));
         }
       })()}
@@ -527,7 +532,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       </>;
     })()}
     {isConnected && /* WARNING here render payment method section only if isConnected as a render optimization because when disconnecting the wallet, bestStrategy does not become undefined until event callbacks clear the ExecuteTokenTransferButton status because bestStrategy is computed using status.activeTokenTransfer. So here, we don't render Payment Method if disconnected to avoid briefly rendering it with a stale bestStrategy after wallet becomes disconnected */ bestStrategy !== undefined && <div className="mt-6 w-full">
-      <div className="font-bold text-lg">Payment method</div>
+      <div className="font-bold text-lg">{checkoutVerbCapitalized} with</div>
       <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md flex flex-col gap-2 justify-between items-start">
         <div className="w-full flex gap-2 justify-start items-center">
           {(() => {
@@ -547,7 +552,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         <span className="text-gray-500 text-xs">{(otherStrategies || []).length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment method{(otherStrategies || []).length > 0 ? 's' : ''} across {[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length} chain{[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length > 1 ? 's' : ''} {initialLoadTimeInSeconds ? <span>({formatFloat(initialLoadTimeInSeconds, 2)} seconds)</span> : undefined}</span>
       </div>
     </div>}
-  </div>, [startTransition, isConnected, checkoutSettings.note, checkoutSettings.proposedPayment.logicalAssetTickers.primary, checkoutSettings.proposedPayment.paymentMode.payWhatYouWant, proposedPaymentWithFixedAmount, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, payWhatYouWantSelectedSuggestedAmount, setPayWhatYouWantSelectedSuggestedAmount, setRawPayWhatYouWantAmountFromInput, payWhatYouWantLogicalAssetTickerFromInput, payWhatYouWantLogicalAssetTickerSelectionInputElement, derivedPaymentWithFixedAmount, exchangeRates, proposedStrategies, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod, initialLoadTimeInSeconds]);
+  </div>, [checkoutVerbLowercase, checkoutVerbCapitalized, checkoutNounLowercase, startTransition, isConnected, checkoutSettings.note, checkoutSettings.proposedPayment.logicalAssetTickers.primary, checkoutSettings.proposedPayment.paymentMode.payWhatYouWant, proposedPaymentWithFixedAmount, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, payWhatYouWantSelectedSuggestedAmount, setPayWhatYouWantSelectedSuggestedAmount, setRawPayWhatYouWantAmountFromInput, payWhatYouWantLogicalAssetTickerFromInput, payWhatYouWantLogicalAssetTickerSelectionInputElement, derivedPaymentWithFixedAmount, exchangeRates, proposedStrategies, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod, initialLoadTimeInSeconds]);
 
   const acceptedTokensAndChainsElement: false | JSX.Element = useMemo(() => !statusIsSuccess // NB here we must check statusIsSuccess because the sender may have no payment options after successful payment (eg. if they paid using their only payment method and it was exhausted by the payment) and so `checkoutReadinessState === 'senderHasNoPaymentOptions'` may be true after paying
     && checkoutReadinessState === 'senderHasNoPaymentOptions' && <div className="w-full">
@@ -570,16 +575,16 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         const allProposedStrategiesTokenTickers: string[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.ticker))];
         const allProposedStrategiesChainIds: number[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.chainId))];
         return <>
-          <div className="font-bold text-lg">Payment method</div>
-          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">{allProposedStrategiesTokenTickers.length} token{allProposedStrategiesTokenTickers.length > 1 ? 's' : ''} across {allProposedStrategiesChainIds.length} chain{allProposedStrategiesChainIds.length > 1 ? 's' : ''} accepted by this payment</div>
+          <div className="font-bold text-lg">{checkoutVerbCapitalized} with</div>
+          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">{allProposedStrategiesTokenTickers.length} token{allProposedStrategiesTokenTickers.length > 1 ? 's' : ''} across {allProposedStrategiesChainIds.length} chain{allProposedStrategiesChainIds.length > 1 ? 's' : ''} accepted by this {checkoutNounLowercase}</div>
         </>;
       })()}
-    </div>, [isConnected, statusIsSuccess, proposedStrategies]);
+    </div>, [checkoutVerbCapitalized, checkoutNounLowercase, isConnected, statusIsSuccess, proposedStrategies]);
 
   const selectPaymentMethodScreen: false | JSX.Element = useMemo(() => bestStrategy !== undefined && otherStrategies !== undefined && otherStrategies.length > 0 && <div className={`grid grid-cols-1 w-full items-center py-6 ${selectingPaymentMethod ? '' : 'hidden'}`}>
-    <div className="font-bold text-2xl">Select a payment method</div>
+    <div className="font-bold text-2xl">Select a {checkoutNounLowercase} method</div>
     <div className="my-2 flex items-end justify-between">
-      <div className="font-bold text-lg">Pay with</div>
+      <div className="font-bold text-lg">{checkoutVerbCapitalized} with</div>
       <div className="font-bold text-sm">Your balance</div>
     </div>
     {[bestStrategy, ...otherStrategies].map((s, i) => {
@@ -602,7 +607,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         {ac !== undefined && tb && <span className="text-right"> <RenderTokenBalance tb={tb} opts={{ hideChainSeparator: true, hideChain: true }} /></span>}
       </div>
     })}
-  </div>, [ac, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, selectStrategy, selectingPaymentMethod, wantToSetSelectingPaymentMethodToFalse, setWantToSetSelectingPaymentMethodToFalse]);
+  </div>, [checkoutVerbCapitalized, checkoutNounLowercase, ac, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, selectStrategy, selectingPaymentMethod, wantToSetSelectingPaymentMethodToFalse, setWantToSetSelectingPaymentMethodToFalse]);
 
   const paymentSuccessfulBlockExplorerReceiptLink: string | undefined = (() => {
     if (!status?.isSuccess) return undefined;
@@ -626,7 +631,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
 
   const paymentSuccessfulBaseText: string = (() => {
     if (derivedPaymentWithFixedAmount && status?.isSuccess) {
-      return `Hey, I paid you ${renderLogicalAssetAmount({
+      return `Hey, I ${checkoutSettings.mode === "deposit" ? "deposited" : "paid you"} ${renderLogicalAssetAmount({
         logicalAssetTicker: derivedPaymentWithFixedAmount.logicalAssetTickers.primary,
         amountAsBigNumberHexString: derivedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString,
       })}${checkoutSettings.note ? ` for ${checkoutSettings.note}` : ''} using 3cities.xyz`;
@@ -635,14 +640,14 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
 
   const paymentSuccessfulTextNoLinkToShare: string = (() => {
     if (status?.isSuccess) {
-      const computedReceiptWithoutLink = paymentSuccessfulBlockExplorerReceiptLink ? `` : ` Payment transaction hash: ${status.successData.transactionHash} on ${getSupportedChainName(status.activeTokenTransfer.token.chainId)}`; // the idea here is that we'll include the verbose "Transaction hash ..." as a "manual non-link receipt" iff the actual payment receipt link couldn't be constructed. This provides a fallback while avoiding including the spammy "transaction hash" text in the case where link is available.
+      const computedReceiptWithoutLink = paymentSuccessfulBlockExplorerReceiptLink ? `` : ` ${checkoutNounCapitalized} transaction hash: ${status.successData.transactionHash} on ${getSupportedChainName(status.activeTokenTransfer.token.chainId)}`; // the idea here is that we'll include the verbose "Transaction hash ..." as a "manual non-link receipt" iff the actual payment receipt link couldn't be constructed. This provides a fallback while avoiding including the spammy "transaction hash" text in the case where link is available.
       return `${paymentSuccessfulBaseText}${computedReceiptWithoutLink}`;
     } else return ' ';
   })();
 
   const paymentSuccessfulTextWithLinkToShare: string = (() => {
     if (status?.isSuccess) {
-      const computedReceipt = paymentSuccessfulBlockExplorerReceiptLink ? `Receipt: ${paymentSuccessfulBlockExplorerReceiptLink}` : `Payment transaction hash: ${status.successData.transactionHash} on ${getSupportedChainName(status.activeTokenTransfer.token.chainId)}`;
+      const computedReceipt = paymentSuccessfulBlockExplorerReceiptLink ? `Receipt: ${paymentSuccessfulBlockExplorerReceiptLink}` : `${checkoutNounCapitalized} transaction hash: ${status.successData.transactionHash} on ${getSupportedChainName(status.activeTokenTransfer.token.chainId)}`;
       return `${paymentSuccessfulBaseText} ${computedReceipt}`;
     } else return ' ';
   })();
@@ -662,7 +667,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       type="button"
       className="rounded-md p-3.5 font-medium bg-primary-lighter-2 text-white pointer-events-none w-full"
     >
-      Payment Successful ✅
+      {checkoutNounCapitalized} Successful ✅
     </button>
     {successRedirectOnClick !== undefined ? <button
       type="button"

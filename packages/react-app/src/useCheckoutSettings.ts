@@ -1,6 +1,10 @@
-import { useContext } from "react";
-import { CheckoutSettingsContext, CheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
+import { useContext, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { CheckoutSettings } from "./CheckoutSettings";
+import { CheckoutSettingsContext, CheckoutSettingsRequiresPassword, isCheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
+import { ProposedPayment, isProposedPaymentWithFixedAmount } from "./Payment";
+import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
+import { LogicalAssetTicker, allLogicalAssetTickers, parseLogicalAssetAmount } from "./logicalAssets";
 
 // useCheckoutSettings returns the contextual CheckoutSettings that's
 // been provided by CheckoutSettingsProvider, or a
@@ -10,7 +14,69 @@ import { CheckoutSettings } from "./CheckoutSettings";
 // useCheckoutSettings is used in a component that isn't a descendant of
 // CheckoutSettingsProvider.
 export function useCheckoutSettings(): CheckoutSettings | CheckoutSettingsRequiresPassword {
-  const cs = useContext(CheckoutSettingsContext);
+  const cs: CheckoutSettings | CheckoutSettingsRequiresPassword | undefined = useApplyUrlParamOverrides(useContext(CheckoutSettingsContext));
   if (!cs) throw new Error("useCheckoutSettings must be used within a descendant of CheckoutSettingsProvider");
   else return cs;
+}
+
+// TODO WARNING this override method is temporary and poorly designed. It shouldn't be computed and applied here at the point of useCheckoutSettings. Instead, we need to think more about the concepts of (i) overrides themselves, (ii) parsing override elements from url params, (iii) constructing override total data from the override elements, (iv) applying these overrides to a given base CheckoutSettings, and (v) running the override process at a sensible place during the control flow. For example, is the space of overrides simply CheckoutSettings itself? Is it a subset? Disjoint? What if we want to apply overrides in a context beyond useCheckoutSettings? What if we want overrides to be visible upstream of useCheckoutSettings?
+function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequiresPassword | undefined): CheckoutSettings | CheckoutSettingsRequiresPassword | undefined {
+  const [searchParams] = useSearchParams();
+  const chainIdsRaw: string | undefined = searchParams.get("chainIds") || undefined;
+  const mode: string | undefined = searchParams.get("mode") || undefined;
+  const currency: string | undefined = searchParams.get("currency") || undefined;
+  // @eslint-no-use-below[searchParams] -- all search params have now been assigned. Further use of searchParams is not expected
+
+  const csOut = useMemo<CheckoutSettings | CheckoutSettingsRequiresPassword | undefined>(() => {
+    if (csIn === undefined || isCheckoutSettingsRequiresPassword(csIn)) return csIn;
+    else {
+      let cs = csIn;
+      const chainIds: number[] = chainIdsRaw ? chainIdsRaw.split(",").map((s) => parseInt(s)).filter(n => !isNaN(n)) : [];
+      if (chainIds.length > 0) {
+        cs = { ...cs, receiverStrategyPreferences: { ...cs.receiverStrategyPreferences, acceptedChainIds: { allowlist: new Set(chainIds) } } };
+      }
+
+      if (mode?.toLowerCase() === "deposit") cs = { ...cs, mode: "deposit" };
+
+      const newPrimaryLat: LogicalAssetTicker | undefined = allLogicalAssetTickers.find((lat) => lat === currency?.toUpperCase());
+      if (newPrimaryLat && cs.proposedPayment.logicalAssetTickers.primary !== newPrimaryLat) {
+        const newSecondaries = [...cs.proposedPayment.logicalAssetTickers.secondaries.filter((lat) => lat !== newPrimaryLat), cs.proposedPayment.logicalAssetTickers.primary];
+        const logicalAssetTickers = new PrimaryWithSecondaries(newPrimaryLat, newSecondaries);
+        // TODO adopt a lens library (like monocle in scala) instead of this mess:
+        cs = {
+          ...cs,
+          // The following curious block of code is needed because until the type guard isProposedPaymentWithFixedAmount is executed, TypeScript can't infer that `cs.proposedPayment.paymentMode` is assignable to Payment.paymentMode:
+          proposedPayment: isProposedPaymentWithFixedAmount(cs.proposedPayment) ? {
+            ...cs.proposedPayment,
+            logicalAssetTickers,
+            paymentMode: cs.proposedPayment.paymentMode,
+          } satisfies ProposedPayment : {
+            ...cs.proposedPayment,
+            logicalAssetTickers,
+            paymentMode: {
+              payWhatYouWant: {
+                ...cs.proposedPayment.paymentMode.payWhatYouWant,
+                suggestedLogicalAssetAmountsAsBigNumberHexStrings: newPrimaryLat === 'USD' ? [ // NB the idea here is that if we're overriding the primary currency and prior suggested amounts exist, we will attempt to rewrite those suggested amounts with sane defaults for the new primary currency. Otherwise, the old suggested amounts may make no sense (eg. a suggested logical amount of '100' is $100 for USD, which is reasonable, but 100 ETH for ETH, which is not reasonable.) --> TODO when we support overriding suggested amounts, we could instead here always erase any prior suggested amounts and then the user can optionally override them for the overridden primary currency
+                  parseLogicalAssetAmount('5').toHexString(),
+                  parseLogicalAssetAmount('10').toHexString(),
+                  parseLogicalAssetAmount('20').toHexString(),
+                  parseLogicalAssetAmount('50').toHexString(),
+                  parseLogicalAssetAmount('100').toHexString(),
+                ] : newPrimaryLat === 'ETH' ? [
+                  parseLogicalAssetAmount('0.01').toHexString(),
+                  parseLogicalAssetAmount('0.05').toHexString(),
+                  parseLogicalAssetAmount('0.25').toHexString(),
+                  parseLogicalAssetAmount('0.5').toHexString(),
+                  parseLogicalAssetAmount('1').toHexString(),
+                ] : [],
+              },
+            },
+          } satisfies ProposedPayment,
+        }
+      }
+      return cs;
+    }
+  }, [csIn, chainIdsRaw, mode, currency]);
+
+  return csOut;
 }

@@ -31,6 +31,7 @@ export type CheckoutSettings = Readonly<{
     callToAction?: string; // human-readable call to action to prompt the sender/buyer to click a button to trigger the success redirect, as redirects must be triggered by user actions or be suppressed by the browser as spam. Example: "Let Joe know you paid"
   }
   webhookUrl?: string; // webhook url to call when checkout events occur, eg. on checkout success
+  mode?: "deposit"; // TODO WARNING reconsider the internal structure of `mode`. What should its type be? Today, we don't support mode in serialization, only in the domain using URL param overrides. Instead, mode should be supported at the data layer, with "pay" mode being the default, as well as other modes, such as tip, donate, transfer, and receive
 }>
 
 // CheckoutOutcomeBase is a shared base type to centralize data common
