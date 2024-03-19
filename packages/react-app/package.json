@@ -1,6 +1,7 @@
 {
   "name": "@3cities/react-app",
   "version": "1.0.0",
+  "license": "MIT",
   "homepage": "./",
   "browserslist": {
     "production": [
@@ -18,7 +19,6 @@
   },
   "dependencies": {
     "@3cities/contracts": "^1.0.0",
-    "@bufbuild/buf": "^1.26.1",
     "@bufbuild/protobuf": "^1.3.1",
     "@ethersproject/providers": "5.7.2",
     "@web3auth/base": "^5.2.0",
@@ -41,6 +41,7 @@
     "wagmi": "0.12.19"
   },
   "devDependencies": {
+    "@bufbuild/buf": "^1.26.1",
     "@bufbuild/protoc-gen-es": "^1.3.1",
     "@testing-library/dom": "9.3.3",
     "@testing-library/jest-dom": "^5.16.5",
@@ -90,6 +91,5 @@
     "start": "yarn start:dev",
     "test": "react-scripts test",
     "ts-prune": "ts-prune"
-  },
-  "license": "MIT"
+  }
 }
