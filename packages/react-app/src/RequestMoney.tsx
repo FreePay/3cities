@@ -5,7 +5,7 @@ import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
 import { useImmer } from "use-immer";
 import { useAccount, useDisconnect } from "wagmi";
-import { CheckoutSettings } from "./CheckoutSettings";
+import { CheckoutSettings, SuccessActionRedirect } from "./CheckoutSettings";
 import { serializedCheckoutSettingsUrlParam } from "./CheckoutSettingsProvider";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
 import { CurrencyAmountInput } from "./CurrencyAmountInput";
@@ -296,16 +296,18 @@ export const RequestMoney: React.FC = () => {
       return {
         proposedPayment,
         receiverStrategyPreferences: strategyPreferences || {},
-        ...(note && { note: note.trim() }),
+        ...(note && { note: note.trim() } satisfies Pick<CheckoutSettings, 'note'>),
         senderNoteSettings: { mode: 'NONE' }, // TODO support senderNoteSettings
-        ...(successRedirectUrl.length > 0 && {
-          successRedirect: {
-            url: successRedirectUrl,
-            openInNewTab: successRedirectOpenInNewTab,
-            ...(successRedirectCallToAction.trim().length > 0 && { callToAction: successRedirectCallToAction.trim() }),
+        ...(successRedirectUrl.length > 0 && { // TODO support full SuccessAction API
+          successAction: {
+            redirect: {
+              url: successRedirectUrl,
+              openInNewTab: successRedirectOpenInNewTab,
+              ...(successRedirectCallToAction.trim().length > 0 && { callToAction: successRedirectCallToAction.trim() } satisfies Pick<SuccessActionRedirect, 'callToAction'>),
+            },
           },
-        }),
-        ...(webhookUrl.length > 0 && { webhookUrl }),
+        } satisfies Pick<CheckoutSettings, 'successAction'>),
+        ...(webhookUrl.length > 0 && { webhookUrl } satisfies Pick<CheckoutSettings, 'webhookUrl'>),
       } satisfies CheckoutSettings;
     } else return undefined;
   }, [primaryLogicalAssetTicker, secondaryLogicalAssetTickers, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password, successRedirectUrl, successRedirectCallToAction, successRedirectOpenInNewTab, webhookUrl, paymentMode]);

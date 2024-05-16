@@ -1,6 +1,7 @@
+import { parseUnits } from "@ethersproject/units";
 import { useContext, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { CheckoutSettings } from "./CheckoutSettings";
+import { AuthenticateSenderAddress, CheckoutSettings } from "./CheckoutSettings";
 import { CheckoutSettingsContext, CheckoutSettingsRequiresPassword, isCheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
 import { ProposedPayment, isProposedPaymentWithFixedAmount } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
@@ -25,6 +26,12 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
   const chainIdsRaw: string | undefined = searchParams.get("chainIds") || undefined;
   const mode: string | undefined = searchParams.get("mode") || undefined;
   const currency: string | undefined = searchParams.get("currency") || undefined;
+  const logicalAssetAmountFullPrecision: string | undefined = searchParams.get("amount") || undefined; // iff set, the proposed payment mode will be overridden to be fixed using this passed logical asset amount denominated in full precision logical asset units (eg. 1 logical asset == 10^18)
+  const requireInIframeOrErrorWith: string | undefined = searchParams.get("requireInIframeOrErrorWith") || undefined;
+  const iframeParentWindowOrigin: string | undefined = searchParams.get("iframeParentWindowOrigin") || undefined;
+  const authenticateSenderAddress: boolean = ((searchParams.get("authenticateSenderAddress") || undefined)?.length || 0) > 0;
+  const verifyEip1271Signature: boolean = ((searchParams.get("verifyEip1271Signature") || undefined)?.length || 0) > 0;
+  const autoCloseIframeOnSuccess: boolean = ((searchParams.get("autoCloseIframeOnSuccess") || undefined)?.length || 0) > 0;
   // @eslint-no-use-below[searchParams] -- all search params have now been assigned. Further use of searchParams is not expected
 
   const csOut = useMemo<CheckoutSettings | CheckoutSettingsRequiresPassword | undefined>(() => {
@@ -74,9 +81,45 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
           } satisfies ProposedPayment,
         }
       }
+
+      if (logicalAssetAmountFullPrecision) {
+        cs = {
+          ...cs,
+          proposedPayment: {
+            ...cs.proposedPayment,
+            paymentMode: {
+              logicalAssetAmountAsBigNumberHexString: parseUnits(logicalAssetAmountFullPrecision, 0).toHexString(),
+            },
+          },
+        };
+      }
+
+      if (requireInIframeOrErrorWith) cs = { ...cs, requireInIframeOrErrorWith };
+
+      if (iframeParentWindowOrigin) cs = { ...cs, iframeParentWindowOrigin: iframeParentWindowOrigin };
+
+      if (authenticateSenderAddress) cs = {
+        ...cs,
+        ...(authenticateSenderAddress && {
+          authenticateSenderAddress: {
+            ...(verifyEip1271Signature && { verifyEip1271Signature } satisfies Pick<AuthenticateSenderAddress, 'verifyEip1271Signature'>),
+          },
+        } satisfies Pick<CheckoutSettings, "authenticateSenderAddress">),
+      };
+
+      if (autoCloseIframeOnSuccess) cs = { // TODO support more of the SuccessAction API via url params
+        ...cs,
+        successAction: {
+          closeWindow: {
+            ifStandaloneWindow: {},
+            ifIframe: { autoClose: {} },
+          },
+        },
+      };
+
       return cs;
     }
-  }, [csIn, chainIdsRaw, mode, currency]);
+  }, [csIn, chainIdsRaw, mode, currency, logicalAssetAmountFullPrecision, requireInIframeOrErrorWith, iframeParentWindowOrigin, authenticateSenderAddress, verifyEip1271Signature, autoCloseIframeOnSuccess]);
 
   return csOut;
 }
