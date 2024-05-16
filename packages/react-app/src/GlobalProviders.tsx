@@ -6,9 +6,10 @@ import { Toaster } from 'sonner';
 import { WagmiConfig } from "wagmi";
 import { ConnectedAccountContextObserverProvider } from "./ConnectedAccountContextObserverProvider";
 import { DemoAccountProvider } from "./DemoAccountProvider";
+import { ExchangeRatesProvider } from "./ExchangeRatesProvider";
 import { IsPageVisibleOrRecentlyVisibleProvider } from "./IsPageVisibleOrRecentlyVisibleProvider";
 import { wagmiClient } from "./wagmiClient";
-import { ExchangeRatesProvider } from "./ExchangeRatesProvider";
+import { ShowIfRunningLocally } from "./ShowIfRunningLocally";
 
 const connectKitOptions: ConnectKitOptions = {
   walletConnectName: "WalletConnect", // default is "Other Wallets" which I find confusing because anybody who knows they can scan a qr code from mobile will most likely be looking for the name "WalletConnect"
@@ -21,6 +22,7 @@ const connectKitOptions: ConnectKitOptions = {
 
 export const GlobalProviders = () => {
   return <div>
+    <ShowIfRunningLocally />
     <ScrollRestoration /> {/* https://reactrouter.com/en/main/components/scroll-restoration */}
     <WagmiConfig client={wagmiClient}>
       {/* <ConnectWalletProvider chains={chainsSupportedBy3cities}>  TODO connect-wallet support blocked by runtime error https://github.com/Shopify/blockchain-components/issues/16 */}
