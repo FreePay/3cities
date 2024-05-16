@@ -58,7 +58,7 @@ const Header: React.FC = () => {
         <div className="max-sm:min-w-[46vw] max-sm:max-w-32 lg:w-48">
           <ConnectWalletButtonCustom
             disconnectedLabel="Connect Wallet"
-            className="rounded-md px-3.5 py-2 text-xs font-medium bg-white sm:enabled:hover:bg-gray-200 focus:outline-none active:scale-95 w-full"
+            className="rounded-md px-3.5 py-2 text-xs font-medium bg-white sm:enabled:hover:bg-gray-200 focus:outline-none enabled:active:scale-95 sm:enabled:hover:cursor-pointer w-full"
             disabledClassName="text-quaternary-darker pointer-events-none"
             enabledClassName="text-quaternary"
             loadingSpinnerClassName="text-quaternary-darker fill-white"
