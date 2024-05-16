@@ -1,12 +1,7 @@
-import { isAddress } from "@ethersproject/address";
-import React from "react";
-import { Link } from "react-router-dom";
-import { mightBeAnEnsName } from "./mightBeAnEnsName";
+import React, { useMemo } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { mightBeAnAddressOrEnsName } from "./mightBeAnAddressOrEnsName";
 import { useInput } from "./useInput";
-
-const useInputOpts = {
-  onEnterKeyPress: (e: React.KeyboardEvent<HTMLInputElement>) => e.currentTarget.blur(),
-}
 
 const useInputHtmlAttrs = {
   id: 'address-or-ens',
@@ -18,6 +13,20 @@ const useInputHtmlAttrs = {
 };
 
 export const Home: React.FC = () => {
+  const navigate = useNavigate();
+
+  const useInputOpts = useMemo(() => {
+    return {
+      onEnterKeyPress: (e: React.KeyboardEvent<HTMLInputElement>) => {
+        const a = e.currentTarget.value;
+        if (mightBeAnAddressOrEnsName(a)) {
+          e.currentTarget.blur();
+          navigate(`/${a}`);
+        }
+      }
+    };
+  }, [navigate]);
+
   const [addressOrEns, addressOrEnsInput] = useInput('', useInputHtmlAttrs, useInputOpts);
 
   return <div className="mt-24 text-left max-w-2xl mx-auto">
@@ -31,9 +40,9 @@ export const Home: React.FC = () => {
           </div>
           <Link to={`/${addressOrEns}`}>
             <button
-              disabled={!addressOrEns || (!isAddress(addressOrEns) && !mightBeAnEnsName(addressOrEns))}
+              disabled={!mightBeAnAddressOrEnsName(addressOrEns)}
               type="button"
-              className="focus:outline-none rounded-md p-3.5 font-medium bg-primary sm:hover:bg-primary-darker active:scale-95 text-white"
+              className="rounded-md p-3.5 font-medium bg-primary sm:enabled:hover:bg-primary-darker focus:outline-none enabled:active:scale-95 text-white disabled:text-gray-200 disabled:cursor-not-allowed"
             >
               Go
             </button>
