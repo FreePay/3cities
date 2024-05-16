@@ -4,20 +4,26 @@ import { TransactionReceipt } from "@ethersproject/providers";
 import { ChainMismatchError } from '@wagmi/core';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { SwitchChainError, UserRejectedRequestError, useAccount, useContractWrite, useNetwork, usePrepareContractWrite, usePrepareSendTransaction, useSendTransaction, useSwitchNetwork, useWaitForTransaction } from 'wagmi';
+import { Narrow } from "./Narrow";
+import { PartialFor } from "./PartialFor";
 import { Spinner } from "./Spinner";
 import { Writable } from "./Writable";
 import { getSupportedChainName } from "./chains";
 import { hasOwnPropertyOfType } from "./hasOwnProperty";
 import { Observer, makeObservableValue, useObservedValue } from "./observer";
 import { TokenTransfer, isTokenAndNotNativeCurrencyTransfer } from "./tokenTransfer";
-import { PartialFor } from "./PartialFor";
-import { Narrow } from "./Narrow";
 
 // TODO build and save list of test cases to check all ExecuteTokenTransfer code paths, eg. (automatic retries, other features) X (token, native currency) X (wallets) X (networks) X (different transfer amounts including very small amounts)
 
-// TODO s/transactions.tsx/ExecuteTokenTransfer.tsx
-
 // TODO broken insufficient fee detection with metamask+ledger --> with ryanb.eth connected in dev, I have 0 ETH in arb goerli, but the insufficient fee funds detection isn't working. I can pop-up the write but metamask won't let me approve it. prepare is succeeding, write is in progress and pops up transaction confirmation, but then metamask pop-up says insufficient ETH to pay gas --> is this a bug in wagmi.usePrepareContractWrite?
+
+// SignedTransactionForTokenTransfer is the result of a user signing a
+// transaction to execute a TokenTransfer.
+export type SignedTransactionForTokenTransfer = Readonly<{
+  transactionHash: string; // the hash of the transaction that the user signed
+  chainId: number; // the chainId of the chain on which the transaction was signed
+  tokenTransfer: TokenTransfer; // the token transfer for which the user signed the transaction
+}>;
 
 // ExecuteTokenTransferButtonStatus represents a memoryless snapshot of the
 // internal status of an ExecuteTokenTransferButton.
@@ -32,10 +38,10 @@ export type ExecuteTokenTransferButtonStatus = Readonly<{
   isError: boolean;
   error?: Error;
   inProgress: boolean;
-  buttonClickedAtLeastOnce: boolean; // true iff the button was clicked at least once by the user for the current activeTokenTransfer
+  buttonClickedAtLeastOnce: boolean; // true iff the button was clicked at least once by the user for the current activeTokenTransfer. NB if the button is auto-clicked via autoClickIfNeverClicked=true then this counts as a click and buttonClickedAtLeastOnce will be true
   needToSwitchNetworkManually: boolean;
   userIsSigningTransaction: boolean; // true iff the user is currently in the process of signing the transaction (eg. the wallet transaction confirmation pop-up is active and the user has not yet accepted or rejected the transaction).
-  userSignedTransaction: boolean; // true iff the user has signed the transaction. Note that userSignedTransaction is set to true immediately after successful signing before the transaction is confirmed, and is never cleared back to false unless the client calls reset().
+  signedTransaction?: SignedTransactionForTokenTransfer; // defined iff the user has successfully signed a transaction. Note that signedTransaction is set immediately after successful signing, before the transaction is confirmed, and is never updated unless the client calls reset()
   isSuccess: boolean;
   successData?: TransactionReceipt;
 } & ({
@@ -46,7 +52,7 @@ export type ExecuteTokenTransferButtonStatus = Readonly<{
   buttonClickedAtLeastOnce: boolean;
   needToSwitchNetworkManually: false;
   userIsSigningTransaction: false;
-  userSignedTransaction: boolean;
+  signedTransaction?: SignedTransactionForTokenTransfer;
   isSuccess: false;
   successData?: never;
 } | {
@@ -57,7 +63,7 @@ export type ExecuteTokenTransferButtonStatus = Readonly<{
   buttonClickedAtLeastOnce: boolean;
   needToSwitchNetworkManually: false;
   userIsSigningTransaction: boolean;
-  userSignedTransaction: boolean;
+  signedTransaction?: SignedTransactionForTokenTransfer;
   isSuccess: false;
   successData?: never;
 } | {
@@ -65,10 +71,10 @@ export type ExecuteTokenTransferButtonStatus = Readonly<{
   isError: false;
   error?: never;
   inProgress: false;
-  buttonClickedAtLeastOnce: false;
+  buttonClickedAtLeastOnce: boolean;
   needToSwitchNetworkManually: true;
   userIsSigningTransaction: false;
-  userSignedTransaction: false;
+  signedTransaction?: never;
   isSuccess: false;
   successData?: never;
 } | {
@@ -79,41 +85,47 @@ export type ExecuteTokenTransferButtonStatus = Readonly<{
   buttonClickedAtLeastOnce: true;
   needToSwitchNetworkManually: false;
   userIsSigningTransaction: false;
-  userSignedTransaction: true;
+  signedTransaction: SignedTransactionForTokenTransfer;
   isSuccess: true;
   successData: TransactionReceipt;
 })>;
 
 export type ExecuteTokenTransferButtonProps = {
   tt: TokenTransfer | undefined; // the token transfer this button will execute. If undefined, the button will appear to be loading forever, and the passed setStatus will never be called. WARNING ExecuteTokenTransferButton doesn't support arbitrary ongoing changes to the props TokenTransfer. See ExecuteTokenTransferButtonStatus.activeTokenTransfer.
+  onClickPassthrough?: () => void; // iff defined, when the button is clicked, that click will be ignored internally and instead passed through to this callback. This allows clients to reuse this same button for other purposes. For example, clicking the button sign a message. onClickPassthrough is interoperable (works with) with other props, such as `disabled` and `showLoadingSpinnerWhenDisabled`. NB clicks that are passed through to onClickPassthrough are completely ignored internally, eg. a click forwarded to onClickPassthrough will not result in status.buttonClickedAtLeastOnce being set to true
   autoReset?: true; // if set, the button will automatically call its own status.reset to update cached token transfer details when props.tt changes, but only if the user isn't currently signing the transaction or has already signed the transaction, in which case the button is never auto-reset but can still be reset manually by the client. WARNING automatic resets trigger a new status, so clients must ensure a new status doesn't unconditionally compute new tt object, or else an infinite async render loop will occur (new tt -> auto reset -> async reset -> new status -> repeat)
+  autoClickIfNeverClicked?: boolean; // iff true, the button will automatically click itself iff it's ready to click and has never been clicked (ie. !buttonClickedAtLeastOnce, noting that buttonClickedAtLeastOnce is reset to false on status.reset()). For example, this allows a client to have the user's first click perform some other action (such as siging a message) and then automatically click the button to execute the token transfer following the resolution of that action, preventing the user from having to click the button twice. WARNING an automatic click/execute triggers a new status, so clients must ensure a new status doesn't unconditionally automatically click/execute again (which can only occur if the new status triggers an unconditional reset which resets buttonClickedAtLeastOnce), or else an infinite async render loop will occur (auto execute -> new status -> async reset -> repeat)
   loadForeverOnTransactionFeeUnaffordableError?: true; // when the button detects that the user can't afford the transaction fee for the active token transfer, the button UI normally shows an error, but if this is set, instead will show itself as loading. When the fee is unaffordable, regardless if this set, `status.error` will be an instanceof TransactionFeeUnaffordableError, which allows the client to detect fee unaffordability and optionally, replace the active transfer with one that the user may be able to afford. The point of this flag is to enable the client to replace the active transfer on fee unaffordability without the janky intermediate UI state of the button showing an error. WARNING TransactionFeeUnaffordableError is detected on a case-by-case basis depending on the wallet's implementation, so the transaction might be (or end up being) unaffordable even if there's no error or the error isn't an instanceof TransactionFeeUnaffordableError. Ie. TransactionFeeUnaffordableError is subject to false negatives, but not false positives.
   label: string; // label to put on the button, eg. "Pay Now", "Donate Now", "Place your order"
   successLabel: string; // label to put on the button after the token transfer is successful
+  warningLabel?: JSX.Element; // warning label to put on the side of the button. In certain cases, the button produces its own internal warnings, in which case this passed warningLabel takes precedence
   disabled?: true | string; // force-disable disable the button. Pass true to disable the button. Pass a string to disable the button and display the passed string as the disabled reason. Note, the button may still be disabled for internal reasons even if this is not set.
+  showLoadingSpinnerWhenDisabled?: true; // iff true, the loading spinner will be displayed while the button is disabled. Otherwise, the loading spinner is displayed only when the button is loading internally
   className?: string // className to unconditionally apply to the button element
   disabledClassName?: string // className to apply iff button is disabled
   enabledClassName?: string // className to apply iff button is enabled
   loadingSpinnerClassName?: string // className applied to the loading spinner iff button is loading. The text color is used for the loading spinner's foreground color, and the svg fill color is used for the loading spinner's background color. Recommended: set text color to same color as the disabled button label (as button is disabled during loading) and fill color to same color as button's (disabled) background color.
   errorClassName?: string // className applied to any error label
   warningClassName?: string // className applied to any warning label
-  setStatus?: (status: ExecuteTokenTransferButtonStatus) => void; // callback for the client to receive updated button status. React note: if an ancestor component of ExecuteTokenTransferButton caches this updated status as state, then ExecuteTokenTransferButton will rerender redundantly each time it updates the status (because an ancestor's subtree rerenders on state change). These redundant rerenders can be avoided by storing eg. an Observer in the ancestor and using the updated status in a cousin component (including potentially caching it as state).
+  setStatus?: (status: ExecuteTokenTransferButtonStatus | undefined) => void; // callback for the client to receive updated button status. Only the most recently received status is valid. All previously received statuses must be discarded by the client. If undefined is received, it means no status is available (typically because the component has unmounted) and that the most recent defined status is stale. React note: if an ancestor component of ExecuteTokenTransferButton caches this updated status as state, then ExecuteTokenTransferButton will rerender redundantly each time it updates the status (because an ancestor's subtree rerenders on state change). These redundant rerenders can be avoided by storing eg. an Observer in the ancestor and using the updated status in a cousin component (including potentially caching it as state).
 };
 
-// ExecuteTokenTransferButton is a batteries-included button to manage the
-// full lifecycle of a single token transfer.
+// ExecuteTokenTransferButton is a batteries-included button to manage
+// the full lifecycle of a single token or native currency transfer.
 export const ExecuteTokenTransferButton: React.FC<ExecuteTokenTransferButtonProps> = ({ setStatus, ...props }) => {
   const [ov] = useState(() => makeObservableValue<ExecuteTokenTransferStatus | undefined>(undefined));
 
-  const innerSetStatus = useCallback<((s: ExecuteTokenTransferStatus) => void)>((s: ExecuteTokenTransferStatus) => {
+  const innerSetStatus = useCallback((s: ExecuteTokenTransferStatus | undefined): void => {
     // the job of this outer ExecuteTokenTransferButton component is to avoid necessary rerenders (especially not rerendering on each transfer status update) and to act as plumbing between the transfer, the client, and the UI. Here, a new status has been produced by the transfer, and so this component will push that status to the UI and the client, while leveraging ObservableValue to avoid state updates to itself:
     ov.setValueAndNotifyObservers(s);
-    if (setStatus) setStatus(transferStatusToButtonStatus(s));
+    if (setStatus) setStatus(s && transferStatusToButtonStatus(s));
   }, [setStatus, ov]);
 
+  const [isExecuteTokenTransferRendered, executeTokenTransferElement]: [true, React.JSX.Element] | [false, null] = props.tt ? [true, <ExecuteTokenTransfer key="ett" tt={props.tt} setStatus={innerSetStatus} />] : [false, null];
+
   return <>
-    {props.tt === undefined || props.disabled !== undefined ? undefined : <ExecuteTokenTransfer tt={props.tt} setStatus={innerSetStatus} />}
-    <ExecuteTokenTransferButtonUI {...props} observer={ov.observer} />
+    {executeTokenTransferElement}
+    <ExecuteTokenTransferButtonUI {...props} observer={ov.observer} isExecuteTokenTransferRendered={isExecuteTokenTransferRendered} />
   </>;
 }
 
@@ -126,31 +138,42 @@ const defaultExecuteTokenTransferStatus: PartialFor<Narrow<ExecuteTokenTransferS
   isLoading: true,
   loadingStatus: 'Init',
   needToSwitchNetworkManually: false,
-  userSignedTransaction: false,
   isSuccess: false,
 };
 
-type ExecuteTokenTransferButtonUIProps = Pick<ExecuteTokenTransferButtonProps, 'tt' | 'autoReset' | 'loadForeverOnTransactionFeeUnaffordableError' | 'label' | 'successLabel' | 'disabled' | 'className' | 'disabledClassName' | 'enabledClassName' | 'errorClassName' | 'warningClassName' | 'loadingSpinnerClassName'> & {
+type ExecuteTokenTransferButtonUIProps = Pick<ExecuteTokenTransferButtonProps, 'tt' | 'onClickPassthrough' | 'autoReset' | 'autoClickIfNeverClicked' | 'loadForeverOnTransactionFeeUnaffordableError' | 'label' | 'successLabel' | 'warningLabel' | 'disabled' | 'showLoadingSpinnerWhenDisabled' | 'className' | 'disabledClassName' | 'enabledClassName' | 'errorClassName' | 'warningClassName' | 'loadingSpinnerClassName'> & {
   observer: Observer<ExecuteTokenTransferStatus | undefined>;
+  isExecuteTokenTransferRendered: boolean; // true iff the underlying ExecuteTokenTransfer associated with this ExecuteTokenTransferButton is currently being rendered
 };
 
-const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> = ({ tt, autoReset, loadForeverOnTransactionFeeUnaffordableError, label, successLabel, disabled, className, disabledClassName, enabledClassName, errorClassName, warningClassName, loadingSpinnerClassName, observer, }) => {
+const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> = ({ tt, onClickPassthrough, autoReset, autoClickIfNeverClicked, loadForeverOnTransactionFeeUnaffordableError, label, successLabel, warningLabel, disabled, showLoadingSpinnerWhenDisabled, className, disabledClassName, enabledClassName, errorClassName, warningClassName, loadingSpinnerClassName, observer, isExecuteTokenTransferRendered, }) => {
   const { connector: activeConnector } = useAccount();
   const statusFromObserver: ExecuteTokenTransferStatus | undefined = useObservedValue(observer);
-  const status = statusFromObserver || defaultExecuteTokenTransferStatus;
+  const status = (isExecuteTokenTransferRendered && statusFromObserver) || defaultExecuteTokenTransferStatus; // if the underlying ExecuteTokenTransfer is not currently being rendered, then any statusFromObserver is by definition stale as it's from an unmounted ExecuteTokenTransfer, so we mustn't use it. NB when ExecuteTokenTransfer is unmounted it sends a final undefined status, but statusFromObserver is updated async based on effect timers, whereas isExecuteTokenTransferRendered is computed synchronously on each render, so when ExecuteTokenTransfer is unmounted, isExecuteTokenTransferRendered flips to false before statusFromObserver becomes the final undefined status
+  // @eslint-no-use-below[statusFromObserver] -- statusFromObserver is abstracted over in `status` and not intended to be used again
 
   const connectedWalletAutoSigns: boolean = activeConnector ? activeConnector.id.includes("web3auth") : false; // true iff the connected wallet does not ask the user to sign the transaction and instead signs it on their behalf.
 
   useEffect(() => {
-    if (status.suggestAutoExecute) status.execute();
-  }, [status]);
+    if (!onClickPassthrough && status.suggestAutoExecute) status.execute(); // NB here we never auto execute if onClickPassthrough is defined because passthrough clicks are intended to supercede the button's internal functionality. Eg. if onClickPassthrough was defined to support some client feature, it would be jarring and potentially inconsistent to begin auto executing a token transfer
+  }, [onClickPassthrough, status]);
+
+  const se = status.execute; // use a local so that the useEffect dependency isn't on the entire object
+  const seclo = status.executeCalledAtLeastOnce; // use a local so that the useEffect dependency isn't on the entire object
+  useEffect(() => { // handle autoClickIfNeverClicked
+    if (!onClickPassthrough && autoClickIfNeverClicked && se && !seclo) se(); // NB here we never auto execute if onClickPassthrough is defined because passthrough clicks are intended to supercede the button's internal functionality. Eg. if onClickPassthrough was defined to support some client feature, it would be jarring and potentially inconsistent to begin auto executing a token transfer
+  }, [onClickPassthrough, autoClickIfNeverClicked, se, seclo]);
+  // @eslint-no-use-below[se]
+  // @eslint-no-use-below[seclo]
 
   useEffect(() => {
-    if (autoReset && !(status.isLoading && status.loadingStatus === 'SigningTransaction') && !status.userSignedTransaction) status.reset(); // here we never want to auto-reset after the user has signed the transaction (or is currently signing it) because that would lead to a terrible UX where a payment that's already been authorized is forgotten by the button
+    if (autoReset && !(status.isLoading && status.loadingStatus === 'SigningTransaction') && !status.signedTransaction) status.reset(); // WARNING we never want to auto-reset after the user has signed the transaction (or is currently signing it) because that would lead to a terrible UX where a payment that's already been authorized is forgotten by the button
     // eslint-disable-next-line react-hooks/exhaustive-deps -- here we don't care if status changes, all we care about is if tt changes then we should attempt an auto reset, and if we also depend on status, then we'll have both incorrect behavior (reseting on any status change) as well as an infinite reset loop (status changes -> reset -> repeat)
   }, [autoReset, tt]);
 
-  const isButtonDisabled = (disabled !== undefined) || !status.isReadyToExecute;
+  const computedOnClick: (() => void) | undefined = onClickPassthrough || status.execute;
+
+  const isButtonDisabled = disabled !== undefined || computedOnClick === undefined;
   const computedClassName = `relative ${className || ''} ${isButtonDisabled ? (disabledClassName || '') : ''} ${!isButtonDisabled ? (enabledClassName || '') : ''}`;
   const computedLabel = (() => {
     const disabledReason = typeof disabled === 'string' ? disabled : undefined;
@@ -169,19 +192,23 @@ const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> 
     const success = status.isSuccess ? successLabel : undefined;
     return <>{disabledReason || computedError || needToDismissOtherNetworkSwitch || needToSwitchNetworkManuallyMsg || needToSignInWallet || payingInProgress || success || label}</>;
   })();
-  const computedSpinner =
-    disabled === undefined // don't show loading spinner if button has been forcibly disabled by the client because even if it is loading internally, it won't be clickable until the client changes this
-    && (
-      status.isLoading // show loading spinner if button is loading, of course
-      || (status.error !== undefined && (status.error instanceof TransactionFeeUnaffordableError) && loadForeverOnTransactionFeeUnaffordableError) // show loading spinner if the button is errored, but the error is that the transaction fee is unaffordable and the client has set the flag to indicate we should render the button as loading when fee is unaffordable (typically, the client would request this because the client will then replace the active token transfer with one that might be affordable)
-    ) && <Spinner
+  const computedSpinner: JSX.Element | undefined =
+    (disabled === undefined // don't show loading spinner if button has been forcibly disabled by the client because even if it is loading internally, it won't be clickable until the client changes this
+      || showLoadingSpinnerWhenDisabled // but, potentially show the spinner when forcibly disabled if the client has set this option
+    ) && (
+        status.isLoading // show loading spinner if button is loading, of course
+        || (status.error !== undefined && (status.error instanceof TransactionFeeUnaffordableError) && loadForeverOnTransactionFeeUnaffordableError) // show loading spinner if the button is errored, but the error is that the transaction fee is unaffordable and the client has set the flag to indicate we should render the button as loading when fee is unaffordable (typically, the client would request this because the client will then replace the active token transfer with one that might be affordable)
+        || (disabled !== undefined && showLoadingSpinnerWhenDisabled) // show loading spinner if button is forcibly disabled and client requested to show loading spinner while forcibly disabled
+      ) ? <Spinner
       containerClassName="absolute top-1/2 transform -translate-y-1/2 right-4 z-10 h-6 w-6 flex items-center justify-center"
       spinnerClassName={`${loadingSpinnerClassName}`}
-    />;
-  const computedWarning = status.warning && <div className={`absolute top-1/2 transform -translate-y-1/2 right-4 text-sm leading-tight ${warningClassName || ''}`}>
+    /> : undefined;
+  const computedWarning = (warningLabel || status.warning) && <div className={`absolute top-1/2 transform -translate-y-1/2 right-4 text-sm leading-tight ${warningClassName || ''}`}>
     {(() => {
       // here we currently return the same "Rejected in wallet" warning for all warning types because I can't think of better language for network add/switch that fits within the limited space available for this warning --> TODO maybe more these warnings should be implemented in computedLabel as is NetworkSwitchNonFatalError
-      switch (status.warning) {
+      if (warningLabel) return warningLabel;
+      else if (!status.warning) throw new Error("unreachable"); // typescript doesn't know that status.warning must be defined here
+      else switch (status.warning) {
         case 'UserRejectedTransaction':
           return <span>Rejected<br />in wallet</span>;
         case 'UserRejectedNetworkSwitch':
@@ -197,7 +224,7 @@ const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> 
   return <button
     type="button"
     disabled={isButtonDisabled}
-    onClick={status.execute}
+    onClick={computedOnClick}
     className={computedClassName}
   >
     {computedLabel}
@@ -205,6 +232,8 @@ const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> 
     {computedSpinner}
   </button>;
 }
+
+type ExecuteTokenTransferLoadingStatus = 'Init' | 'SwitchingNetwork' | 'SigningTransaction' | 'ConfirmingTransaction';
 
 // ExecuteTokenTransferStatus represents a memoryless snapshot of the
 // internal status of an ExecuteTokenTransfer. ExecuteTokenTransfer
@@ -234,9 +263,9 @@ export type ExecuteTokenTransferStatus = Readonly<{
   executeCalledAtLeastOnce: boolean; // true iff execute() was called at least once by the client for the current activeTokenTransfer.
   suggestAutoExecute?: true; // true iff ExecuteTokenTransfer recommends that the client automatically invoke execute instead of eg. waiting for the user to click a button.
   isLoading: boolean;
-  loadingStatus?: 'Init' | 'SwitchingNetwork' | 'SigningTransaction' | 'ConfirmingTransaction';
+  loadingStatus?: ExecuteTokenTransferLoadingStatus;
   needToSwitchNetworkManually: boolean; // true iff a wallet active network switch is required to execute the to token transfer, but ExecuteTokenTransfer was unable to facilitate an automatic network switch, and the network must be switched by the client (such as by asking the user to switch it manually).
-  userSignedTransaction: boolean; // userSignedTransaction is true iff the user has signed the transaction. Note that userSignedTransaction is set to true immediately after successful signing before the transaction is confirmed, and is never cleared back to false unless the client calls reset()
+  signedTransaction?: SignedTransactionForTokenTransfer; // defined iff the user has successfully signed a transaction. Note that signedTransaction is set immediately after successful signing and before the transaction is confirmed, and is never updated unless the client calls reset()
   isSuccess: boolean;
   successData?: TransactionReceipt;
 } & ({
@@ -251,7 +280,7 @@ export type ExecuteTokenTransferStatus = Readonly<{
   isLoading: false;
   loadingStatus?: never;
   needToSwitchNetworkManually: false;
-  userSignedTransaction: boolean;
+  signedTransaction?: SignedTransactionForTokenTransfer;
   isSuccess: false;
   successData?: never;
 } | {
@@ -266,10 +295,10 @@ export type ExecuteTokenTransferStatus = Readonly<{
   isLoading: false;
   loadingStatus?: never;
   needToSwitchNetworkManually: false;
-  userSignedTransaction: false;
+  signedTransaction?: never;
   isSuccess: false;
   successData?: never;
-} | {
+} | ({
   status: 'Loading';
   isError: false;
   error?: never;
@@ -279,42 +308,44 @@ export type ExecuteTokenTransferStatus = Readonly<{
   executeCalledAtLeastOnce: boolean;
   suggestAutoExecute?: never;
   isLoading: true;
-  loadingStatus: string; // see enum of loading statuses in base type
+  loadingStatus: ExecuteTokenTransferLoadingStatus;
   needToSwitchNetworkManually: false;
-  userSignedTransaction: boolean;
   isSuccess: false;
   successData?: never;
-} | {
-  status: 'NeedToSwitchNetworkManually';
-  isError: false;
-  error?: never;
-  warning?: never;
-  isReadyToExecute: false;
-  execute?: never;
-  executeCalledAtLeastOnce: false;
-  suggestAutoExecute?: never;
-  isLoading: false;
-  loadingStatus?: never;
-  needToSwitchNetworkManually: true;
-  userSignedTransaction: false;
-  isSuccess: false;
-  successData?: never;
-} | {
-  status: 'Success';
-  isError: false;
-  error?: never;
-  warning?: never;
-  isReadyToExecute: false;
-  execute?: never;
-  executeCalledAtLeastOnce: true;
-  suggestAutoExecute?: never;
-  isLoading: false;
-  loadingStatus?: never;
-  needToSwitchNetworkManually: false;
-  userSignedTransaction: true;
-  isSuccess: true;
-  successData: TransactionReceipt;
-})>;
+} & (
+    { loadingStatus: 'ConfirmingTransaction'; signedTransaction: SignedTransactionForTokenTransfer }
+    | { loadingStatus: Exclude<ExecuteTokenTransferLoadingStatus, 'ConfirmingTransaction'>; signedTransaction?: never }
+  )) | {
+    status: 'NeedToSwitchNetworkManually';
+    isError: false;
+    error?: never;
+    warning?: never;
+    isReadyToExecute: false;
+    execute?: never;
+    executeCalledAtLeastOnce: boolean;
+    suggestAutoExecute?: never;
+    isLoading: false;
+    loadingStatus?: never;
+    needToSwitchNetworkManually: true;
+    signedTransaction?: never;
+    isSuccess: false;
+    successData?: never;
+  } | {
+    status: 'Success';
+    isError: false;
+    error?: never;
+    warning?: never;
+    isReadyToExecute: false;
+    execute?: never;
+    executeCalledAtLeastOnce: true;
+    suggestAutoExecute?: never;
+    isLoading: false;
+    loadingStatus?: never;
+    needToSwitchNetworkManually: false;
+    signedTransaction: SignedTransactionForTokenTransfer;
+    isSuccess: true;
+    successData: TransactionReceipt;
+  })>;
 
 function transferStatusToButtonStatus(s: ExecuteTokenTransferStatus): ExecuteTokenTransferButtonStatus {
   switch (s.status) {
@@ -328,7 +359,7 @@ function transferStatusToButtonStatus(s: ExecuteTokenTransferStatus): ExecuteTok
       buttonClickedAtLeastOnce: s.executeCalledAtLeastOnce,
       needToSwitchNetworkManually: false,
       userIsSigningTransaction: false,
-      userSignedTransaction: s.userSignedTransaction,
+      ...(s.signedTransaction && { signedTransaction: s.signedTransaction } satisfies Pick<ExecuteTokenTransferButtonStatus, 'signedTransaction'>),
       isSuccess: false,
     };
     case 'ReadyToExecute': return {
@@ -340,7 +371,6 @@ function transferStatusToButtonStatus(s: ExecuteTokenTransferStatus): ExecuteTok
       buttonClickedAtLeastOnce: s.executeCalledAtLeastOnce,
       needToSwitchNetworkManually: false,
       userIsSigningTransaction: false,
-      userSignedTransaction: false,
       isSuccess: false,
     };
     case 'Loading': return {
@@ -352,7 +382,7 @@ function transferStatusToButtonStatus(s: ExecuteTokenTransferStatus): ExecuteTok
       buttonClickedAtLeastOnce: s.executeCalledAtLeastOnce,
       needToSwitchNetworkManually: false,
       userIsSigningTransaction: s.loadingStatus === 'SigningTransaction',
-      userSignedTransaction: s.userSignedTransaction,
+      ...(s.loadingStatus === 'ConfirmingTransaction' && { signedTransaction: s.signedTransaction } satisfies Pick<ExecuteTokenTransferButtonStatus, 'signedTransaction'>),
       isSuccess: false,
     };
     case 'NeedToSwitchNetworkManually': return {
@@ -364,7 +394,6 @@ function transferStatusToButtonStatus(s: ExecuteTokenTransferStatus): ExecuteTok
       buttonClickedAtLeastOnce: s.executeCalledAtLeastOnce,
       needToSwitchNetworkManually: true,
       userIsSigningTransaction: false,
-      userSignedTransaction: false,
       isSuccess: false,
     };
     case 'Success': return {
@@ -376,7 +405,7 @@ function transferStatusToButtonStatus(s: ExecuteTokenTransferStatus): ExecuteTok
       buttonClickedAtLeastOnce: s.executeCalledAtLeastOnce,
       needToSwitchNetworkManually: false,
       userIsSigningTransaction: false,
-      userSignedTransaction: true,
+      signedTransaction: s.signedTransaction,
       isSuccess: true,
       successData: s.successData,
     };
@@ -386,7 +415,7 @@ function transferStatusToButtonStatus(s: ExecuteTokenTransferStatus): ExecuteTok
 export type ExecuteTokenTransferProps = {
   tt: TokenTransfer; // the token transfer this will execute. WARNING ExecuteTokenTransfer doesn't support arbitrary ongoing changes to the props TokenTransfer. See ExecuteTokenTransferStatus.activeTokenTransfer.
   confirmationsBeforeSuccess?: number; // number of block confirmations to wait for before reporting a successful transfer. Defaults to 1
-  setStatus: (status: ExecuteTokenTransferStatus) => void; // callback for the client to receive updated transfer status. This callback is mandatory because the client must call status.execute() to move the transfer forward. React note: if an ancestor component of ExecuteTokenTransfer caches this updated status as state, then ExecuteTokenTransfer will rerender redundantly each time it updates the status (because an ancestor's subtree rerenders on state change). These redundant rerenders can be avoided by storing eg. an Observer in the ancestor and using the updated status in a cousin component (including potentially caching it as state).
+  setStatus: (status: ExecuteTokenTransferStatus | undefined) => void; // callback for the client to receive updated transfer status. This callback is mandatory because the client must call status.execute() to move the transfer forward. Only the most recently received status is valid. All previously received statuses must be discarded by the client. If undefined is received, it means no status is available (typically because the component has unmounted) and that the most recent defined status is stale. React note: if an ancestor component of ExecuteTokenTransfer caches this updated status as state, then ExecuteTokenTransfer will rerender redundantly each time it updates the status (because an ancestor's subtree rerenders on state change). These redundant rerenders can be avoided by storing eg. an Observer in the ancestor and using the updated status in a cousin component (including potentially caching it as state)
 }
 
 // ExecuteTokenTransfer is our low-level facility to execute a single
@@ -414,7 +443,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
   const [cachedTT, setCachedTT] = useState<ExecuteTokenTransferProps['tt']>(props.tt); // wagmi's prepare/write/wait hooks aren't particularly resilient to automatic changes in the transfer details. Instead, we cache props.tt to lock in the transfer instance. Clients that wish to change the value of tt can call status.reset() to force a recache to the latest value of props.tt.
 
   const [isSuccess, setIsSuccess] = useState(false); // wait.isSuccess can sometimes reset itself back to idle (such as on a network switch), so to prevent a Success status from clearing itself, we cache success status as state so that after the user has successfully paid, the transfer never clears its success status unless reset.
-  const [userSignedTransaction, setUserSignedTransaction] = useState(false); // userSignedTransaction is set to true iff the user has signed the transaction. Note that userSignedTransaction is set to true immediately after successful signing, before the transaction is confirmed, and is never cleared back to false unless the client calls reset(). The sole purpose of userSignedTransaction is to be surfaced to the client to eg. help the client decide whether or not they want to call reset(). NB write.isSuccess can sometimes reset itself back to idle (such as on a network switch), so to prevent loss of information, we cache userSignedTransaction as state.
+  const [signedTransaction, setSignedTransaction] = useState<SignedTransactionForTokenTransfer | undefined>(undefined); // defined iff the user has successfully signed a transaction. Note that signedTransaction is set immediately after successful signing, before the transaction is confirmed, and is never updated unless the client calls reset(). The sole purpose of signedTransaction is to be surfaced to the client to eg. help the client decide whether or not they want to call reset() or eg. send the signed transaction details to some 3rd party. NB `write` can sometimes reset itself back to idle (such as on a network switch), so to prevent loss of information, we cache signedTransaction as state.
   const [autoExecuteState, setAutoExecuteState] = useState<'none' | 'clickedExecuteAndStartedSwitchingNetwork' | 'finishedSwitchingNetworkAndShouldAutoExecute' | 'autoRetry'>("none"); // autoExecuteState is a small state machine used to control whether or not execution of prompting the user to sign the transaction will happen automatically. We want to auto-execute if the user already called status.execute() once (eg. user clicked button once) AND this click caused a network switch to be triggered AND that network switch was successful. This avoids requiring the user to click the button more than once when a network add and/or switch is required. We also want to auto-execute if the transfer has determined it should be automatically retried.
   const [transactionReceipt, setTransactionReceipt] = useState<TransactionReceipt | undefined>(undefined); // `wait` can sometimes can reset itself (such as on network switch), so we cache `wait.data: TransactionReceipt` into transactionReceipt so that after the user has successfully paid, the transfer always has a copy of its receipt.
   const [retries, setRetries] = useState(0); // number of retries, where a retry is attempted when an error occurs that isRetryableError (and would otherwise be a fatal error if it weren't retrayble). This retry count is used to prevent an infinite number of retries. WARNING `retries` is the only state that isn't automatically cleared across resets as it tracks the number of resets in service of automatic retries. Instead, `retries` is cleared only if the client calls status.reset(), so that the retry count is properly reset if the tokenTransfer changes.
@@ -442,9 +471,17 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
   //    confirmed: success
   //    revert: ? presumably error
 
-  const onTransactionSigned = useCallback<() => void>(() => {
-    setUserSignedTransaction(true);
-  }, [setUserSignedTransaction]);
+  const onTransactionSigned = useCallback<(o: { hash: string }) => void>(({ hash }) => {
+    setSignedTransaction(prev => {
+      const n: SignedTransactionForTokenTransfer = {
+        transactionHash: hash,
+        chainId: cachedTT.token.chainId,
+        tokenTransfer: cachedTT,
+      };
+      if (prev) console.error("ExecuteTokenTransfer setSignedTransaction: expected signedTransaction to be previously undefined, prev=", prev, "new=", n);
+      return n;
+    });
+  }, [setSignedTransaction, cachedTT]);
 
   // ********** BEGIN hooks used only for token transfers (and not native currency transfers) **********
   const prepareContractWriteParams = useMemo(() => { // here we must memoize prepareContractWriteParams so that a new object isn't created each render which would cause usePrepareContractWrite to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
@@ -601,7 +638,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
       // WARNING however, here we do not clear retries (ie. we dont call setRetries) as retries is persisted across resets.
       setCachedTT(props.tt);
       setIsSuccess(false);
-      setUserSignedTransaction(false);
+      setSignedTransaction(undefined);
       setAutoExecuteState(willAutoRetry && executeCalledAtLeastOnce && !isSuccess ? "autoRetry" : "none"); // here, we will auto-execute due to autoRetry iff we've just reset due to an auto retry and also the user clicked the button at least once since the previous retry and also we check !isSuccess as an extra sanity to help ensure we don't auto-execute a double-spend. WARNING the latter clause of not auto-executing unless the user clicked the button at least once is crucial because there certain usePrepareContractWrite(...).errors are retryable, and so if we were to auto-execute without the condition of user having clicked button, we would be sending a transaction the user didn't actually request (eg. button loads -> prepare emits retryable error -> reset -> autoRetry -> auto-execute -> now we've executed without the user ever having clicked the button, which is particularly bad for wallets like web3auth that auto-approve any suggestion transactions, so we'd be sending money without the user ever having approved it!)
       setWillAutoRetry(false);
       setTransactionReceipt(undefined);
@@ -610,7 +647,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
       setExecuteCalledAtLeastOnce(false);
       setDoReset(false);
     }
-  }, [props.tt, setCachedTT, setIsSuccess, isSuccess, setUserSignedTransaction, setAutoExecuteState, setTransactionReceipt, writeReset, swr, setExecuteCalledAtLeastOnce, executeCalledAtLeastOnce, setDoReset, doReset, willAutoRetry, setWillAutoRetry]);
+  }, [props.tt, setCachedTT, setIsSuccess, isSuccess, setSignedTransaction, setAutoExecuteState, setTransactionReceipt, writeReset, swr, setExecuteCalledAtLeastOnce, executeCalledAtLeastOnce, setDoReset, doReset, willAutoRetry, setWillAutoRetry]);
   // @eslint-no-use-below[swr] swr is a local variable intended only to help optimize the above hook
 
   const needToSwitchNetwork: boolean =
@@ -619,7 +656,9 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
 
   const sw = switchNetwork.switchNetwork; // allow useMemo hook dep to be on switchNetwork.switchNetwork instead of switchNetwork
   const writeIsLoading = write.isLoading; // allow useMemo hook dep to be on write.isLoading instead of write;
-  const execute: () => void = useCallback(() => { // status will be ReadyToExecute only if the user may prompt a programmatic network switch or sign the transaction. So, here we construct an execute function to run these actions. NB it may be invalid to run this execute because we would be in any status (such as Error), but we construct execute here because hooks must be run unconditionally. WARNING we construct execute with useCallback so that if execute's dependencies change, we'll trigger a rerender and pass the updated execute to the client. If instead we defined execute inline (without useCallback/useMemo), then execute's dependencies could change but the client would still have a stale version of execute if a re-render hadn't been triggered to push the new status and new execute to the client
+  const execute: () => void = useCallback(() => { // status will be ReadyToExecute only if the user may prompt a programmatic network switch or sign the transaction. So, here we construct an execute function to run these actions. NB it may be invalid to run this execute because we would be in any status (such as Error), but we construct execute here because hooks must be run unconditionally
+    // TODO consider deferred execution of execute() using a technique simlar to setDoReset(true). Something like `{ if (doExecute) console.warn('execute already in progress'); else if (doReset) console.warn('can't execute during a reset'); else setDoExecute(true); }` --> but how would deferred execution interact with resets? The `if (doReset)` can't guarantee that a reset hasn't occurred by the time execution takes place, it would depend on effect hook orders. As well, if a client requests a reset, they expect to get it -- would a reset be skipped if execution is pending? --> the main benefit of deferred execution is to prevent clients from calling a damaging execute() on a stale status. Eg. execute() on a stale status will cause the wallet to try and sign a stale transaction. But rn, the only client of execute() is our internal button library, so this doesn't seem like a valuable change.
+
     setExecuteCalledAtLeastOnce(true);
     if (!isConnected) {
       console.error("ExecuteTokenTransfer: execute() called when wallet not connected");
@@ -668,7 +707,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
 
   useEffect(() => {
     const nextStatus: ExecuteTokenTransferStatus = (() => {
-      if (transactionReceipt && isSuccess) { // NB here we compute Success status regardless of whether or not the wallet is connected. This is because wagmi's wait hook is able to monitor for confirmation even if the user's wallet disconnects or the wallet's active chain changes. So by computing Succcess status regardles of wallet connection/active chain, we're being more useful to the client. Also see design note on isSuccess definition.
+      if (signedTransaction && transactionReceipt && isSuccess) { // NB here we compute Success status regardless of whether or not the wallet is connected. This is because wagmi's wait hook is able to monitor for confirmation even if the user's wallet disconnects or the wallet's active chain changes. So by computing Succcess status regardles of wallet connection/active chain, we're being more useful to the client. Also see design note on isSuccess definition.
         const s: ExecuteTokenTransferStatus = {
           activeTokenTransfer: cachedTT,
           reset,
@@ -678,27 +717,45 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
           executeCalledAtLeastOnce: true,
           isLoading: false,
           needToSwitchNetworkManually: false,
-          userSignedTransaction: true,
+          signedTransaction,
           isSuccess: true,
           successData: transactionReceipt,
         };
         return s;
-      } else if (!transactionReceipt && isSuccess) {
-        // here we've entered into an inconsistent state where the transfer was successful but the transaction receipt is unavailable
-        const s: ExecuteTokenTransferStatus = {
-          activeTokenTransfer: cachedTT,
-          reset,
-          status: 'Error',
-          isError: true,
-          error: Error(`Receipt Missing`),
-          isReadyToExecute: false,
-          executeCalledAtLeastOnce,
-          isLoading: false,
-          needToSwitchNetworkManually: false,
-          userSignedTransaction,
-          isSuccess: false,
-        };
-        return s;
+      } else if (isSuccess) {
+        // here we've entered into an inconsistent state where the transfer was successful but one or more necessary data are unavailable
+        if (!signedTransaction) {
+          // status is success but signedTransaction is unexpectedly undefined (and possibly transactionReceipt, too)
+          const s: ExecuteTokenTransferStatus = {
+            activeTokenTransfer: cachedTT,
+            reset,
+            status: 'Error',
+            isError: true,
+            error: Error(`Signed Transaction Missing On Success`),
+            isReadyToExecute: false,
+            executeCalledAtLeastOnce,
+            isLoading: false,
+            needToSwitchNetworkManually: false,
+            isSuccess: false,
+          };
+          return s;
+        } else {
+          // status is success, transactionReceipt missing
+          const s: ExecuteTokenTransferStatus = {
+            activeTokenTransfer: cachedTT,
+            reset,
+            status: 'Error',
+            isError: true,
+            error: Error(`Receipt Missing On Success`),
+            isReadyToExecute: false,
+            executeCalledAtLeastOnce,
+            isLoading: false,
+            needToSwitchNetworkManually: false,
+            signedTransaction,
+            isSuccess: false,
+          };
+          return s;
+        }
       } else if (!autoRetryInProgress && (
         (prepare.error
           && !isChainMismatchError(prepare.error)
@@ -723,7 +780,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
           executeCalledAtLeastOnce,
           isLoading: false,
           needToSwitchNetworkManually: false,
-          userSignedTransaction,
+          ...(signedTransaction && { signedTransaction } satisfies Pick<ExecuteTokenTransferStatus, 'signedTransaction'>),
           isSuccess: false,
         };
         return s;
@@ -749,20 +806,52 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
           else if (wait.isLoading) return 'ConfirmingTransaction';
           else throw new Error(`ExecuteTokenTransfer: unexpected loading status`);
         })();
-        const s: ExecuteTokenTransferStatus = {
-          activeTokenTransfer: cachedTT,
-          reset,
-          status: 'Loading',
-          isError: false,
-          isReadyToExecute: false,
-          executeCalledAtLeastOnce,
-          isLoading: true,
-          loadingStatus,
-          needToSwitchNetworkManually: false,
-          userSignedTransaction,
-          isSuccess: false,
-        };
-        return s;
+        if (loadingStatus === 'ConfirmingTransaction') {
+          if (signedTransaction) {
+            const s: ExecuteTokenTransferStatus = {
+              activeTokenTransfer: cachedTT,
+              reset,
+              status: 'Loading',
+              isError: false,
+              isReadyToExecute: false,
+              executeCalledAtLeastOnce,
+              isLoading: true,
+              loadingStatus: 'ConfirmingTransaction',
+              needToSwitchNetworkManually: false,
+              signedTransaction,
+              isSuccess: false,
+            };
+            return s;
+          } else {
+            const s: ExecuteTokenTransferStatus = {
+              activeTokenTransfer: cachedTT,
+              reset,
+              status: 'Error',
+              isError: true,
+              error: Error(`Signed Transaction Missing When Confirming Transaction`),
+              isReadyToExecute: false,
+              executeCalledAtLeastOnce,
+              isLoading: false,
+              needToSwitchNetworkManually: false,
+              isSuccess: false,
+            };
+            return s;
+          }
+        } else {
+          const s: ExecuteTokenTransferStatus = {
+            activeTokenTransfer: cachedTT,
+            reset,
+            status: 'Loading',
+            isError: false,
+            isReadyToExecute: false,
+            executeCalledAtLeastOnce,
+            isLoading: true,
+            loadingStatus,
+            needToSwitchNetworkManually: false,
+            isSuccess: false,
+          };
+          return s;
+        }
       } else if (needToSwitchNetwork && (
         switchNetwork.switchNetwork === undefined // need to switch network manually if wagmi was unable to construct a switchNetwork instance
         || (
@@ -778,10 +867,9 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
           status: 'NeedToSwitchNetworkManually',
           isError: false,
           isReadyToExecute: false,
-          executeCalledAtLeastOnce: false,
+          executeCalledAtLeastOnce,
           isLoading: false,
           needToSwitchNetworkManually: true,
-          userSignedTransaction: false,
           isSuccess: false,
         };
         return s;
@@ -799,7 +887,6 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
           executeCalledAtLeastOnce,
           isLoading: false,
           needToSwitchNetworkManually: false,
-          userSignedTransaction: false,
           isSuccess: false,
         };
         if (userRejectedTransactionSignRequest) {
@@ -832,14 +919,18 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
           executeCalledAtLeastOnce,
           isLoading: false,
           needToSwitchNetworkManually: false,
-          userSignedTransaction,
+          ...(signedTransaction && { signedTransaction } satisfies Pick<ExecuteTokenTransferStatus, 'signedTransaction'>),
           isSuccess: false,
         };
         return s;
       }
     })();
     setStatus(nextStatus); // design note: in general, nextStatus may be identical to the current status cached by clients. This is because there's a loss of information between this useEffect's dependencies when computing nextStatus. For example, if switchNetwork becomes defined, we will compute nextStatus, but both the current and next status may have nothing to do with switchNetwork being defined or not. In fact, this is exactly what usually happens when this component initializes: switchNetwork.switchNetwork is initially undefined, and it becomes defined shortly after mounting, which triggers computation of nextStatus, but both the current status and nextStatus are "Loading - Init", so we know we're usually sending a redundant nextStatus to the client. If we wanted to fix this, a good way to do so may be to do a deep comparison of ObservableValue.getCurrentValue vs. nextStatus in ExecuteTokenTransferButton, and skip calling setValueAndNotifyObservers if the current and next statuses are equal. A good deep comparison library is fast-deep-equal, it is both fast and relatively small (13kb), but that's still an extra 13kb of bundle size. But currently, we think it's better to shave 13kb off the bundle size vs. avoiding a few unnecessary rerenders that React handles instantly and without any UI jank/disruptions because the shadow DOM diff interprets the redundant status update as a no-op, so that's why right now, nextStatus may be identical to the current status cached by clients.
-  }, [setStatus, isConnected, cachedTT, prepare.error, write.error, wait.error, switchNetwork.error, prepare.isLoading, write.isLoading, wait.isLoading, switchNetwork.isLoading, isEverythingIdle, needToSwitchNetwork, switchNetwork.switchNetwork, execute, reset, transactionReceipt, isSuccess, userSignedTransaction, signAndSendTransaction, autoExecuteState, userRejectedTransactionSignRequest, transactionFeeUnaffordableError, executeCalledAtLeastOnce, autoRetryInProgress]);
+  }, [setStatus, isConnected, cachedTT, prepare.error, write.error, wait.error, switchNetwork.error, prepare.isLoading, write.isLoading, wait.isLoading, switchNetwork.isLoading, isEverythingIdle, needToSwitchNetwork, switchNetwork.switchNetwork, execute, reset, transactionReceipt, isSuccess, signedTransaction, signAndSendTransaction, autoExecuteState, userRejectedTransactionSignRequest, transactionFeeUnaffordableError, executeCalledAtLeastOnce, autoRetryInProgress]);
+
+  useEffect(() => { // when this component unmounts, send a final undefined status so the client knows that any defined status is stale
+    return () => setStatus(undefined);
+  }, [setStatus]);
 
   return null;
 }
