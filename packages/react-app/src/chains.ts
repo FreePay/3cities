@@ -389,7 +389,7 @@ export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
     arbitrum,
     arbitrumNova,
     zkSync,
-    scroll,
+    // scroll, // scroll is currently disabled because rpc is throwing CORS errors on localhost and in prod
     linea,
     zora,
     base,
