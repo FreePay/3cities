@@ -35,6 +35,9 @@ module.exports = {
         "eqeqeq": [
             "error",
         ],
+        "new-cap": [
+            "error",
+        ],
         "no-restricted-imports": [
             "error",
             {
