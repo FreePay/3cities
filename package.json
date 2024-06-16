@@ -9,9 +9,9 @@
   "private": true,
   "scripts": {
     "lint": "yarn workspace @3cities/react-app lint && yarn workspace @3cities/eth-transfer-proxy lint",
-    "build": "yarn workspace @3cities/react-app build && yarn workspace @3cities/eth-transfer-proxy build",
-    "build:prod-test": "yarn workspace @3cities/react-app build:prod-test",
+    "build": "yarn workspace @3cities/eth-transfer-proxy build && yarn workspace @3cities/react-app build",
     "start": "yarn workspace @3cities/react-app start",
+    "eth-transfer-proxy:build": "yarn workspace @3cities/eth-transfer-proxy build",
     "react-app:analyze": "yarn workspace @3cities/react-app analyze",
     "react-app:build:dev": "yarn workspace @3cities/react-app build:dev",
     "react-app:build:prod-test": "yarn workspace @3cities/react-app build:prod-test",
