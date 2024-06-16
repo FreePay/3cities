@@ -273,7 +273,8 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     <span className="text-sm text-center">Please <span className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker" onClick={setCopied}>copy error</span> and<br />paste in a DM to <ExternalLink href="https://twitter.com/3cities_xyz">@3cities_xyz</ExternalLink></span>
   </div> : undefined, [statusIsError, doReset, isErrorCopied, setCopied]);
 
-  const exchangeRates: ExchangeRates | undefined = useExchangeRates();
+  const exchangeRates: ExchangeRates | undefined = useExchangeRates(checkoutSettings.exchangeRates);
+
 
   const proposedStrategies = useMemo<ProposedStrategy[]>(() => { // WARNING proposedStrategies are computed without considering any connected wallet, and may contain synthetic (non-real) payment amounts for illustrative purposes
     const p = ((): ProposedPaymentWithFixedAmount => {

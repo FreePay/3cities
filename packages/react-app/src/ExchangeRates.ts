@@ -1,3 +1,4 @@
+import { DeepWritable } from "./Writable";
 import { LogicalAssetTicker, parseLogicalAssetAmount } from "./logicalAssets";
 import { toUppercase } from "./toUppercase";
 
@@ -46,6 +47,26 @@ export function areExchangeRatesEqual(a: ExchangeRates | undefined, b: ExchangeR
       }
       return isEqual;
     }
+  }
+}
+
+// mergeExchangeRates merges the passed exchange rates, prioritizing
+// rates in `right` over `left`.
+export function mergeExchangeRates(left: ExchangeRates | undefined, right: ExchangeRates | undefined): ExchangeRates | undefined {
+  if (left === undefined && right === undefined) return undefined;
+  else return mergeMutable(mergeMutable({}, left), right);
+
+  function mergeMutable(target: DeepWritable<ExchangeRates>, source: ExchangeRates | undefined): ExchangeRates {
+    if (source !== undefined) for (const [fromRaw, toRates] of Object.entries(source)) {
+      const from = toUppercase(fromRaw);
+      if (target[from] === undefined) target[from] = {};
+      for (const [toRaw, rate] of Object.entries(toRates)) {
+        const to = toUppercase(toRaw);
+        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
+        target[from]![to] = rate;
+      }
+    }
+    return target;
   }
 }
 

@@ -26,6 +26,7 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
   const chainIdsRaw: string | undefined = searchParams.get("chainIds") || undefined;
   const mode: string | undefined = searchParams.get("mode") || undefined;
   const currency: string | undefined = searchParams.get("currency") || undefined;
+  const usdPerEth: string | undefined = searchParams.get("usdPerEth") || undefined;
   const logicalAssetAmountFullPrecision: string | undefined = searchParams.get("amount") || undefined; // iff set, the proposed payment mode will be overridden to be fixed using this passed logical asset amount denominated in full precision logical asset units (eg. 1 logical asset == 10^18)
   const requireInIframeOrErrorWith: string | undefined = searchParams.get("requireInIframeOrErrorWith") || undefined;
   const iframeParentWindowOrigin: string | undefined = searchParams.get("iframeParentWindowOrigin") || undefined;
@@ -82,6 +83,19 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
         }
       }
 
+      if (usdPerEth) {
+        const usdPerEthParsed = parseFloat(usdPerEth);
+        if (!isNaN(usdPerEthParsed)) {
+          cs = {
+            ...cs,
+            exchangeRates: {
+              ETH: { USD: usdPerEthParsed }, // ie. this rate is USD/ETH because the numerator is nested
+              USD: { ETH: 1 / usdPerEthParsed }, // ie. this rate is ETH/USD because the numerator is nested. WARNING here we set ETH/USD to ensure consistency with USD/ETH. If we didn't set it, then 3cities might internally provide a different rate
+            },
+          };
+        }
+      }
+
       if (logicalAssetAmountFullPrecision) {
         cs = {
           ...cs,
@@ -119,7 +133,7 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
 
       return cs;
     }
-  }, [csIn, chainIdsRaw, mode, currency, logicalAssetAmountFullPrecision, requireInIframeOrErrorWith, iframeParentWindowOrigin, authenticateSenderAddress, verifyEip1271Signature, autoCloseIframeOnSuccess]);
+  }, [csIn, chainIdsRaw, mode, currency, usdPerEth, logicalAssetAmountFullPrecision, requireInIframeOrErrorWith, iframeParentWindowOrigin, authenticateSenderAddress, verifyEip1271Signature, autoCloseIframeOnSuccess]);
 
   return csOut;
 }

@@ -1,3 +1,4 @@
+import { ExchangeRates } from "./ExchangeRates";
 import { ProposedPayment } from "./Payment";
 import { StrategyPreferences } from "./StrategyPreferences";
 
@@ -81,6 +82,7 @@ export type CheckoutSettings = Readonly<{
   requireInIframeOrErrorWith?: string; // iff defined, the 3cities window must be an iframe with a defined window.parent otherwise checkout may not proceed and `requireInIframeOrErrorWith` will be displayed to the user as an error message. This prevents the checkout from occurring in a standalone window when client recognition of that checkout depends on iframe message passing
   iframeParentWindowOrigin?: string; // if defined and 3cities is running in an iframe, then messages sent by 3cities to the parent window require that the parent window's origin match iframeParentWindowOrigin (or the messages will not be dispatched by window.postMessage). WARNING if iframeParentWindowOrigin is undefined and 3cities is running in an iframe, then 3cities will set postMessage targetOrigin to '*' which can be a security risk. https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage#targetorigin
   authenticateSenderAddress?: AuthenticateSenderAddress; // iff defined, 3cities will require the sender/buyer to sign a message proving ownership of their address prior to checking out. When running in an iframe, the signature is provided to the client via iframe message passing upon sucessful checkout. Clients may use this signature to securely associate an onchain transaction with the client's view of the checkout
+  exchangeRates?: ExchangeRates; // iff defined, 3cities will merge these exchange rates with 3cities's own internally calculated exchange rates, prioritizing these rates over the internal rates (ie. these rates are overrides). Note that 3cities has its own internal exchange rates engine and defining rates here is not required to enjoy automatic multi-currency payments. WARNING before passing any overrides, take a look at internal exchange rates data and algorithms to anticipate any potentially negative interactions.
 }>
 
 // CheckoutOutcomeBase is a shared base type to centralize data common
