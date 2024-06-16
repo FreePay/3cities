@@ -32,7 +32,7 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
   const iframeParentWindowOrigin: string | undefined = searchParams.get("iframeParentWindowOrigin") || undefined;
   const authenticateSenderAddress: boolean = ((searchParams.get("authenticateSenderAddress") || undefined)?.length || 0) > 0;
   const verifyEip1271Signature: boolean = ((searchParams.get("verifyEip1271Signature") || undefined)?.length || 0) > 0;
-  const autoCloseIframeOnSuccess: boolean = ((searchParams.get("autoCloseIframeOnSuccess") || undefined)?.length || 0) > 0;
+  const clickToCloseIframeLabel: string | undefined = searchParams.get("clickToCloseIframeLabel") || undefined;
   // @eslint-no-use-below[searchParams] -- all search params have now been assigned. Further use of searchParams is not expected
 
   const csOut = useMemo<CheckoutSettings | CheckoutSettingsRequiresPassword | undefined>(() => {
@@ -121,19 +121,23 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
         } satisfies Pick<CheckoutSettings, "authenticateSenderAddress">),
       };
 
-      if (autoCloseIframeOnSuccess) cs = { // TODO support more of the SuccessAction API via url params
+      if (clickToCloseIframeLabel) cs = { // TODO support more of the SuccessAction API via url params
         ...cs,
         successAction: {
           closeWindow: {
             ifStandaloneWindow: {},
-            ifIframe: { autoClose: {} },
+            ifIframe: {
+              clickToClose: {
+                callToAction: clickToCloseIframeLabel,
+              }
+            },
           },
         },
       };
 
       return cs;
     }
-  }, [csIn, chainIdsRaw, mode, currency, usdPerEth, logicalAssetAmountFullPrecision, requireInIframeOrErrorWith, iframeParentWindowOrigin, authenticateSenderAddress, verifyEip1271Signature, autoCloseIframeOnSuccess]);
+  }, [csIn, chainIdsRaw, mode, currency, usdPerEth, logicalAssetAmountFullPrecision, requireInIframeOrErrorWith, iframeParentWindowOrigin, authenticateSenderAddress, verifyEip1271Signature, clickToCloseIframeLabel]);
 
   return csOut;
 }
