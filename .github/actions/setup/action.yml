@@ -5,6 +5,8 @@ name: setup
 runs:
   using: composite
   steps:
+    - name: "Install Foundry"
+      uses: "3cities/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773"
     - uses: 3cities/setup-node@a9893b0cfb0821c9c7b5fec28a6a2e6cdd5e20a4
       with:
         node-version-file: '.nvmrc'
