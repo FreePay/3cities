@@ -5,13 +5,11 @@ runs:
   steps:
     - uses: ./.github/actions/setup
     # TODO run tests
-    - run: yarn lint # verify lint passes
+    - run: yarn lint
       shell: bash # NB when using a composite action type, it's necessary to set the shell (not sure why, and docs don't say), whereas you can use `run: yarn build` in a workflow without specifying the shell https://stackoverflow.com/a/71042698
-    - run: yarn eth-transfer-proxy:build # verify eth-transfer-proxy build works. WARNING this also causes @3cities/eth-transfer-proxy node module to become available to other packages
+    - run: yarn build:dev
       shell: bash
-    - run: yarn react-app:build:dev # verify dev build works
+    - run: yarn build:prod-test
       shell: bash
-    - run: yarn react-app:build:prod-test # verify prod-test build works
-      shell: bash
-    - run: yarn react-app:build # verify production build works
+    - run: yarn build
       shell: bash
