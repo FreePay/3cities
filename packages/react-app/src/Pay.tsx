@@ -22,7 +22,6 @@ import { ToggleSwitch } from "./ToggleSwitch";
 import { isNativeCurrency } from "./Token";
 import { getBlockExplorerUrlForAddress, getBlockExplorerUrlForTransaction } from "./blockExplorerUrls";
 import { getChain, getSupportedChainName } from "./chains";
-import { formatFloat } from "./formatFloat";
 import { IframeMessage, closeIframe, isRunningInAStandaloneWindow, isRunningInAnIframe, notifyParentWindowOfSuccessfulCheckout } from "./iframe";
 import { LogicalAssetTicker, defaultSmallAmountsPerLogicalAsset, parseLogicalAssetAmount } from "./logicalAssets";
 import { getLogicalAssetTickerForTokenOrNativeCurrencyTicker } from "./logicalAssetsToTokens";
@@ -38,7 +37,6 @@ import { useCheckoutSettings } from "./useCheckoutSettings";
 import { useConnectedAccountContext } from "./useConnectedAccountContext";
 import useDebounce from "./useDebounce";
 import { useExchangeRates } from "./useExchangeRates";
-import { useInitialLoadTimeInSeconds } from "./useInitialLoadTimeInSeconds";
 import { useInput } from "./useInput";
 import { useLogicalAssetTickerSelectionInput } from "./useLogicalAssetTickerSelectionInput";
 import { useProposedPaymentReceiverAddressAndEnsName } from "./useProposedPaymentReceiverAddressAndEnsName";
@@ -540,8 +538,6 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     </div>;
   }, [checkoutSettings.nativeTokenTransferProxy, setStatus, checkoutVerbCapitalized, activeDemoAccount, retryButton, executeTokenTransferButtonPropValues]);
 
-  const initialLoadTimeInSeconds: number | undefined = useInitialLoadTimeInSeconds([bestStrategy, ac && ac.address === connectedAddress], [checkoutSettings, connectedAddress]);
-
   const paymentScreen: false | JSX.Element = useMemo(() => !statusIsSuccess && <div className={`${selectingPaymentMethod ? 'hidden' : '' /* WARNING here we hide the payment screen when selecting payment method instead of destroying it. This avoids an ExecuteTokenTransferButton remount each time the payment method changes, which is a mechanism to test reset logic and code paths. */}`}>
     <div className="w-full py-6">
       {(() => {
@@ -711,10 +707,10 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
             change
           </button></span>}
         </div>
-        <span className="text-gray-500 text-xs">{(otherStrategies || []).length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment method{(otherStrategies || []).length > 0 ? 's' : ''} across {[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length} chain{[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length > 1 ? 's' : ''} {initialLoadTimeInSeconds ? <span>({formatFloat(initialLoadTimeInSeconds, 2)} seconds)</span> : undefined}</span>
+        <span className="text-gray-500 text-xs">{(otherStrategies || []).length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment method{(otherStrategies || []).length > 0 ? 's' : ''} across {[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length} chain{[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length > 1 ? 's' : ''}</span>
       </div>
     </div>}
-  </div>, [checkoutVerbLowercase, checkoutVerbCapitalized, checkoutNounLowercase, startTransition, isConnected, checkoutSettings.note, checkoutSettings.proposedPayment.logicalAssetTickers.primary, checkoutSettings.proposedPayment.paymentMode.payWhatYouWant, checkoutSettings.requireInIframeOrErrorWith, proposedPaymentWithFixedAmount, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, payWhatYouWantSelectedSuggestedAmount, setPayWhatYouWantSelectedSuggestedAmount, setRawPayWhatYouWantAmountFromInput, payWhatYouWantLogicalAssetTickerFromInput, payWhatYouWantLogicalAssetTickerSelectionInputElement, derivedPaymentWithFixedAmount, exchangeRates, proposedStrategies, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod, initialLoadTimeInSeconds]);
+  </div>, [checkoutVerbLowercase, checkoutVerbCapitalized, checkoutNounLowercase, startTransition, isConnected, checkoutSettings.note, checkoutSettings.proposedPayment.logicalAssetTickers.primary, checkoutSettings.proposedPayment.paymentMode.payWhatYouWant, checkoutSettings.requireInIframeOrErrorWith, proposedPaymentWithFixedAmount, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, payWhatYouWantSelectedSuggestedAmount, setPayWhatYouWantSelectedSuggestedAmount, setRawPayWhatYouWantAmountFromInput, payWhatYouWantLogicalAssetTickerFromInput, payWhatYouWantLogicalAssetTickerSelectionInputElement, derivedPaymentWithFixedAmount, exchangeRates, proposedStrategies, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod]);
 
   const acceptedTokensAndChainsElement: false | JSX.Element = useMemo(() => !statusIsSuccess // NB here we must check statusIsSuccess because the sender may have no payment options after successful payment (eg. if they paid using their only payment method and it was exhausted by the payment) and so `checkoutReadinessState === 'senderHasNoPaymentOptions'` may be true after paying
     && checkoutReadinessState === 'senderHasNoPaymentOptions' && <div className="w-full">
