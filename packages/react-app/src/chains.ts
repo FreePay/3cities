@@ -3,6 +3,7 @@ import { arbitrum, polygon, mainnet as wagmiMainnet, optimism as wagmiOptimism }
 import { Chain } from 'wagmi';
 import { NonEmptyArray } from './NonEmptyArray';
 import { isProduction } from './isProduction';
+import { alchemyApiKey } from './alchemyApiKey';
 
 // ***************************************************************
 const isTestShorterListOfChains = false; // WARNING test flag to be manually toggled during develpment to cull the list of supported chains down to a minimal set for testing purposes
@@ -27,7 +28,7 @@ export const sepolia: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace w
   nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: {
-      http: ['https://rpc.sepolia.org'],
+      http: [`https://eth-sepolia.g.alchemy.com/v2/${alchemyApiKey}`],
     },
     public: {
       http: ['https://rpc.sepolia.org'],

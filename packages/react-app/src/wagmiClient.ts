@@ -11,18 +11,11 @@ import { chainsSupportedBy3cities } from './chains';
 import { hasOwnPropertyOfType } from './hasOwnProperty';
 import { clearMostRecentlyUsedWeb3AuthLoginProvider, makeWeb3AuthConnectorAsync } from './makeWeb3AuthConnectorAsync';
 import { Web3AuthConnector, Web3AuthLoginProvider } from './Web3AuthConnector';
+import { alchemyApiKey } from './alchemyApiKey';
 
 // TODO move the web3auth async/load/set/reconnect stuff into makeWeb3AuthConnectorAsync.ts and maybe rename that file to something that explains "here's the code that glues async web3auth to wagmiClient in a lifecycle"
 
 // TODO can we add a provider for a localhost ethrpc url for L1, eg. http://localhost:8545, and default to it? This would allow power users to automatically benefit from running their own ethrpc. However, there is a potential downside: it's possible that the ethrpc on localhost would be relatively unperformant. Eg. imagine on mobile, Coinbase Wallet gave every user an ethrpc running on http://localhost:8545, then 3cities might automatically pick this up, but what if this local node sucks for querying chain data? eg. slow, needs to ask other nodes for data --> perhaps it's better to avoid defautling to localhost and add it as an app config option. ethrpc urls could be set in CheckoutSettings (eg. EF specifies that customers should use the EF's rpc urls) or in app-wide settings (eg. Me -> Settings -> ethrpc urls)
-
-const alchemyApiKey: string = (() => {
-  const s = process.env['REACT_APP_ALCHEMY_API_KEY'];
-  if (s === undefined) {
-    console.error("REACT_APP_ALCHEMY_API_KEY undefined");
-    return 'REACT_APP_ALCHEMY_API_KEY_undefined';
-  } else return s;
-})();
 
 const infuraApiKey: string = (() => {
   const s = process.env['REACT_APP_INFURA_API_KEY'];

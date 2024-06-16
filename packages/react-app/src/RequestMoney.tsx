@@ -727,6 +727,6 @@ const SharePayLinkModalContent: React.FC<SharePayLinkModalContentProps> = ({ che
       </button>
     </div>
 
-    {!isProduction && <a href={checkoutLink} target="_blank" rel="noopener noreferrer"><span className="text-xl text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer">Open Link</span></a> /* this is a development feature to make it easy to access the Pay UI for this request */}
+    {!isProduction && <a href={checkoutLink} rel="noopener noreferrer"><span className="text-xl text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer">Open Link In This Tab</span></a> /* this is a development feature to make it easy to access the Pay UI for this request */}
   </div>;
 };
