@@ -1,3 +1,4 @@
+import { getETHTransferProxyContractAddress } from "@3cities/eth-transfer-proxy";
 import { BigNumber } from "@ethersproject/bignumber";
 import React, { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { FaEye } from "react-icons/fa";
@@ -18,6 +19,7 @@ import { RenderLogicalAssetAmount, renderLogicalAssetAmount } from "./RenderLogi
 import { RenderTokenBalance } from "./RenderTokenBalance";
 import { RenderTokenTransfer } from "./RenderTokenTransfer";
 import { ToggleSwitch } from "./ToggleSwitch";
+import { isNativeCurrency } from "./Token";
 import { getBlockExplorerUrlForAddress, getBlockExplorerUrlForTransaction } from "./blockExplorerUrls";
 import { getChain, getSupportedChainName } from "./chains";
 import { formatFloat } from "./formatFloat";
@@ -275,6 +277,11 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
 
   const exchangeRates: ExchangeRates | undefined = useExchangeRates(checkoutSettings.exchangeRates);
 
+  const isStrategyPermittedByCheckoutSettings = useCallback<(s: Strategy | ProposedStrategy) => boolean>((s: Strategy | ProposedStrategy) => { // after strategies are generated, strategies (or proposed strategies) must be filtered through isStrategyPermittedByCheckoutSettings to prevent presenting the user with any strategies that are known to be disallowed by CheckoutSettings for reasons that were not detectable during strategy generation. NB the design tension here between StrategyPreferences, which are data used in strategy generation, vs. the subset of CheckoutSettings that are not used in strategy generation but do deterministically constrict the set of available strategies. Perhaps in the future, these CheckoutSettings data that constrict strategies should instead be passed to generation. Or perhaps the way it is now is more correct, where there are some data that are only indirectly related to strategies but act to constrict strategies (such as nativeTokenTransferProxy).
+    const token = ('tokenTransfer' in s ? s.tokenTransfer : s.proposedTokenTransfer).token;
+    if (isNativeCurrency(token) && checkoutSettings.nativeTokenTransferProxy === 'require' && !getETHTransferProxyContractAddress(token.chainId)) return false;
+    else return true;
+  }, [checkoutSettings.nativeTokenTransferProxy]);
 
   const proposedStrategies = useMemo<ProposedStrategy[]>(() => { // WARNING proposedStrategies are computed without considering any connected wallet, and may contain synthetic (non-real) payment amounts for illustrative purposes
     const p = ((): ProposedPaymentWithFixedAmount => {
@@ -287,13 +294,13 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         },
       };
     })();
-    return getProposedStrategiesForProposedPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, p);
-  }, [checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment, exchangeRates]);
+    return getProposedStrategiesForProposedPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, p).filter(isStrategyPermittedByCheckoutSettings);
+  }, [checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment, exchangeRates, isStrategyPermittedByCheckoutSettings]);
 
   const strategies = useMemo<Strategy[] | undefined>(() => {
-    if (derivedPaymentWithFixedAmount && ac) return getStrategiesForPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, derivedPaymentWithFixedAmount, ac);
+    if (derivedPaymentWithFixedAmount && ac) return getStrategiesForPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, derivedPaymentWithFixedAmount, ac).filter(isStrategyPermittedByCheckoutSettings);
     else return undefined;
-  }, [checkoutSettings.receiverStrategyPreferences, derivedPaymentWithFixedAmount, ac, exchangeRates]);
+  }, [checkoutSettings.receiverStrategyPreferences, derivedPaymentWithFixedAmount, ac, exchangeRates, isStrategyPermittedByCheckoutSettings]);
 
   const { bestStrategy, otherStrategies, disableAllStrategiesOriginatingFromChainId, selectStrategy } = useBestStrategy(strategies);
 
@@ -511,6 +518,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     return <div className="relative"><ExecuteTokenTransferButton
       {...computedExecuteTokenTransferButtonPropValues}
       tt={tt}
+      nativeTokenTransferProxy={checkoutSettings.nativeTokenTransferProxy}
       autoReset={true}
       loadForeverOnTransactionFeeUnaffordableError={true}
       label={`${checkoutVerbCapitalized} Now`}
@@ -530,7 +538,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       )}
       {retryButton}
     </div>;
-  }, [setStatus, checkoutVerbCapitalized, activeDemoAccount, retryButton, executeTokenTransferButtonPropValues]);
+  }, [checkoutSettings.nativeTokenTransferProxy, setStatus, checkoutVerbCapitalized, activeDemoAccount, retryButton, executeTokenTransferButtonPropValues]);
 
   const initialLoadTimeInSeconds: number | undefined = useInitialLoadTimeInSeconds([bestStrategy, ac && ac.address === connectedAddress], [checkoutSettings, connectedAddress]);
 
