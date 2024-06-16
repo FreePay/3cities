@@ -5,7 +5,7 @@ import { readContracts } from 'wagmi/actions';
 import { ExchangeRates, areExchangeRatesEqual } from './ExchangeRates';
 import { ExchangeRatesContext } from './ExchangeRatesContext';
 import { DeepWritable } from './Writable';
-import { goerli, mainnet } from './chains';
+import { mainnet, sepolia } from './chains';
 import { isProduction } from './isProduction';
 import { ObservableValue, ObservableValueUpdater, ObservableValueUpdaterWithCurrentValue, Observer, makeObservableValue } from './observer';
 import { toUppercase } from './toUppercase';
@@ -123,14 +123,15 @@ const exchangeRatesToFetch: Array<ExchangeRateFetcher> = [
     },
     refetchIntervalMilliseconds: defaultRefetchIntervalMilliseconds,
   },
-  ...(!isProduction ? [] : [{ // only fetch Chainlink USD/ETH on mainnet because I can't find the right contract on testnet. TODO what's the testnet oracle contract we can use to run this in testnet, too?
+  {
     denominatorTicker: 'ETH',
     numeratorTicker: 'USD',
     source: 'Chainlink',
     fetchExchangeRate: async (): Promise<number> => {
+      const { chainId, address } = isProduction ? { chainId: mainnet.id, address: '0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419' as const } : { chainId: sepolia.id, address: '0x694AA1769357215DE4FAC081bf1f309aDC325306' as const };
       const chainlinkUSDETHOracleContract = {
-        chainId: isProduction ? mainnet.id : goerli.id,
-        address: ('0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419' satisfies `0x${string}`) as `0x${string}`,
+        chainId,
+        address,
         abi: [{ "inputs": [], "name": "decimals", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "latestRoundData", "outputs": [{ "internalType": "uint80", "name": "roundId", "type": "uint80" }, { "internalType": "int256", "name": "answer", "type": "int256" }, { "internalType": "uint256", "name": "startedAt", "type": "uint256" }, { "internalType": "uint256", "name": "updatedAt", "type": "uint256" }, { "internalType": "uint80", "name": "answeredInRound", "type": "uint80" }], "stateMutability": "view", "type": "function" }], // only the subset of the ABI we use here. TODO use https://abitype.dev/ for strongly typed abis and result types
       };
       const [decimals, latestRoundData] = await readContracts({
@@ -159,7 +160,7 @@ const exchangeRatesToFetch: Array<ExchangeRateFetcher> = [
       } else throw new Error(`invalid response: ${JSON.stringify({ decimals, latestRoundData })}`);
     },
     refetchIntervalMilliseconds: defaultRefetchIntervalMilliseconds,
-  } satisfies ExchangeRateFetcher]),
+  },
 ];
 
 type ExchangeRatesUpdaterProps = {
