@@ -204,12 +204,12 @@ const ExchangeRatesUpdaterInner: React.FC<ExchangeRatesUpdaterInnerProps> = ({ e
   const maxDebounceWaitMillis = 150; // see note on flushDebouncedExchangeRates. WARNING if we make maxDebounceWaitMillis too large, then pay links with only payment methods that use exchange rates will be more likely to have UI jank flash "no payment methods available" after the initial payment method loading grace period elapses but exchange rates haven't yet flushed
   const [lastFlushTime, setLastFlushTime] = useState<number>(Date.now());
   const isDuringFlushGracePeriod: boolean = Date.now() - lastFlushTime <= maxDebounceWaitMillis; // when calculated debounced exchange rates, we allow a flush grace period during which the debounce runs normally
-  const flushDebouncedExchangeRates: boolean = !isDuringFlushGracePeriod; Date.now() - lastFlushTime > maxDebounceWaitMillis; // force flush the debounced exchange rates if the time since last debounce exceeds maxDebounceWaitMillis. This protects against a steady stream of new exchange rates causing the debounce to never flush, which would make downstream ExchangeRates stale
+  const flushDebouncedExchangeRates: boolean = !isDuringFlushGracePeriod; // force flush the debounced exchange rates if the time since last debounce exceeds maxDebounceWaitMillis. This protects against a steady stream of new exchange rates causing the debounce to never flush, which would make downstream ExchangeRates stale
 
   useEffect(() => {
     const updateExchangeRates = () => {
       const er: ExchangeRates = getExchangeRates({ minIndepToBeValid: minIndependentExchangeRatesToBeValid, defaultMinIndepToBeValid: defaultMinIndependentExchangeRatesToBeValid, latestExchangeRates, maxAgeMillis: maxExchangeRateAgeMillis, timeNowMillisSinceEpoch: Date.now() });
-      if (newExchangeRates === undefined || !areExchangeRatesEqual(newExchangeRates, er)) {
+      if (!areExchangeRatesEqual(newExchangeRates, er)) {
         setNewExchangeRates(er);
         if (!isDuringFlushGracePeriod) setLastFlushTime(Date.now()); // if we're not in the flush grace period, then newExchangeRates hasn't been updated since the last flush grace period elapsed, so we'll begin a new grace period. This allows a burst of newExchangeRates updates to arrive during the grace period and then when the grace period elapses, trigger only a single ExchangeRates update downstream
       }
@@ -225,7 +225,7 @@ const ExchangeRatesUpdaterInner: React.FC<ExchangeRatesUpdaterInnerProps> = ({ e
 
   useEffect(() => {
     const currentExchangeRates = exchangeRatesObservableValueUpdater.getCurrentValue();
-    if (debouncedExchangeRates !== undefined && (currentExchangeRates === undefined || !areExchangeRatesEqual(currentExchangeRates, debouncedExchangeRates))) exchangeRatesObservableValueUpdater.setValueAndNotifyObservers(debouncedExchangeRates);
+    if (!areExchangeRatesEqual(currentExchangeRates, debouncedExchangeRates)) exchangeRatesObservableValueUpdater.setValueAndNotifyObservers(debouncedExchangeRates);
   }, [debouncedExchangeRates, exchangeRatesObservableValueUpdater]);
 
   return undefined;
