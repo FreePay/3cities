@@ -74,6 +74,9 @@ module.exports = {
         "no-unreachable": [
             "error",
         ],
+        "no-unused-expressions": [
+            "error",
+        ],
         "rulesdir/no-instanceof-ChainMismatchError": [
             "warn",
         ],
