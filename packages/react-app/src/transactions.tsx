@@ -1,9 +1,9 @@
-import { abis } from "@3cities/contracts";
+import { ETHTransferProxyABI, getETHTransferProxyContractAddress } from "@3cities/eth-transfer-proxy";
 import { BigNumber } from "@ethersproject/bignumber";
 import { TransactionReceipt } from "@ethersproject/providers";
 import { ChainMismatchError } from '@wagmi/core';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { SwitchChainError, UserRejectedRequestError, useAccount, useContractWrite, useNetwork, usePrepareContractWrite, usePrepareSendTransaction, useSendTransaction, useSwitchNetwork, useWaitForTransaction } from 'wagmi';
+import { SwitchChainError, UserRejectedRequestError, erc20ABI, useAccount, useContractWrite, useNetwork, usePrepareContractWrite, usePrepareSendTransaction, useSendTransaction, useSwitchNetwork, useWaitForTransaction } from 'wagmi';
 import { Narrow } from "./Narrow";
 import { PartialFor } from "./PartialFor";
 import { Spinner } from "./Spinner";
@@ -11,7 +11,8 @@ import { Writable } from "./Writable";
 import { getSupportedChainName } from "./chains";
 import { hasOwnPropertyOfType } from "./hasOwnProperty";
 import { Observer, makeObservableValue, useObservedValue } from "./observer";
-import { TokenTransfer, isTokenAndNotNativeCurrencyTransfer } from "./tokenTransfer";
+import { TokenTransfer, TokenTransferForNativeCurrency, TokenTransferForToken, isTokenAndNotNativeCurrencyTransfer } from "./tokenTransfer";
+import { Intersection } from "./Intersection";
 
 // TODO build and save list of test cases to check all ExecuteTokenTransfer code paths, eg. (automatic retries, other features) X (token, native currency) X (wallets) X (networks) X (different transfer amounts including very small amounts)
 
@@ -92,6 +93,7 @@ export type ExecuteTokenTransferButtonStatus = Readonly<{
 
 export type ExecuteTokenTransferButtonProps = {
   tt: TokenTransfer | undefined; // the token transfer this button will execute. If undefined, the button will appear to be loading forever, and the passed setStatus will never be called. WARNING ExecuteTokenTransferButton doesn't support arbitrary ongoing changes to the props TokenTransfer. See ExecuteTokenTransferButtonStatus.activeTokenTransfer.
+  nativeTokenTransferProxy: 'never' | 'prefer' | 'require'; // 3cities supports automatic use of a built-in proxy that emits an ERC20-compliant Transfer event for a native token transfer. This proxy exists because generalized offchain detection of ETH transfers (eg. when using smart contract wallets) can't be done using the ethrpc api, and can only be done with non-standard tracing APIs. This button can automatically route native token transfers through our built-in proxy, such that the transfers are detectable by monitoring for Transfer events. Our built-in proxy is a stateless hyperstructure that never has custody of funds and simply forwards any ETH sent to the specified recipient and emits a Transfer event, using about 50% more gas than a standard ETH transfer. A permament solution to this problem has been proposed via EIP-7708: ETH transfers emit a log. If set to 'never', this proxy will never be used and native token transfers will occur ordinarily (standard ETH transfer). If 'prefer', the proxy will be used if it's available on the chain where the native token transfer is being executed. If 'require', the proxy must be used and native token transfers attempted on chains where the proxy is unavailable will result in an error status.
   onClickPassthrough?: () => void; // iff defined, when the button is clicked, that click will be ignored internally and instead passed through to this callback. This allows clients to reuse this same button for other purposes. For example, clicking the button sign a message. onClickPassthrough is interoperable (works with) with other props, such as `disabled` and `showLoadingSpinnerWhenDisabled`. NB clicks that are passed through to onClickPassthrough are completely ignored internally, eg. a click forwarded to onClickPassthrough will not result in status.buttonClickedAtLeastOnce being set to true
   autoReset?: true; // if set, the button will automatically call its own status.reset to update cached token transfer details when props.tt changes, but only if the user isn't currently signing the transaction or has already signed the transaction, in which case the button is never auto-reset but can still be reset manually by the client. WARNING automatic resets trigger a new status, so clients must ensure a new status doesn't unconditionally compute new tt object, or else an infinite async render loop will occur (new tt -> auto reset -> async reset -> new status -> repeat)
   autoClickIfNeverClicked?: boolean; // iff true, the button will automatically click itself iff it's ready to click and has never been clicked (ie. !buttonClickedAtLeastOnce, noting that buttonClickedAtLeastOnce is reset to false on status.reset()). For example, this allows a client to have the user's first click perform some other action (such as siging a message) and then automatically click the button to execute the token transfer following the resolution of that action, preventing the user from having to click the button twice. WARNING an automatic click/execute triggers a new status, so clients must ensure a new status doesn't unconditionally automatically click/execute again (which can only occur if the new status triggers an unconditional reset which resets buttonClickedAtLeastOnce), or else an infinite async render loop will occur (auto execute -> new status -> async reset -> repeat)
@@ -121,7 +123,7 @@ export const ExecuteTokenTransferButton: React.FC<ExecuteTokenTransferButtonProp
     if (setStatus) setStatus(s && transferStatusToButtonStatus(s));
   }, [setStatus, ov]);
 
-  const [isExecuteTokenTransferRendered, executeTokenTransferElement]: [true, React.JSX.Element] | [false, null] = props.tt ? [true, <ExecuteTokenTransfer key="ett" tt={props.tt} setStatus={innerSetStatus} />] : [false, null];
+  const [isExecuteTokenTransferRendered, executeTokenTransferElement]: [true, React.JSX.Element] | [false, null] = props.tt ? [true, <ExecuteTokenTransfer key="ett" tt={props.tt} nativeTokenTransferProxy={props.nativeTokenTransferProxy} setStatus={innerSetStatus} />] : [false, null];
 
   return <>
     {executeTokenTransferElement}
@@ -414,6 +416,7 @@ function transferStatusToButtonStatus(s: ExecuteTokenTransferStatus): ExecuteTok
 
 export type ExecuteTokenTransferProps = {
   tt: TokenTransfer; // the token transfer this will execute. WARNING ExecuteTokenTransfer doesn't support arbitrary ongoing changes to the props TokenTransfer. See ExecuteTokenTransferStatus.activeTokenTransfer.
+  nativeTokenTransferProxy: 'never' | 'prefer' | 'require'; // 3cities supports automatic use of a built-in proxy that emits an ERC20-compliant Transfer event for a native token transfer. This proxy exists because generalized offchain detection of ETH transfers (eg. when using smart contract wallets) can't be done using the ethrpc api, and can only be done with non-standard tracing APIs. Clients may automatically route native token transfers through this built-in proxy, such that the transfers are detectable by monitoring for Transfer events. Our built-in proxy is a stateless hyperstructure that never has custody of funds and simply forwards any ETH sent to the specified recipient and emits a Transfer event, using about 50% more gas than a standard ETH transfer. A permament solution to this problem has been proposed via EIP-7708: ETH transfers emit a log. If set to 'never', this proxy will never be used and native token transfers will occur ordinarily (standard ETH transfer). If 'prefer', the proxy will be used if it's available on the chain where the native token transfer is being executed. If 'require', the proxy must be used and native token transfers attempted on chains where the proxy is unavailable will result in an error status.
   confirmationsBeforeSuccess?: number; // number of block confirmations to wait for before reporting a successful transfer. Defaults to 1
   setStatus: (status: ExecuteTokenTransferStatus | undefined) => void; // callback for the client to receive updated transfer status. This callback is mandatory because the client must call status.execute() to move the transfer forward. Only the most recently received status is valid. All previously received statuses must be discarded by the client. If undefined is received, it means no status is available (typically because the component has unmounted) and that the most recent defined status is stale. React note: if an ancestor component of ExecuteTokenTransfer caches this updated status as state, then ExecuteTokenTransfer will rerender redundantly each time it updates the status (because an ancestor's subtree rerenders on state change). These redundant rerenders can be avoided by storing eg. an Observer in the ancestor and using the updated status in a cousin component (including potentially caching it as state)
 }
@@ -483,42 +486,56 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
     });
   }, [setSignedTransaction, cachedTT]);
 
+  const [transferMode, nativeTokenTransferProxyContractAddress, cachedTTNarrowed]:
+    ['erc20Transfer', undefined, TokenTransferForToken]
+    | ['nativeTokenTransfer', undefined, TokenTransferForNativeCurrency]
+    | ['nativeTokenTransferProxy', `0x${string}`, TokenTransferForNativeCurrency]
+    | ['errorNativeTokenTransferProxyRequiredButUnvailable', undefined, undefined] = (() => {
+      if (isTokenAndNotNativeCurrencyTransfer(cachedTT)) return ['erc20Transfer', undefined, cachedTT];
+      else if (props.nativeTokenTransferProxy === 'never') return ['nativeTokenTransfer', undefined, cachedTT];
+      else {
+        const c = getETHTransferProxyContractAddress(cachedTT.token.chainId);
+        if (c) return ['nativeTokenTransferProxy', c, cachedTT];
+        else if (props.nativeTokenTransferProxy === 'prefer') return ['nativeTokenTransfer', undefined, cachedTT];
+        else return ['errorNativeTokenTransferProxyRequiredButUnvailable', undefined, undefined];
+      }
+    })();
+
   // ********** BEGIN hooks used only for token transfers (and not native currency transfers) **********
-  const prepareContractWriteParams = useMemo(() => { // here we must memoize prepareContractWriteParams so that a new object isn't created each render which would cause usePrepareContractWrite to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
-    if (isTokenAndNotNativeCurrencyTransfer(cachedTT)) return {
+  const prepareContractWriteParamsForErc20Transfer: Parameters<typeof usePrepareContractWrite<typeof erc20ABI, 'transfer', number>>[0] = useMemo(() => { // here we must memoize so that a new object isn't created each render which would cause usePrepareContractWrite to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
+    if (transferMode === 'erc20Transfer') return {
       chainId: cachedTT.token.chainId,
-      address: cachedTT.token.contractAddress,
-      abi: abis.erc20,
+      address: cachedTTNarrowed.token.contractAddress,
+      abi: erc20ABI,
       functionName: 'transfer',
-      args: [cachedTT.receiverAddress, BigNumber.from(cachedTT.amountAsBigNumberHexString).toString()],
-    }; else return {
+      args: [cachedTT.receiverAddress, BigNumber.from(cachedTT.amountAsBigNumberHexString)],
+    } as const; else return {
       enabled: false,
     };
-  }, [cachedTT]);
-  const prepareContractWrite = usePrepareContractWrite(prepareContractWriteParams);
+  }, [cachedTT, transferMode, cachedTTNarrowed]);
+  const prepareContractWriteForErc20Transfer = usePrepareContractWrite(prepareContractWriteParamsForErc20Transfer);
 
-  const contractWriteParams = useMemo(() => { // here we must memoize contractWriteParams so that a new object isn't created each render which would cause useContractWrite to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
+  const contractWriteParamsForErc20Transfer = useMemo(() => { // here we must memoize so that a new object isn't created each render which would cause useContractWrite to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
     return {
-      ...prepareContractWrite.config,
+      ...prepareContractWriteForErc20Transfer.config,
       onSuccess: onTransactionSigned,
     };
-  }, [prepareContractWrite.config, onTransactionSigned]);
-  const contractWrite = useContractWrite(contractWriteParams);
+  }, [prepareContractWriteForErc20Transfer.config, onTransactionSigned]);
+  const contractWriteForErc20Transfer = useContractWrite(contractWriteParamsForErc20Transfer);
   // ********** END hooks used only for token transfers (and not native currency transfers) **********
 
-  // ********** BEGIN hooks used only for native currency transfers (and not token transfers) **********
-
-  const prepareSendTransactionParams = useMemo(() => { // here we must memoize prepareSendTransactionParams so that a new object isn't created each render which would cause usePrepareSendTransaction to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
-    if (isTokenAndNotNativeCurrencyTransfer(cachedTT)) return {
-      enabled: false,
-    }; else return {
+  // ********** BEGIN hooks used only for native currency transfers (and not token transfers or native currency transfers using the proxy) **********
+  const prepareSendTransactionParams: Parameters<typeof usePrepareSendTransaction>[0] = useMemo(() => { // here we must memoize prepareSendTransactionParams so that a new object isn't created each render which would cause usePrepareSendTransaction to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
+    if (transferMode === 'nativeTokenTransfer') return {
       chainId: cachedTT.token.chainId,
       request: {
         to: cachedTT.receiverAddress,
-        value: BigNumber.from(cachedTT.amountAsBigNumberHexString).toString(),
+        value: BigNumber.from(cachedTT.amountAsBigNumberHexString),
       },
+    }; else return {
+      enabled: false,
     };
-  }, [cachedTT]);
+  }, [cachedTT, transferMode]);
   const prepareSendTransaction = usePrepareSendTransaction(prepareSendTransactionParams);
 
   const sendTransactionParams = useMemo(() => { // here we must memoize sendTransactionParams so that a new object isn't created each render which would cause useSendTransaction to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
@@ -528,27 +545,77 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
     };
   }, [prepareSendTransaction.config, onTransactionSigned]);
   const sendTransaction = useSendTransaction(sendTransactionParams);
+  // ********** END hooks used only for native currency transfers (and not token transfers or native currency transfers using the proxy) **********
 
-  // ********** END hooks used only for native currency transfers (and not token transfers) **********
+  // ********** BEGIN hooks used only for native currency transfers using the proxy (and not token transfers or native currency transfers without the proxy) **********
+  const prepareContractWriteParamsForNativeTokenTransferProxy: Parameters<typeof usePrepareContractWrite<typeof ETHTransferProxyABI, 'transferETH', number>>[0] = useMemo(() => { // here we must memoize so that a new object isn't created each render which would cause usePrepareContractWrite to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
+    if (transferMode === 'nativeTokenTransferProxy') return {
+      chainId: cachedTT.token.chainId,
+      address: nativeTokenTransferProxyContractAddress,
+      abi: ETHTransferProxyABI,
+      functionName: 'transferETH',
+      args: [cachedTT.receiverAddress],
+      overrides: {
+        value: BigNumber.from(cachedTT.amountAsBigNumberHexString),
+      },
+    } as const; else return {
+      enabled: false,
+    };
+  }, [cachedTT, transferMode, nativeTokenTransferProxyContractAddress]);
+  const prepareContractWriteForNativeTokenTransferProxy = usePrepareContractWrite(prepareContractWriteParamsForNativeTokenTransferProxy);
+
+  const contractWriteParamsForNativeTokenTransferProxy = useMemo(() => { // here we must memoize so that a new object isn't created each render which would cause useContractWrite to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
+    return {
+      ...prepareContractWriteForNativeTokenTransferProxy.config,
+      onSuccess: onTransactionSigned,
+    };
+  }, [prepareContractWriteForNativeTokenTransferProxy.config, onTransactionSigned]);
+  const contractWriteForNativeTokenTransferProxy = useContractWrite(contractWriteParamsForNativeTokenTransferProxy);
+  // ********** END hooks used only for native currency transfers using the proxy (and not token transfers or native currency transfers without the proxy) **********
 
   // ********** BEGIN variables that unify token and native currency hook states and provide an abstraction boundary for downstream to not know or care if cachedTT is a token or native currency transfer **********
-
-  const prepare: Pick<typeof prepareContractWrite & typeof prepareSendTransaction, 'isIdle' | 'error' | 'isError' | 'isLoading' | 'isSuccess' | 'isFetched' | 'isFetchedAfterMount' | 'isFetching' | 'isRefetching' | 'status'> & {
+  const prepare: Pick<Intersection<Intersection<typeof prepareContractWriteForErc20Transfer, typeof prepareSendTransaction>, typeof prepareContractWriteForNativeTokenTransferProxy>, 'isIdle' | 'error' | 'isError' | 'isLoading' | 'isSuccess' | 'isFetched' | 'isFetchedAfterMount' | 'isFetching' | 'isRefetching' | 'status'> & {
     refetch: () => void; // prepareContractWrite.refetch and prepareSendTransaction.refetch have different type signatures and so can't be included in the Pick, but these signatures share a supertype of `() => void` so we can include that supertype manually (and that works because we don't use any of the params passable to refetch).
-  } = isTokenAndNotNativeCurrencyTransfer(cachedTT) ? prepareContractWrite : prepareSendTransaction;
+  } = (() => {
+    switch (transferMode) {
+      case 'erc20Transfer': return prepareContractWriteForErc20Transfer;
+      case 'nativeTokenTransfer': return prepareSendTransaction;
+      case 'nativeTokenTransferProxy': return prepareContractWriteForNativeTokenTransferProxy;
+      case 'errorNativeTokenTransferProxyRequiredButUnvailable': return prepareContractWriteForNativeTokenTransferProxy; // NB here we know that status will be error and prepareContractWriteForNativeTokenTransferProxy has `enabled: false`, but we return it anyway so that `prepare` is unconditionally defined
+    }
+  }
+  )();
 
-  const write: Pick<typeof contractWrite & typeof sendTransaction, 'isIdle' | 'error' | 'isError' | 'isLoading' | 'isSuccess' | 'data' | 'status'> = isTokenAndNotNativeCurrencyTransfer(cachedTT) ? contractWrite : sendTransaction;
+  const write: Pick<Intersection<Intersection<typeof contractWriteForErc20Transfer, typeof sendTransaction>, typeof contractWriteForNativeTokenTransferProxy>, 'isIdle' | 'error' | 'isError' | 'isLoading' | 'isSuccess' | 'data' | 'status'> = (() => {
+    switch (transferMode) {
+      case 'erc20Transfer': return contractWriteForErc20Transfer;
+      case 'nativeTokenTransfer': return sendTransaction;
+      case 'nativeTokenTransferProxy': return contractWriteForNativeTokenTransferProxy;
+      case 'errorNativeTokenTransferProxyRequiredButUnvailable': return contractWriteForNativeTokenTransferProxy; // NB here we know that status will be error and prepareContractWriteForNativeTokenTransferProxy will be unused because its prepare has `enabled: false`, but we return it anyway so that `write` is unconditionally defined
+    }
+  }
+  )();
 
-  const signAndSendTransaction: (() => void) | undefined = isTokenAndNotNativeCurrencyTransfer(cachedTT) ? contractWrite.write : sendTransaction.sendTransaction; // write.write and sendTransaction.sendTransaction have different names (ie. write vs sendTransaction) so we unify them as a new local variable (ie. signAndSendTransaction) instead of including them in the `write` unification above.
+  const signAndSendTransaction: (() => void) | undefined = (() => { // useContractWrite(...).write and useSendTransaction(...).sendTransaction have different names (ie. write vs sendTransaction) so we unify them as a new local variable (ie. signAndSendTransaction) instead of including them in the `write` unification above.
+    switch (transferMode) {
+      case 'erc20Transfer': return contractWriteForErc20Transfer.write;
+      case 'nativeTokenTransfer': return sendTransaction.sendTransaction;
+      case 'nativeTokenTransferProxy': return contractWriteForNativeTokenTransferProxy.write;
+      case 'errorNativeTokenTransferProxyRequiredButUnvailable': return undefined;
+    }
+  }
+  )();
 
-  const writeReset: () => void = useCallback(() => { // WARNING here we define writeReset to reset both the underlying wagmi hooks to ensure that both actually get reset when a reset is executed. If we instead added 'reset' to our `write` unification above and then used `write.reset`, this would be incorrect because when the client calls reset(), the active token transfer (cachedTT) is updated and this may cause the write unification to flip between token/native currency, and then the underlying write hook that needed to be reset (the one that was actually used prior to the reset) wouldn't be reset (because it's reset function would no longer be included in the write unification). So instead, we correctly reset both hooks here and exclude 'reset' from our write unification above.
-    contractWrite.reset();
+  const writeReset: () => void = useCallback(() => { // WARNING here we define writeReset to reset underlying wagmi hooks for all transfer modes to ensure that all actually get reset when a reset is executed. If we instead added 'reset' to our `write` unification above and then used `write.reset`, this would be incorrect because when the client calls reset(), the active token transfer (cachedTT) is updated and this may cause the write unification to change transfer modes, and then the underlying write hook that needed to be reset (the one that was actually used prior to the reset) wouldn't be reset (because it's reset function would no longer be included in the write unification). So instead, we correctly reset all hooks here and exclude 'reset' from our write unification above.
+    contractWriteForErc20Transfer.reset();
     sendTransaction.reset();
-  }, [contractWrite, sendTransaction]);
+    contractWriteForNativeTokenTransferProxy.reset();
+  }, [contractWriteForErc20Transfer, sendTransaction, contractWriteForNativeTokenTransferProxy]);
 
-  // WARNING prepareContractWrite and contractWrite have been unified into `write` and, per the following eslint rules, neither should be used below here so as to create an abstraction boundary where the code below here doesn't have to know or care if we're sending a token or native currency transfer.
+  // WARNING prepareContractWrite, contractWrite, and contractWriteForNativeTokenTransferProxy have been unified into `write` and, per the following eslint rules, none should be used below here so as to create an abstraction boundary where the code below here doesn't have to know or care about which transfer mode we're using.
   // @eslint-no-use-below[prepareContractWrite]
   // @eslint-no-use-below[contractWrite]
+  // @eslint-no-use-below[contractWriteForNativeTokenTransferProxy]
 
   // ********** END variables that unify token and native currency hook states and provide an abstraction boundary for downstream to not know or care if cachedTT is a token or native currency transfer **********
 
@@ -707,24 +774,37 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
 
   useEffect(() => {
     const nextStatus: ExecuteTokenTransferStatus = (() => {
-      if (signedTransaction && transactionReceipt && isSuccess) { // NB here we compute Success status regardless of whether or not the wallet is connected. This is because wagmi's wait hook is able to monitor for confirmation even if the user's wallet disconnects or the wallet's active chain changes. So by computing Succcess status regardles of wallet connection/active chain, we're being more useful to the client. Also see design note on isSuccess definition.
+      if (transferMode === 'errorNativeTokenTransferProxyRequiredButUnvailable') {
         const s: ExecuteTokenTransferStatus = {
           activeTokenTransfer: cachedTT,
           reset,
-          status: 'Success',
-          isError: false,
+          status: 'Error',
+          isError: true,
+          error: new NativeTokenTransferProxyRequiredButUnvailableError(cachedTT.token.chainId),
           isReadyToExecute: false,
-          executeCalledAtLeastOnce: true,
+          executeCalledAtLeastOnce,
           isLoading: false,
           needToSwitchNetworkManually: false,
-          signedTransaction,
-          isSuccess: true,
-          successData: transactionReceipt,
+          isSuccess: false,
         };
         return s;
       } else if (isSuccess) {
-        // here we've entered into an inconsistent state where the transfer was successful but one or more necessary data are unavailable
-        if (!signedTransaction) {
+        if (signedTransaction && transactionReceipt) { // NB here we compute Success status regardless of whether or not the wallet is connected. This is because wagmi's wait hook is able to monitor for confirmation even if the user's wallet disconnects or the wallet's active chain changes. So by computing Succcess status regardles of wallet connection/active chain, we're being more useful to the client. Also see design note on isSuccess definition.
+          const s: ExecuteTokenTransferStatus = {
+            activeTokenTransfer: cachedTT,
+            reset,
+            status: 'Success',
+            isError: false,
+            isReadyToExecute: false,
+            executeCalledAtLeastOnce: true,
+            isLoading: false,
+            needToSwitchNetworkManually: false,
+            signedTransaction,
+            isSuccess: true,
+            successData: transactionReceipt,
+          };
+          return s;
+        } else if (!signedTransaction) {
           // status is success but signedTransaction is unexpectedly undefined (and possibly transactionReceipt, too)
           const s: ExecuteTokenTransferStatus = {
             activeTokenTransfer: cachedTT,
@@ -926,7 +1006,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
       }
     })();
     setStatus(nextStatus); // design note: in general, nextStatus may be identical to the current status cached by clients. This is because there's a loss of information between this useEffect's dependencies when computing nextStatus. For example, if switchNetwork becomes defined, we will compute nextStatus, but both the current and next status may have nothing to do with switchNetwork being defined or not. In fact, this is exactly what usually happens when this component initializes: switchNetwork.switchNetwork is initially undefined, and it becomes defined shortly after mounting, which triggers computation of nextStatus, but both the current status and nextStatus are "Loading - Init", so we know we're usually sending a redundant nextStatus to the client. If we wanted to fix this, a good way to do so may be to do a deep comparison of ObservableValue.getCurrentValue vs. nextStatus in ExecuteTokenTransferButton, and skip calling setValueAndNotifyObservers if the current and next statuses are equal. A good deep comparison library is fast-deep-equal, it is both fast and relatively small (13kb), but that's still an extra 13kb of bundle size. But currently, we think it's better to shave 13kb off the bundle size vs. avoiding a few unnecessary rerenders that React handles instantly and without any UI jank/disruptions because the shadow DOM diff interprets the redundant status update as a no-op, so that's why right now, nextStatus may be identical to the current status cached by clients.
-  }, [setStatus, isConnected, cachedTT, prepare.error, write.error, wait.error, switchNetwork.error, prepare.isLoading, write.isLoading, wait.isLoading, switchNetwork.isLoading, isEverythingIdle, needToSwitchNetwork, switchNetwork.switchNetwork, execute, reset, transactionReceipt, isSuccess, signedTransaction, signAndSendTransaction, autoExecuteState, userRejectedTransactionSignRequest, transactionFeeUnaffordableError, executeCalledAtLeastOnce, autoRetryInProgress]);
+  }, [setStatus, isConnected, cachedTT, transferMode, prepare.error, write.error, wait.error, switchNetwork.error, prepare.isLoading, write.isLoading, wait.isLoading, switchNetwork.isLoading, isEverythingIdle, needToSwitchNetwork, switchNetwork.switchNetwork, execute, reset, transactionReceipt, isSuccess, signedTransaction, signAndSendTransaction, autoExecuteState, userRejectedTransactionSignRequest, transactionFeeUnaffordableError, executeCalledAtLeastOnce, autoRetryInProgress]);
 
   useEffect(() => { // when this component unmounts, send a final undefined status so the client knows that any defined status is stale
     return () => setStatus(undefined);
@@ -1070,6 +1150,20 @@ export class TransactionFeeUnaffordableError extends Error {
     super(message);
     this.name = 'TransactionFeeUnaffordableError';
     if (cause !== undefined) this.cause = cause;
+  }
+}
+
+// NativeTokenTransferProxyRequiredButUnvailableError represents an
+// ExecuteTokenTransfer error state where use of the native token
+// transfer proxy has been specified as required but the transfer's
+// chain does not have the proxy available.
+export class NativeTokenTransferProxyRequiredButUnvailableError extends Error {
+  readonly chainId: number;
+
+  constructor(chainId: number) {
+    super(`Native Token Transfer Proxy Required But Unavailable`);
+    this.name = 'NativeTokenTransferProxyRequiredButUnvailableError';
+    this.chainId = chainId;
   }
 }
 

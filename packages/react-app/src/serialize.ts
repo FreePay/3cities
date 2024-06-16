@@ -241,6 +241,7 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
       senderNoteSettings,
       ...(successRedirect && ({ successAction: { redirect: successRedirect } } satisfies Pick<CheckoutSettings, 'successAction'>)), // TODO support entire successAction API
       ...(webhookUrl && ({ webhookUrl } satisfies Pick<CheckoutSettings, 'webhookUrl'>)),
+      nativeTokenTransferProxy: 'never', // TODO support full nativeTokenTransferProxy API
     } satisfies CheckoutSettings;
   } catch (e) {
     throw new Error("fromProto error", { cause: e });

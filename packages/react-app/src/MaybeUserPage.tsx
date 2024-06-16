@@ -45,6 +45,7 @@ export const MaybeUserPage: React.FC = () => {
       },
       receiverStrategyPreferences: {},
       senderNoteSettings: { mode: 'NONE' },
+      nativeTokenTransferProxy: 'never',
     };
     // TODO how to unify this use of CheckoutSettingsContext and ConversionWrapperWithChildren with ordinary providers/wrappers in Routes?
     return <CheckoutSettingsContext.Provider value={cs}>

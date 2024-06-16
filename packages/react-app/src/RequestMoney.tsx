@@ -308,6 +308,7 @@ export const RequestMoney: React.FC = () => {
           },
         } satisfies Pick<CheckoutSettings, 'successAction'>),
         ...(webhookUrl.length > 0 && { webhookUrl } satisfies Pick<CheckoutSettings, 'webhookUrl'>),
+        nativeTokenTransferProxy: 'never', // TODO support full nativeTokenTransferProxy API
       } satisfies CheckoutSettings;
     } else return undefined;
   }, [primaryLogicalAssetTicker, secondaryLogicalAssetTickers, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password, successRedirectUrl, successRedirectCallToAction, successRedirectOpenInNewTab, webhookUrl, paymentMode]);
