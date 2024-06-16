@@ -237,6 +237,8 @@ type TokenTickerPriority = {
   [ticker: Uppercase<string>]: number;
 };
 
+const l1ChainId = isProduction ? mainnet.id : sepolia.id;
+
 // sortStrategiesByPriority sorts the passed (proposed) strategies from
 // most preferable to least preferable. Usually, the concept of
 // "preferable" is from the point of view of the sender since they are
@@ -267,28 +269,36 @@ function sortStrategiesByPriority(
     const bToken: Token | NativeCurrency = 'tokenTransfer' in b ? b.tokenTransfer.token : b.proposedTokenTransfer.token;
     const aChainId = aToken.chainId;
     const bChainId = bToken.chainId;
-    const aChainPriority = chainIdPriority[aChainId] ?? Number.NEGATIVE_INFINITY;
-    const bChainPriority = chainIdPriority[bChainId] ?? Number.NEGATIVE_INFINITY;
-    if (aChainPriority === bChainPriority) {
+    // First, de-prioritize strategies with L1 transfers as these have much higher fees than L2
+    if (aChainId === l1ChainId && bChainId !== l1ChainId) return 1;
+    else if (aChainId !== l1ChainId && bChainId === l1ChainId) return -1;
+    else {
       const aLogicalAssetPriority = getStrategyLogicalAssetPriority(a);
       const bLogicalAssetPriority = getStrategyLogicalAssetPriority(b);
+      // Second, prioritize strategies that better match a payment's logical asset preferences. For example, if the payment is USD-denominated, prefer strategies with USD-denominated transfers
       if (aLogicalAssetPriority === bLogicalAssetPriority) {
-        const aTicker = aToken.ticker;
-        const bTicker = bToken.ticker;
-        const aTickerPriority = tokenTickerPriority[aTicker] ?? Number.NEGATIVE_INFINITY;
-        const bTickerPriority = tokenTickerPriority[bTicker] ?? Number.NEGATIVE_INFINITY;
-        if (aTicker === bTicker) { // NB two tokens may share the same ticker, chain, and logical asset priority, such as with bridged and native USDC on the same L2. In this case, we tie-break by preferring the bridged variant, as the bridged variant gives the receiver greater protections vs. the native variant (since only the bridged variant can't be seized from the end-user and can often be force-exited from the L2)
-          // WARNING here we assume tickerCanonical defined indicates the token is bridged. This is because today, bridged variants of USDC are assigned a different canonical ticker by Circle (eg. USDC.e for Arb/Op):
-          const aIsBridged: boolean = 'tickerCanonical' in aToken;
-          const bIsBridged: boolean = 'tickerCanonical' in bToken;
-          if (aIsBridged === bIsBridged) { // both tokens are either bridged or not. TODO further tie-breaking logic
-            return 0; // for now, keep them in the same order they were
-          } else {
-            return aIsBridged ? -1 : 1; // prefer the bridged version
-          }
-        } else return bTickerPriority - aTickerPriority;
+        const aChainPriority = chainIdPriority[aChainId] ?? Number.NEGATIVE_INFINITY;
+        const bChainPriority = chainIdPriority[bChainId] ?? Number.NEGATIVE_INFINITY;
+        // Third, prioritize strategies with transfers on higher priority chains
+        if (aChainPriority === bChainPriority) {
+          const aTicker = aToken.ticker;
+          const bTicker = bToken.ticker;
+          const aTickerPriority = tokenTickerPriority[aTicker] ?? Number.NEGATIVE_INFINITY;
+          const bTickerPriority = tokenTickerPriority[bTicker] ?? Number.NEGATIVE_INFINITY;
+          // Fourth, prioritize strategies using bridged tokens over strategies using native tokens
+          if (aTicker === bTicker) { // NB two tokens may share the same ticker, chain, and logical asset priority, such as with bridged and native USDC on the same L2. In this case, we tie-break by preferring the bridged variant, as the bridged variant gives the receiver greater protections vs. the native variant (since only the bridged variant can't be seized from the end-user and can often be force-exited from the L2)
+            // WARNING here we assume tickerCanonical defined indicates the token is bridged. This is because today, bridged variants of USDC are assigned a different canonical ticker by Circle (eg. USDC.e for Arb/Op):
+            const aIsBridged: boolean = 'tickerCanonical' in aToken;
+            const bIsBridged: boolean = 'tickerCanonical' in bToken;
+            if (aIsBridged === bIsBridged) { // both tokens are either bridged or not. TODO further tie-breaking logic
+              return 0; // for now, keep them in the same order they were
+            } else {
+              return aIsBridged ? -1 : 1; // prefer the bridged version
+            }
+          } else return bTickerPriority - aTickerPriority;
+        } else return bChainPriority - aChainPriority;
       } else return bLogicalAssetPriority - aLogicalAssetPriority;
-    } else return bChainPriority - aChainPriority;
+    }
   });
 }
 
