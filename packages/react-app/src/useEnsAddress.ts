@@ -1,7 +1,7 @@
 import { isAddress } from "@ethersproject/address";
 import { useMemo } from "react";
 import { useEnsAddress as wagmiUseEnsAddress } from 'wagmi';
-import { goerli, mainnet } from "./chains";
+import { mainnet, sepolia } from "./chains";
 import { isProduction } from "./isProduction";
 import { useIsPageVisibleOrRecentlyVisible } from "./useIsPageVisibleOrRecentlyVisible";
 
@@ -64,7 +64,7 @@ export function useEnsAddress(ensName: string | undefined): {
   const isEnabled = isPageVisibleOrRecentlyVisible && Boolean(ensName && ensName.length > 0 && !isAddress(ensName)); // NB wagmi returns the cached result while disabled, so setting isEnabled==false while page is invisible does not cause the result to be undefined. NB here !isAddress(ensName) ensures we avoid attempting to fetch an address for a passed ensName that we can statically determine is an invalid ens name because it's actually a valid ethereum address (and every valid ethereum address is an invalid ens name)
   const args = useMemo(() => {
     return {
-      chainId: isProduction ? mainnet.id : goerli.id,
+      chainId: isProduction ? mainnet.id : sepolia.id,
       name: ensName ?? '',
       enabled: isEnabled,
       staleTime: 15_000, // milliseconds until cached result is considered stale and will be refetched if subsequently requested. If a user is temporarily offline, a result fetched while offline will be undefined and that undefined result will persist even after the user goes back online, so we mark it as stale to correctly fetch the actual result when back online.

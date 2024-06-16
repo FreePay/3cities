@@ -1,26 +1,59 @@
 // eslint-disable-next-line no-restricted-imports -- here is our single allowed use of importing from @wagmi/core/chains, used to construct 3cities chains which are then exported for the rest of 3cities
-import { arbitrum, arbitrumGoerli, baseGoerli, goerli, optimismGoerli, polygon, polygonMumbai, polygonZkEvmTestnet, scrollTestnet, mainnet as wagmiMainnet, optimism as wagmiOptimism } from '@wagmi/core/chains';
+import { arbitrum, polygon, mainnet as wagmiMainnet, optimism as wagmiOptimism } from '@wagmi/core/chains';
 import { Chain } from 'wagmi';
 import { NonEmptyArray } from './NonEmptyArray';
 import { isProduction } from './isProduction';
-
-// TODO migrate off of goerli to sepolia --> sepolia chains here https://github.com/wevm/viem/tree/main/src/chains/definitions --> ie. add zoraSepolia, lineaSepolia, scrollSepolia, etc, rm goerli, scrollTestnet (?), baseGoerli, etc.
-
-const mainnet = Object.assign({}, wagmiMainnet, {
-  name: "Ethereum Mainnet", // rename to "Ethereum Mainnet" as the wagmi name of "Ethereum" is confusing for users
-});
-
-const optimism = Object.assign({}, wagmiOptimism, {
-  name: "OP Mainnet", // rename to "OP Mainnet" as the wagmi name of "Optimism" is no longer Optimism's preferred name for this chain
-});
-
-export { arbitrum, arbitrumGoerli, baseGoerli, goerli, mainnet, optimism, optimismGoerli, polygon, polygonMumbai, polygonZkEvmTestnet, scrollTestnet };
 
 // ***************************************************************
 const isTestShorterListOfChains = false; // WARNING test flag to be manually toggled during develpment to cull the list of supported chains down to a minimal set for testing purposes
 // ***************************************************************
 
-export const base: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace this with import from viem when we move to viem
+const mainnet: Readonly<Chain> = {
+  ...wagmiMainnet,
+  name: "Ethereum Mainnet", // rename to "Ethereum Mainnet" as the wagmi name of "Ethereum" is confusing for users
+};
+
+const optimism: Readonly<Chain> = {
+  ...wagmiOptimism,
+  name: "OP Mainnet", // rename to "OP Mainnet" as the wagmi name of "Optimism" is no longer Optimism's preferred name for this chain
+};
+
+export { arbitrum, mainnet, optimism, polygon };
+
+export const sepolia: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace with viem definition after migrating to viem
+  id: 11_155_111,
+  name: 'Sepolia',
+  network: 'sepolia',
+  nativeCurrency: { name: 'Sepolia Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: {
+      http: ['https://rpc.sepolia.org'],
+    },
+    public: {
+      http: ['https://rpc.sepolia.org'],
+    },
+  },
+  blockExplorers: {
+    default: {
+      name: 'Etherscan',
+      url: 'https://sepolia.etherscan.io',
+    },
+  },
+  contracts: {
+    multicall3: {
+      address: '0xca11bde05977b3631167028862be2a173976ca11',
+      blockCreated: 751532,
+    },
+    ensRegistry: { address: '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e' },
+    ensUniversalResolver: {
+      address: '0xc8Af999e38273D658BE1b921b88A9Ddf005769cC',
+      blockCreated: 5_317_080,
+    },
+  },
+  testnet: true,
+});
+
+export const base: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace with viem definition after migrating to viem
   id: 8453,
   network: 'base',
   name: 'Base',
@@ -64,7 +97,7 @@ export const base: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace this
   },
 });
 
-export const baseSepolia: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace this with import from viem when we move to viem
+export const baseSepolia: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace with viem definition after migrating to viem
   id: 84532,
   network: 'base-sepolia',
   name: 'Base Sepolia',
@@ -87,10 +120,16 @@ export const baseSepolia: Readonly<Chain> = Object.freeze<Chain>({ // TODO repla
       url: 'https://base-sepolia.blockscout.com',
     },
   },
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      blockCreated: 1059647,
+    },
+  },
   testnet: true,
 });
 
-export const scroll: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace this with import from viem when we move to viem
+export const scroll: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace with viem definition after migrating to viem
   id: 534_352,
   name: 'Scroll',
   network: 'scroll',
@@ -123,7 +162,7 @@ export const scroll: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace th
   },
 });
 
-export const linea: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace this with import from viem when we move to viem
+export const linea: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace with viem definition after migrating to viem
   id: 59_144,
   name: 'Linea',
   network: 'linea-mainnet',
@@ -164,7 +203,7 @@ export const linea: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace thi
   },
 });
 
-export const zora: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace this with import from viem when we move to viem
+export const zora: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace with viem definition after migrating to viem
   id: 7777777,
   name: 'Zora',
   network: 'zora',
@@ -194,7 +233,7 @@ export const zora: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace this
   },
 });
 
-export const arbitrumNova: Readonly<Chain> = Object.freeze<Chain>({
+export const arbitrumNova: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace with viem definition after migrating to viem
   id: 42170,
   name: "Arbitrum Nova",
   network: "arbitrumNova",
@@ -229,10 +268,10 @@ export const arbitrumNova: Readonly<Chain> = Object.freeze<Chain>({
   },
 });
 
-export const zkSyncTestnet: Readonly<Chain> = Object.freeze<Chain>({ // here we declare zkSyncTestnet even though wagmi exports zkSyncTestnet because wagmi's zkSyncTestnet is currently out of date with the latest zkSyncTestnet rpc endpoints. --> TODO replace this with zkSyncSepolia, or is this already on sepolia?
-  id: 280,
-  name: "zkSync Testnet",
-  network: "zkSync Testnet",
+export const zkSyncSepolia: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace with viem definition after migrating to viem
+  id: 300,
+  name: "zkSync Sepolia",
+  network: "zkSync Sepolia",
   nativeCurrency: {
     name: "Ether",
     symbol: "ETH",
@@ -240,29 +279,33 @@ export const zkSyncTestnet: Readonly<Chain> = Object.freeze<Chain>({ // here we 
   },
   rpcUrls: {
     default: {
-      http: ["https://testnet.era.zksync.dev"],
-      webSocket: ["wss://testnet.era.zksync.dev/ws"],
+      http: ["https://sepolia.era.zksync.dev"],
     },
     public: {
-      http: ["https://testnet.era.zksync.dev"],
-      webSocket: ["wss://testnet.era.zksync.dev/ws"],
+      http: ["https://sepolia.era.zksync.dev"],
     },
   },
   blockExplorers: {
-    etherscan: {
-      name: "zkSync Explorer",
-      url: "https://goerli.explorer.zksync.io/",
-    },
     default: {
-      name: "zkSync Explorer",
-      url: "https://goerli.explorer.zksync.io/",
+      name: 'Etherscan',
+      url: 'https://sepolia-era.zksync.network/',
+    },
+    native: {
+      name: 'zkSync Explorer',
+      url: 'https://sepolia.explorer.zksync.io/',
     },
   },
-  // TODO add multicall3 to support batched useContractReads -- canonical multicall3 contract deployment doesn't yet exist on zkSyncTestnet 0xcA11bde05977b3631167028862bE2a173976CA11
+  contracts: {
+    multicall3: {
+      address: '0xF9cda624FBC7e059355ce98a31693d299FACd963',
+      blockCreated: 2292,
+    },
+  },
   testnet: true,
 });
 
-export const zkSync: Readonly<Chain> = Object.freeze<Chain>({ // here we declare zkSync even though wagmi exports zkSync because wagmi's zkSync is currently out of date with the final zkSync mainnet rpc endpoints --> TODO replace with viem definition
+// WARNING TODO perhaps we should disable zkSync until we properly support zkSync addresses. Ordinary EOAs don't work on zkSync because their platform produces different addresses https://support.argent.xyz/hc/en-us/articles/4405255165585-Linking-setting-up-your-zkSync-address-on-Layer-2 --> at very least, we should be warning people before sending funds on zkSync --> but haven't I already sent some funds to zkSync? needs investigation --> TODO investigate before open-sourcing
+export const zkSync: Readonly<Chain> = Object.freeze<Chain>({ // here we declare zkSync even though wagmi exports zkSync because wagmi's zkSync is currently out of date with the final zkSync mainnet rpc endpoints --> TODO replace with viem definition after migrating to viem
   id: 324,
   name: "zkSync Era",
   network: "zkSync Era",
@@ -274,27 +317,30 @@ export const zkSync: Readonly<Chain> = Object.freeze<Chain>({ // here we declare
   rpcUrls: {
     default: {
       http: ["https://mainnet.era.zksync.io"],
-      webSocket: ["wss://mainnet.era.zksync.io/ws"],
     },
     public: {
       http: ["https://mainnet.era.zksync.io"],
-      webSocket: ["wss://mainnet.era.zksync.io/ws"],
     },
   },
   blockExplorers: {
-    etherscan: {
-      name: "zkSync Explorer",
-      url: "https://explorer.zksync.io/",
-    },
     default: {
-      name: "zkSync Explorer",
-      url: "https://explorer.zksync.io/",
+      name: "Etherscan",
+      url: "https://era.zksync.network/",
+    },
+    native: {
+      name: 'zkSync Explorer',
+      url: 'https://explorer.zksync.io/',
     },
   },
-  // TODO add multicall3 to support batched useContractReads -- canonical multicall3 contract deployment doesn't yet exist on zkSync 0xcA11bde05977b3631167028862bE2a173976CA11
+  contracts: {
+    multicall3: {
+      address: '0xF9cda624FBC7e059355ce98a31693d299FACd963',
+      blockCreated: 3908235,
+    },
+  },
 });
 
-export const polygonZkEvm: Readonly<Chain> = Object.freeze<Chain>({ // wagmi doesn't yet support polygonZkEvm --> TODO replace with viem definition
+export const polygonZkEvm: Readonly<Chain> = Object.freeze<Chain>({ // TODO replace with viem definition after migrating to viem
   id: 1101,
   name: "Polygon zkEVM",
   network: "polygon-zkevm",
@@ -321,38 +367,12 @@ export const polygonZkEvm: Readonly<Chain> = Object.freeze<Chain>({ // wagmi doe
       url: "https://zkevm.polygonscan.com/",
     },
   },
-  // TODO add multicall3 to support batched useContractReads -- canonical multicall3 contract deployment doesn't yet exist on polygonZkEvm 0xcA11bde05977b3631167028862bE2a173976CA11
-});
-
-export const lineaTestnet: Readonly<Chain> = Object.freeze<Chain>({ // wagmi does not yet support Consensus lineaTestnet --> TODO replace with lineaSepolia (or is this already on sepolia?)
-  id: 59140,
-  name: "Linea Testnet",
-  network: "linea-testnet",
-  nativeCurrency: {
-    name: "Ether",
-    symbol: "ETH",
-    decimals: 18,
-  },
-  rpcUrls: {
-    default: {
-      http: ["https://rpc.goerli.linea.build"],
-    },
-    public: {
-      http: ["https://rpc.goerli.linea.build"],
+  contracts: {
+    multicall3: {
+      address: '0xcA11bde05977b3631167028862bE2a173976CA11',
+      blockCreated: 57746,
     },
   },
-  blockExplorers: {
-    etherscan: {
-      name: "Linea Testnet Explorer",
-      url: "https://explorer.goerli.linea.build/",
-    },
-    default: {
-      name: "Linea Testnet Explorer",
-      url: "https://explorer.goerli.linea.build/",
-    },
-  },
-  // TODO add multicall3 to support batched useContractReads -- canonical multicall3 contract deployment doesn't yet exist on Linea 0xcA11bde05977b3631167028862bE2a173976CA11
-  testnet: true,
 });
 
 export const fluentTestnet: Readonly<Chain> = Object.freeze<Chain>({
@@ -362,22 +382,23 @@ export const fluentTestnet: Readonly<Chain> = Object.freeze<Chain>({
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: {
-      http: ['https://rpc.dev1.fluentlabs.xyz/'],
+      http: ['https://rpc.dev.thefluent.xyz/'],
     },
     public: {
-      http: ['https://rpc.dev1.fluentlabs.xyz/'],
+      http: ['https://rpc.dev.thefluent.xyz/'],
     },
   },
   blockExplorers: {
     blockscout: {
       name: 'Blockscout',
-      url: 'https://blockscout.dev1.fluentlabs.xyz/',
+      url: 'https://blockscout.dev.thefluent.xyz/',
     },
     default: {
       name: 'Blockscout',
-      url: 'https://blockscout.dev1.fluentlabs.xyz/',
+      url: 'https://blockscout.dev.thefluent.xyz/',
     },
   },
+  // TODO multicall3
   testnet: true,
 });
 
@@ -388,31 +409,33 @@ export const chainsSupportedBy3cities: NonEmptyArray<Chain> = (() => {
     optimism,
     arbitrum,
     arbitrumNova,
+    base,
     zkSync,
-    // scroll, // scroll is currently disabled because rpc is throwing CORS errors on localhost and in prod
+    // TODO reenable scroll, // scroll is currently disabled because rpc is throwing CORS errors on localhost and in prod
     linea,
     zora,
-    base,
+    // TODO taiko
+    // TODO immutable zkEVM
     polygonZkEvm,
     polygon,
-    // TODO immutable zkEVM when it launches
     // ********* END PRODUCTION networks *********
   ] : [
     // ********* BEGIN TEST networks *********
-    goerli,  // TODO sepolia
-    optimismGoerli, // TODO sepolia
-    arbitrumGoerli, // TODO sepolia
-    zkSyncTestnet, // TODO sepolia
-    polygonZkEvmTestnet,  // TODO sepolia
-    // lineaTestnet, // TODO lineaTestnet's rpc CORS setting currently doesn't allow requests from http://localhost:3000. This produces spammy linea errors in dev. I have disabled lineaTestnet for now until they fix this, even though it should work fine in staging. --> TODO retry this and use lineaSepolia if exists
-    // scrollTestnet, // TODO switch to scrollSepolia
-    baseGoerli, // TODO rm
+    sepolia,  // TODO sepolia
+    // TODO optimismSepolia
+    // TODO arbitrumSepolia
     baseSepolia,
-    polygonMumbai,
+    zkSyncSepolia,
+    // TODO scrollSepolia
+    // TODO lineaSepolia
+    // TODO zoraSepolia
+    // TODO taikoSepolia
     // TODO immutable zkEVM testnet -- https://docs.immutable.com/docs/zkEVM/architecture/chain-config
-    fluentTestnet,
+    // TODO polygonZkEvmSepolia (ZkEvm Cardona) https://polygon.technology/blog/polygon-pos-and-polygon-zkevm-new-testnets-for-polygon-protocols
+    // TODO polygonSepolia (PoS Amoy)
+    // fluentTestnet, // TODO update fluentTestnet (sepolia?)
     // ********* END TEST networks *********
-  ].filter((c: Chain) => !isTestShorterListOfChains || c.id === scrollTestnet.id)
+  ].filter((c: Chain) => !isTestShorterListOfChains || c.id === baseSepolia.id)
   );
   const c0 = cs[0];
   if (c0 === undefined) throw new Error(`chainsSupportedBy3cities: set of supported chains is empty`);

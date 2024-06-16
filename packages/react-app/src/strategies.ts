@@ -7,7 +7,7 @@ import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import { StrategyPreferences } from "./StrategyPreferences";
 import { NativeCurrency, Token, isToken } from "./Token";
 import { canAfford } from "./canAfford";
-import { arbitrum, arbitrumGoerli, arbitrumNova, base, chainsSupportedBy3cities, linea, mainnet, optimism, optimismGoerli, polygon, polygonZkEvm, scroll, zkSync, zora } from './chains';
+import { arbitrum, arbitrumNova, base, baseSepolia, chainsSupportedBy3cities, linea, mainnet, optimism, polygon, polygonZkEvm, scroll, sepolia, zkSync, zkSyncSepolia, zora } from './chains';
 import { flatMap } from "./flatMap";
 import { isProduction } from "./isProduction";
 import { LogicalAssetTicker, convertLogicalAssetUnits } from "./logicalAssets";
@@ -320,22 +320,23 @@ const staticChainIdPriority: ChainIdPriority = { // TODO move this to a new file
   // fee structures are always changing, and fees can differ for more
   // complex reasons, so this is just a start.
 
-  // This is intended to be a complete set of prioritized production networks (higher priority is better):
-  [arbitrumNova.id]: 1000,
+  // This is intended to be a complete set of prioritized production networks (higher priority is better; we try to priorize primarily by L2Beat.com decentralization Stage and secondarily by expected transaction fee):
   [arbitrum.id]: 900,
+  [base.id]: 850,
   [optimism.id]: 800,
   [polygonZkEvm.id]: 750,
   [zkSync.id]: 700,
   [scroll.id]: 650,
   [linea.id]: 625,
   [zora.id]: 600,
-  [base.id]: 550,
-  [polygon.id]: 500, // polygon is currently an alt L1 and so we assign it lowest priority since we prefer L2s
+  [arbitrumNova.id]: 550, // arbitrum nova is an optimium that falls back to a rollup if the DA committee becomes unavailable
+  [polygon.id]: 500, // polygon PoS is an alt L1 and so we assign it lowest priority since we prefer L2s
   [mainnet.id]: 1,
 
   // Testnet priorities below here (higher priority is better):
-  [arbitrumGoerli.id]: 100,
-  [optimismGoerli.id]: 50,
+  [baseSepolia.id]: 1000,
+  [zkSyncSepolia.id]: 500,
+  [sepolia.id]: 1,
 };
 
 if (isProduction) chainsSupportedBy3cities.forEach(c => {
