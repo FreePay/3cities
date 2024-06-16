@@ -12,36 +12,40 @@ export type ExchangeRates = Readonly<{
 // the struture of ExchangeRates changes --> an alternative to
 // areExchangeRatesEqual is to adopt the fast-deep-equal library, see
 // other note (search for "fast-deep-equal")
-export function areExchangeRatesEqual(a: ExchangeRates, b: ExchangeRates): boolean {
-  const keysA = Object.keys(a);
-  const keysB = Object.keys(b);
-  if (keysA.length !== keysB.length) return false;
+export function areExchangeRatesEqual(a: ExchangeRates | undefined, b: ExchangeRates | undefined): boolean {
+  if (a === undefined && b === undefined) return true;
+  else if (a === undefined || b === undefined) return false;
   else {
-    let isEqual = true;
-    for (const keyARaw of keysA) {
-      const keyA = toUppercase(keyARaw);
-      if (!Object.prototype.hasOwnProperty.call(b, keyA)) {
-        isEqual = false;
-        break;
-      } else {
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
-        const innerKeysA = Object.keys(a[keyA]!);
-        // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
-        const innerKeysB = Object.keys(b[keyA]!);
-        if (innerKeysA.length !== innerKeysB.length) {
+    const keysA = Object.keys(a);
+    const keysB = Object.keys(b);
+    if (keysA.length !== keysB.length) return false;
+    else {
+      let isEqual = true;
+      for (const keyARaw of keysA) {
+        const keyA = toUppercase(keyARaw);
+        if (!Object.prototype.hasOwnProperty.call(b, keyA)) {
           isEqual = false;
           break;
-        } else for (const innerKeyRaw of innerKeysA) {
-          const innerKey = toUppercase(innerKeyRaw);
+        } else {
           // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
-          if (!Object.prototype.hasOwnProperty.call(b[keyA], innerKey) || a[keyA]![innerKey] !== b[keyA]![innerKey]) {
+          const innerKeysA = Object.keys(a[keyA]!);
+          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
+          const innerKeysB = Object.keys(b[keyA]!);
+          if (innerKeysA.length !== innerKeysB.length) {
             isEqual = false;
             break;
+          } else for (const innerKeyRaw of innerKeysA) {
+            const innerKey = toUppercase(innerKeyRaw);
+            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
+            if (!Object.prototype.hasOwnProperty.call(b[keyA], innerKey) || a[keyA]![innerKey] !== b[keyA]![innerKey]) {
+              isEqual = false;
+              break;
+            }
           }
         }
       }
+      return isEqual;
     }
-    return isEqual;
   }
 }
 
