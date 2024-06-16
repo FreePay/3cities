@@ -1,0 +1,11 @@
+# build directories
+cache
+coverage
+out
+dist
+
+# .env file with secrets
+.env
+
+# ignore broadcasts to anvil
+/broadcast/*/31337/

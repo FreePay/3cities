@@ -1,0 +1,34 @@
+{
+  "name": "@3cities/eth-transfer-proxy",
+  "license": "MIT",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
+  "dependencies": {
+    "forge-std": "github:foundry-rs/forge-std#v1.8.1"
+  },
+  "devDependencies": {
+    "solhint": "^5.0.1",
+    "typescript": "^5.4.5"
+  },
+  "scripts": {
+    "clean:forge": "rm -rf cache out",
+    "clean:ts": "rm -rf dist",
+    "clean": "yarn clean:forge && yarn clean:ts",
+    "build:forge": "forge build",
+    "build:gen": "jq -cr '.abi' out/ETHTransferProxy.sol/ETHTransferProxy.json | sed \"s/.*/\\\\/\\\\/ WARNING this file is generated automatically by 'yarn build:gen'\\\\nexport const ETHTransferProxyABI = & as const;/\" > src/abi.gen.ts",
+    "build:ts": "yarn clean:ts && tsc",
+    "build": "yarn build:forge && yarn build:gen && yarn build:ts",
+    "deploy:local": "PRIVATE_KEY='' MNEMONIC='' forge script script/Deploy.s.sol --broadcast --fork-url http://localhost:8545",
+    "deploy:sepolia": "CHAIN=sepolia forge script script/Deploy.s.sol --broadcast --verify -vvv",
+    "fmt": "forge fmt",
+    "gas": "forge test --gas-report",
+    "lint": "forge fmt --check && yarn solhint {script,src,test}/**/*.sol",
+    "prepack": "yarn && yarn build",
+    "test": "forge test",
+    "test:coverage": "forge coverage"
+  }
+}

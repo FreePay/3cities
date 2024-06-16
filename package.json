@@ -4,14 +4,12 @@
   "keywords": [
     "ethereum",
     "payments",
-    "react",
-    "workspaces",
-    "yarn"
+    "react"
   ],
   "private": true,
   "scripts": {
-    "lint": "yarn workspace @3cities/react-app lint",
-    "build": "yarn workspace @3cities/react-app build",
+    "lint": "yarn workspace @3cities/react-app lint && yarn workspace @3cities/eth-transfer-proxy lint",
+    "build": "yarn workspace @3cities/react-app build && yarn workspace @3cities/eth-transfer-proxy build",
     "build:prod-test": "yarn workspace @3cities/react-app build:prod-test",
     "start": "yarn workspace @3cities/react-app start",
     "react-app:analyze": "yarn workspace @3cities/react-app analyze",
@@ -25,6 +23,10 @@
   "workspaces": {
     "packages": [
       "packages/*"
+    ],
+    "nohoist": [
+      "**/forge-std",
+      "**/forge-std/**"
     ]
   }
 }
