@@ -1,5 +1,5 @@
-import { configureChains, disconnect, getAccount } from '@wagmi/core';
-import { createClient, UserRejectedRequestError } from 'wagmi'; // NB createClient exported by wagmi seems to include a built-in queryClient and is a different type than createClient exported by @wagmi/core; this createClient from 'wagmi' is recommended for a react app, to prevent us from having to construct our own queryClient
+import { configureChains } from '@wagmi/core';
+import { createClient } from 'wagmi'; // NB createClient exported by wagmi seems to include a built-in queryClient and is a different type than createClient exported by @wagmi/core; this createClient from 'wagmi' is recommended for a react app, to prevent us from having to construct our own queryClient
 import { CoinbaseWalletConnector } from 'wagmi/connectors/coinbaseWallet';
 import { InjectedConnector } from 'wagmi/connectors/injected';
 import { MetaMaskConnector } from 'wagmi/connectors/metaMask';
@@ -7,13 +7,8 @@ import { WalletConnectConnector } from 'wagmi/connectors/walletConnect';
 import { alchemyProvider } from 'wagmi/providers/alchemy';
 import { infuraProvider } from 'wagmi/providers/infura';
 import { publicProvider } from 'wagmi/providers/public';
-import { chainsSupportedBy3cities } from './chains';
-import { hasOwnPropertyOfType } from './hasOwnProperty';
-import { clearMostRecentlyUsedWeb3AuthLoginProvider, makeWeb3AuthConnectorAsync } from './makeWeb3AuthConnectorAsync';
-import { Web3AuthConnector, Web3AuthLoginProvider } from './Web3AuthConnector';
 import { alchemyApiKey } from './alchemyApiKey';
-
-// TODO move the web3auth async/load/set/reconnect stuff into makeWeb3AuthConnectorAsync.ts and maybe rename that file to something that explains "here's the code that glues async web3auth to wagmiClient in a lifecycle"
+import { chainsSupportedBy3cities } from './chains';
 
 // TODO can we add a provider for a localhost ethrpc url for L1, eg. http://localhost:8545, and default to it? This would allow power users to automatically benefit from running their own ethrpc. However, there is a potential downside: it's possible that the ethrpc on localhost would be relatively unperformant. Eg. imagine on mobile, Coinbase Wallet gave every user an ethrpc running on http://localhost:8545, then 3cities might automatically pick this up, but what if this local node sucks for querying chain data? eg. slow, needs to ask other nodes for data --> perhaps it's better to avoid defautling to localhost and add it as an app config option. ethrpc urls could be set in CheckoutSettings (eg. EF specifies that customers should use the EF's rpc urls) or in app-wide settings (eg. Me -> Settings -> ethrpc urls)
 
@@ -47,7 +42,6 @@ export const wagmiClient = createClient({
   provider,
   webSocketProvider,
   connectors: [
-    // NB connectkit doesn't auto-detect Web3Auth connectors and doesn't display an option for Web3Auth, and so logging in with web3auth is not currently possible in connectkit's modal https://github.com/family/connectkit/tree/main/packages/connectkit/src/wallets/connectors --> instead, we implement lazy loading of a Web3AuthConnector below and this connector is expected to be activated outside of connectkit (eg. in our component built to activate it)
     new MetaMaskConnector({
       chains,
       options: {
@@ -96,98 +90,4 @@ export const wagmiClient = createClient({
 //   }),
 // });
 
-let web3AuthConnector: Web3AuthConnector | undefined = undefined;
-
-// ensureWeb3AuthConnectorDestroyed ensures that any extant
-// Web3AuthConnector has been disconnected and destroyed.
-// postcondition: web3AuthConnector undefined and wagmiClient has no Web3AuthConnector
-async function ensureWeb3AuthConnectorDestroyed(): Promise<void> {
-  if (web3AuthConnector !== undefined) {
-    // there's an extant Web3AuthConnector. We'll disconnect it if it's active and then destroy it
-    const { connector: activeConnector } = getAccount();
-    if (activeConnector && web3AuthConnector.connector.id === activeConnector.id) {
-      // the extant Web3AuthConnector is active, we'll disconnect it and then destroy it
-      // console.log("ensureWeb3AuthConnectorDestroyed: disconnecting active Web3AuthConnector", activeConnector);
-      await disconnect();
-    }
-    // console.log("ensureWeb3AuthConnectorDestroyed: destroying extant Web3AuthConnector", activeConnector);
-    // destroy the extant Web3AuthConnector by removing it from wagmiClient. TODO what's the recommended way to destroy a connector? https://github.com/wagmi-dev/wagmi/discussions/1822#discussioncomment-4960134
-    wagmiClient.setState(s => {
-      return Object.assign({}, s, {
-        connectors: s.connectors.filter(c => !web3AuthConnector || c.id !== web3AuthConnector.connector.id),
-      });
-    });
-    web3AuthConnector = undefined;
-  }
-}
-
-let isLoadingMakeAndSetWeb3AuthConnector: boolean = false; // condition variable for makeAndSetWeb3AuthConnector
-
-// makeAndSetWeb3AuthConnector constructs our singleton
-// Web3AuthConnector using the passed Web3AuthLoginProvider and sets
-// this newly constructed connector in our singleton wagmiClient. But
-// before this construction, we'll destroy any previously-existing
-// Web3AuthConnector and disconnect the user's wallet if a
-// previously-existing Web3AuthConnector is the active connector.
-export async function makeAndSetWeb3AuthConnector(web3AuthLoginProvider: Web3AuthLoginProvider): Promise<Web3AuthConnector> {
-  if (isLoadingMakeAndSetWeb3AuthConnector) throw new Error(`unsupported call to makeAndSetWeb3AuthConnector while another invocation of makeAndSetWeb3AuthConnector was still loading`);
-  isLoadingMakeAndSetWeb3AuthConnector = true;
-
-  // 1. Destroy any extant Web3AuthConnector because wagmiClient doesn't support duplicate connectors with the same connector.id, and all Web3Auth connectors have the same id regardless of with which Web3AuthLoginProvider they are configured
-  await ensureWeb3AuthConnectorDestroyed().catch(err => {
-    const e = new Error(`makeAndSetWeb3AuthConnector: ensureWeb3AuthConnectorDestroyed failed: ${err}`);
-    console.error(e, 'underlying error:', err);
-    isLoadingMakeAndSetWeb3AuthConnector = false; // ensure isLoadingMakeAndSetWeb3AuthConnector is set to false to clear the loading state so that makeAndSetWeb3AuthConnector may be retried
-    throw e; // here we must re-throw so that any clients depending on this promise receive the rejection or else, from these clients' point of view, the promise will fail silently
-  });
-  // console.log("connectors after ensureWeb3AuthConnectorDestroyed", wagmiClient.connectors);
-
-  // 2. Construct our new singleton Web3AuthConnector and add it to our singleton wagmiClient
-  const newConnector: Web3AuthConnector = await makeWeb3AuthConnectorAsync(chainsSupportedBy3cities, web3AuthLoginProvider).catch(err => {
-    const e = new Error(`makeAndSetWeb3AuthConnector: makeWeb3AuthConnectorAsync failed: ${err}`);
-    console.error(e, 'underlying error:', err);
-    isLoadingMakeAndSetWeb3AuthConnector = false; // ensure isLoadingMakeAndSetWeb3AuthConnector is set to false to clear the loading state so that makeAndSetWeb3AuthConnector may be retried
-    throw e; // here we must re-throw so that any clients depending on this promise receive the rejection or else, from these clients' point of view, the promise will fail silently
-  });
-  wagmiClient.setState(s => {
-    return Object.assign({}, s, {
-      connectors: [...s.connectors, newConnector.connector],
-    });
-  });
-
-  web3AuthConnector = newConnector;
-  // console.log("connectors after creating web3Auth", wagmiClient.connectors);
-  isLoadingMakeAndSetWeb3AuthConnector = false;
-  return web3AuthConnector;
-}
-
-async function tryReconnectToWeb3Auth() {
-  // TODO re-enable tryReconnectToWeb3Auth which is currently commented out as we're not ready to ship web3auth integration
-  // const p = await getMostRecentlyUsedWeb3AuthLoginProvider();
-  // if (wagmiClient.status === 'disconnected' && p) {
-  //   const connector = await (await makeAndSetWeb3AuthConnector(p)).connector;
-  //   await connect({ connector, chainId: chainsSupportedBy3cities[0].id }); // here we pass a supported chainId (happens to be the 0th's chain's id, but that's unimportant) to avoid the case where the connector defaults to an unsupported chain, such as defaulting to chainId 1 when not in production
-  // }
-}
-
-(async () => { // poll wagmiClient to see if we're ready to try to reconnect to web3auth. We need to attempt to reconnect manually because Web3AuthConnector is loaded async so wagmiClient can't automatically reconnect.
-  let attempts = 0;
-  function maybeTry() {
-    // WARNING when wagmiClient boots, it goes through an async autoConnect process during which wagmiClient.status='connecting' or 'connected'. We mustn't attempt to reconnect to web3auth during that autoConnect process because wagmiClient doesn't support concurrent connection attempts. So, poll to see if wagmiClient is disconnected and try reconnecting to web3auth iff wagmiClient is disconnected within our window of poll attempts.
-    if (wagmiClient.status === 'disconnected') {
-      // wagmiClient has completed its autoConnect attempt, so we're ready to try and reconnect to web3auth
-      tryReconnectToWeb3Auth().catch(e => {
-        if (e instanceof UserRejectedRequestError && e.code === 4001) { // UserRejectedRequestError with a code of 4001 indicates the user is logged out of web3auth and a reconnection can never succeed, so we'll clear the cached login. Note we don't clear login unconditionally because the reconnect may have failed for an ephemeral reason, such as the user having no internet.
-          clearMostRecentlyUsedWeb3AuthLoginProvider();
-        } else console.error("error while attempting to reconnect to web3auth:", e, JSON.stringify(e), hasOwnPropertyOfType(e, 'code', 'number') && e.code);
-      });
-    } else if (attempts < 200) {
-      // wagmiClient is still in the middle of its autoConnect attempt, so we'll try again later
-      attempts++;
-      setTimeout(maybeTry, 10);
-    }
-  }
-  setTimeout(maybeTry, 10);
-})();
-
-// console.log("wagmiClient.chains", wagmiClient.chains); // WARNING wagmiClient.chains seems to be defined if and only if the wallet is currently connected. For that reason, we shouldn't rely on wagmiClient.chains to power any downstream config (eg. Web3Modal EthereumClient's chains) https://github.com/wagmi-dev/wagmi/discussions/1832
+// console.log("wagmiClient.chains", wagmiClient.chains); // WARNING wagmiClient.chains seems to be defined if and only if the wallet is currently connected. For that reason, we shouldn't rely on wagmiClient.chains to power any downstream config https://github.com/wagmi-dev/wagmi/discussions/1832
