@@ -24,6 +24,7 @@ module.exports = {
         "eslint-rules/",
         "node_modules/",
         "build/",
+        "dist/",
     ],
     "rules": {
         "@typescript-eslint/switch-exhaustiveness-check": "error",

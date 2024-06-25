@@ -1,3 +1,4 @@
+/* TODO extend monorepo base tsconfig.json "../../tsconfig.json", */
 {
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig.json to read more about this file */
