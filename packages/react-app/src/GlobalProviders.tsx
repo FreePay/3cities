@@ -37,7 +37,6 @@ export const GlobalProviders = () => {
             </ConnectedAccountContextObserverProvider>
           </ConnectKitProvider>
           {/* </ConnectWalletProvider> */}
-          {/* <Web3ModalInstance /> */ /* TODO we can't use web3modal right now because of bugs in WalletConnectConnector which should become resolved after these libs finish the current transition to walletconnect v2. See notes on WalletConnectConnector in wagmi config. */}
         </DemoAccountProvider>
       </IsPageVisibleOrRecentlyVisibleProvider>
     </WagmiConfig>
