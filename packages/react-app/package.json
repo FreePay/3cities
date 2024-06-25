@@ -83,7 +83,7 @@
     "depcheck": "depcheck",
     "eject": "react-scripts eject",
     "gen": "npx buf generate proto",
-    "lint": "yarn eslint . --max-warnings 0 && buf lint",
+    "lint": "eslint . --max-warnings 0 && buf lint",
     "start-raw": "REACT_APP_GIT_COMMIT=`git rev-parse --short HEAD` REACT_APP_GIT_COMMIT_DATE=`TZ=UTC0 git show --quiet --date=local --format='%cd UTC'` react-scripts start # run dev mode in the context of an env that's already been set; WARNING build-raw and start-raw each separately define the computation of env vars REACT_APP_GIT_COMMIT and REACT_APP_GIT_COMMIT_DATE, and these must be identical in both places",
     "start:dev": "yarn env-cmd -e dev yarn start-raw",
     "start:prod-test": "yarn env-cmd -e prod-test yarn start-raw",
