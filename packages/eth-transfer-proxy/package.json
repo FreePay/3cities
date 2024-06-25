@@ -2,11 +2,21 @@
   "name": "@3cities/eth-transfer-proxy",
   "license": "MIT",
   "version": "1.0.0",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
   "files": [
-    "dist/**/*"
+    "dist/cjs/**/*",
+    "dist/esm/**/*",
+    "dist/types/**/*"
   ],
+  "exports": {
+    ".": {
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js",
+      "types": "./dist/types/index.d.ts"
+    }
+  },
   "dependencies": {
     "forge-std": "github:foundry-rs/forge-std#v1.8.1"
   },
@@ -16,17 +26,23 @@
   },
   "scripts": {
     "clean:forge": "rm -rf cache out",
-    "clean:ts": "rm -rf dist",
+    "clean:ts": "rm -rf ./dist",
+    "clean:cjs": "rm -rf ./dist/cjs",
+    "clean:esm": "rm -rf ./dist/esm",
+    "clean:types": "rm -rf ./dist/types",
     "clean": "yarn clean:forge && yarn clean:ts",
     "build:forge": "forge build",
     "build:gen": "jq -cr '.abi' out/ETHTransferProxy.sol/ETHTransferProxy.json | sed \"s/.*/\\\\/\\\\/ WARNING this file is generated automatically by 'yarn build:gen'\\\\nexport const ETHTransferProxyABI = & as const;/\" > src/abi.gen.ts",
-    "build:ts": "yarn clean:ts && tsc",
+    "build:cjs": "yarn clean:cjs && tsc --module commonjs --moduleResolution node --outDir ./dist/cjs --verbatimModuleSyntax false --sourceMap",
+    "build:esm": "yarn clean:esm && tsc --outDir ./dist/esm  --sourceMap",
+    "build:types": "yarn clean:types && tsc --declarationDir ./dist/types --emitDeclarationOnly --declaration --declarationMap",
+    "build:ts": "yarn build:cjs && yarn build:esm && yarn build:types",
     "build": "yarn build:forge && yarn build:gen && yarn build:ts",
     "deploy:local": "PRIVATE_KEY='' MNEMONIC='' forge script script/Deploy.s.sol --broadcast --fork-url http://localhost:8545",
     "deploy:sepolia": "CHAIN=sepolia forge script script/Deploy.s.sol --broadcast --verify -vvv",
     "fmt": "forge fmt",
     "gas": "forge test --gas-report",
-    "lint": "forge fmt --check && yarn solhint {script,src,test}/**/*.sol",
+    "lint": "forge fmt --check && yarn solhint {script,src,test}/**/*.sol && eslint --max-warnings 0",
     "prepack": "yarn && yarn build",
     "test": "forge test",
     "test:coverage": "forge coverage"
