@@ -239,7 +239,7 @@ export function useCaip222StyleSignature({ enabled: useCaip222StyleSignatureEnab
     if (successSignature) {
       const timeout = setTimeout(() => {
         setSuccessDelayElapsed(true);
-      }, successSignature.startsWith("eip1271") ? 0 : 500); // WARNING here we peek into successSignature impl details to bypass success delay for all eip1271 verifications, as we have no known race conditions with these
+      }, successSignature.startsWith("eip1271") ? 0 : 1500); // WARNING here we peek into successSignature impl details to bypass success delay for all eip1271 verifications, as we have no known race conditions with these
       return () => clearTimeout(timeout);
     } else {
       setSuccessDelayElapsed(false);
