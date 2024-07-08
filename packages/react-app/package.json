@@ -5,12 +5,7 @@
   "homepage": "./",
   "browserslist": {
     "production": [
-      "supports bigint",
-      "supports cryptography",
-      "supports fetch",
-      "supports textencoder",
-      "not dead",
-      ">0.2%",
+      "supports bigint and supports cryptography and supports fetch and supports textencoder",
       "not ie <= 99",
       "not android <= 4.4.4",
       "not dead",
@@ -77,6 +72,7 @@
     "build:prod-test": "if [ -z \"$(git status --porcelain)\" ]; then npx env-cmd -e prod-test yarn build-raw; else echo 'refusing to run prod-test build with uncommited changes in the working directory'; exit 1; fi",
     "build:prod": "if [ -z \"$(git status --porcelain)\" ]; then npx env-cmd -e prod npm run build-raw; else echo 'refusing to run production build with uncommited changes in the working directory'; exit 1; fi",
     "build": "yarn build:prod",
+    "browserslist": "npx browserslist",
     "depcheck": "depcheck",
     "eject": "react-scripts eject",
     "gen": "npx buf generate proto",
