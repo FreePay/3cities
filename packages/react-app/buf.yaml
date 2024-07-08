@@ -1,2 +1,15 @@
-# https://buf.build/docs/configuration/v1/buf-yaml
-version: v1
+version: v2
+modules:
+  # - path: .
+  #   lint:
+  #     except:
+  #       - FIELD_NOT_REQUIRED
+  #       - PACKAGE_NO_IMPORT_CYCLE
+  #     disallow_comment_ignores: true
+  #   breaking:
+  #     except:
+  #       - EXTENSION_NO_DELETE
+  #       - FIELD_SAME_DEFAULT
+  - path: proto
+    lint:
+      disallow_comment_ignores: true

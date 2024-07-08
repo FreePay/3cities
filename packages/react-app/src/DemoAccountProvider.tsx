@@ -1,9 +1,8 @@
-import { Signer } from '@ethersproject/abstract-signer';
-import { isAddress } from "@ethersproject/address";
-import { MockConnector } from '@wagmi/core/connectors/mock';
-import React, { FC, useCallback, useEffect, useState } from "react";
+import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from 'react-router-dom';
-import { useAccount, useConnect, useDisconnect } from 'wagmi';
+import { isAddress } from "viem";
+import { useAccount, useAccountEffect, useConnect, useDisconnect } from 'wagmi';
+import { mock } from 'wagmi/connectors';
 import { ActiveDemoAccountContext } from './ActiveDemoAccountContext';
 import { ObservableValueUpdater, Observer, makeObservableValue } from './observer';
 import { useEnsAddress } from './useEnsAddress';
@@ -53,29 +52,6 @@ const DemoAccountProviderInner: FC<DemoAccountProviderInnerProps> = ({ children,
 //   mock address -> no mock address
 //   mock adddress -> change to invalid mock address -> change to valid mock address
 //   mock address -> change mock address
-
-class ReadonlySigner extends Signer {
-  signMessage(): Promise<string> {
-    throw new Error('Method not implemented.');
-  }
-  signTransaction(): Promise<string> {
-    throw new Error('Method not implemented.');
-  }
-  connect(): Signer {
-    return new ReadonlySigner(this.address);
-  }
-
-  readonly address;
-
-  constructor(address: `0x${string}`) {
-    super();
-    this.address = address;
-  }
-
-  getAddress() {
-    return Promise.resolve(this.address);
-  }
-}
 
 // useMockConnectedAddress sets the wagmi connected wallet address to
 // the passed mockAddressOrENS. This allows the connected address to be
@@ -128,12 +104,11 @@ function useMockConnectedAddress(mockAddressOrENS?: string | undefined): undefin
       setMockAddressConnectionStatus('connecting');
       setDoConnectThunk(() => () => { // NB here we need to wrap the thunk value in an outer function to actually cause the value to be set to the thunk, otherwise the thunk is interpreted as a setter function and the connectAsync is incorrectly executed as part of the state update instead of correctly in the doConnectThunk effect.
         connectAsync({
-          connector: new MockConnector({
-            options: {
-              signer: new ReadonlySigner(addressToConnect),
-            },
-          })
-        }).then(({ account: connectedToAccount }) => {
+          connector: mock(({
+            accounts: [addressToConnect],
+          })),
+        }).then(({ accounts }) => {
+          const connectedToAccount = accounts[0];
           if (connectedToAccount === addressToConnect) setMockAddressConnectionStatus('connected');
           else throw new Error(`useMockConnectedAddress: connectAsync: connected to an unexpected account ${connectedToAccount} != addressToConnect ${addressToConnect}`);
         }).catch((e: unknown) => {
@@ -180,7 +155,9 @@ function useCalcActiveDemoAccount() {
       // no-op: a disconnection occurred unrelated to any demo account.
     }
   }, [demoAccountToConnect, setShouldConnectToDemoAccount, demoAccountSuccessfullyConnected, demoAccountThatWasSuccessfullyConnected]);
-  useAccount({ onDisconnect });
+
+  const useAccountEffectArgs = useMemo(() => { return { onDisconnect }; }, [onDisconnect]);
+  useAccountEffect(useAccountEffectArgs);
 
   const activeDemoAccount: string | undefined = demoAccountSuccessfullyConnected && rawDemoAccountSearchParam ? rawDemoAccountSearchParam : undefined;
   return activeDemoAccount;

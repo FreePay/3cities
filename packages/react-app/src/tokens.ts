@@ -1,14 +1,11 @@
-import { Chain } from 'wagmi';
 import { NonEmptyArray } from "./NonEmptyArray";
 import { Optional } from './Optional';
 import { NativeCurrency, Token, isToken } from "./Token";
-import { allSupportedChainIds, arbitrum, arbitrumNova, base, baseSepolia, fluentTestnet, linea, mainnet, optimism, polygon, polygonZkEvm, scroll, sepolia, zkSync, zkSyncSepolia, zora } from './chains';
+import { allSupportedChainIds, arbitrum, arbitrumNova, arbitrumSepolia, base, baseSepolia, blast, blastSepolia, fluentTestnet, immutableZkEvm, linea, lineaSepolia, mainnet, mode, optimism, optimismSepolia, polygon, polygonAmoy, polygonZkEvm, polygonZkEvmCardona, scroll, scrollSepolia, sepolia, taiko, zkSync, zkSyncSepolia, zora, zoraSepolia, type Chain } from './chains';
 import { isProduction } from "./isProduction";
 import { toUppercase } from './toUppercase';
 
 // TODO switch to matrix-style token definitions, such that constants like eg. ArbitrumNovaLUSD don't need to exist, and instead, we get something like `const lusd = abstractToken({ name: 'Liquidty USD', ticker: 'LUSD', }); tokens.push(t(arbitrumNova, lusd, { c: '<contract address' }));` or perhaps `tokens.push(ts(arbitrumNova, { lusd: '<contract address'>, usdc: '<contract address>' })) --> need to consider how these succinct definitions would handle overrides, eg. if a token has a different number of definitions on one chain or a canonicalTicker --> another feature of these new definitions could be that the tokens produce their own canonical ordering given a canonical chain ordering and canonical ticker ordering: today, it's laborious to ensure that the token order (as defined by the manual order of token identifiers in the final tokens array) is consistent for all tickers/chains --> see how OP's multichain tokenlist does this https://github.com/ethereum-optimism/ethereum-optimism.github.io/blob/master/data/WETH/data.json
-
-// TODO consider verbose token names like {TOKEN_SYMBOL}-{NETWORK_VERBOSE_NAME}.
 
 // ***************************************************************
 const isTestShorterListOfTokens = false; // WARNING test flag to be manually toggled during develpment to cull the list of supported tokens down to a minimal set for testing purposes
@@ -85,7 +82,8 @@ const optimismLUSD = token(optimism, { name: 'Liquity USD', ticker: 'LUSD', cont
 // const optimismPYUSD = token(optimism, { name: 'PayPal USD', ticker: 'PYUSD', contractAddress: '', decimals: 6 }); // not currently added to optimism bridge. TODO programmatically bridge it ourselves and add it
 // const optimismGUSD = token(optimism, { name: 'Gemini Dollar', ticker: 'GUSD', contractAddress: '', decimals: 2 }); // not currently added to optimism bridge. TODO programmatically bridge it ourselves and add it
 
-// TODO optimismSepolia
+// optimismSepolia
+const optimismSepoliaETH = nativeCurrency(optimismSepolia);
 
 // arbitrum
 // how to add new tokens on arbitrum: look up the address in https://bridge.arbitrum.io/?l2ChainId=42161 (L2 token addresses can be seen without executing a bridge operation. If the L2 token address doesn't load, nobody may have bridged it yet)
@@ -97,6 +95,9 @@ const arbitrumUSDCNative = token(arbitrum, { name: 'USD Coin', ticker: 'USDC', c
 const arbitrumUSDT = token(arbitrum, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9', decimals: 6 });
 const arbitrumLUSD = token(arbitrum, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x93b346b6BC2548dA6A1E7d98E9a421B42541425b' });
 
+// arbitrumSepolia
+const arbitrumSepoliaETH = nativeCurrency(arbitrumSepolia);
+
 // arbitrumNova
 // how to add new tokens on arbitrumNova: look up the address in https://bridge.arbitrum.io/?l2ChainId=42170 (L2 token addresses can be seen without executing a bridge operation. If the L2 token address doesn't load, nobody may have bridged it yet), confirm decimals in the explorer, and then add the token
 const arbitrumNovaETH = nativeCurrency(arbitrumNova);
@@ -105,8 +106,6 @@ const arbitrumNovaDAI = token(arbitrumNova, { name: 'Dai', ticker: 'DAI', contra
 const arbitrumNovaUSDC = token(arbitrumNova, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0x750ba8b76187092B0D1E87E28daaf484d1b5273b', decimals: 6 });
 const arbitrumNovaUSDT = token(arbitrumNova, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0xed9d63a96c27f87b07115b56b2e3572827f21646', decimals: 6 });
 const arbitrumNovaLUSD = token(arbitrumNova, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x14B580e57D0827D7B0F326D73AC837C51d62627D' });
-
-// TODO arbitrumSepolia
 
 // base
 // how to add new tokens on base: look up the address in https://github.com/ethereum-optimism/ethereum-optimism.github.io/tree/master/data, verify decimals in same json files, and then add the token
@@ -153,7 +152,8 @@ const scrollLUSD = token(scroll, { name: 'Liquity USD', ticker: 'LUSD', contract
 // const scrollPYUSD = token(scroll, { name: 'PayPal USD', ticker: 'PYUSD', contractAddress: '', decimals: 6 }); // not currently added to scroll bridge (or its underlying token list). TODO programmatically bridge it ourselves and add it
 // const scrollGUSD = token(scroll, { name: 'Gemini Dollar', ticker: 'GUSD', contractAddress: '', decimals: 2 }); // not currently added to scroll bridge (or its underlying token list). TODO programmatically bridge it ourselves and add it
 
-// TODO scrollSepolia
+// scrollSepolia
+const scrollSepoliaETH = nativeCurrency(scrollSepolia);
 
 // linea
 // how to add new tokens on linea: look up the address in https://syncswap.xyz/ (L2 addresses can be seen without swapping), verify decimals in explorer (https://lineascan.build), and then add token
@@ -167,12 +167,25 @@ const lineaDAI = token(linea, { name: 'Dai', ticker: 'DAI', contractAddress: '0x
 // const lineaPYUSD = token(linea, { name: 'PayPal USD', ticker: 'PYUSD', contractAddress: '', decimals: 6 }); // not currently deployed to linea. TODO bridge it ourselves and add it
 // const lineaGUSD = token(linea, { name: 'Gemini Dollar', ticker: 'GUSD', contractAddress: '', decimals: 2 }); // not currently deployed to linea. TODO bridge it ourselves and add it
 
+// lineaSepolia
+const lineaSepoliaETH = nativeCurrency(lineaSepolia);
+
 // zora
 const zoraETH = nativeCurrency(zora);
 // TODO zora does not yet officially support any tokens, they are an ETH-only network. They are based on OP Stack, so we could bridge ERC20s ourselves, but nobody is using erc20s on zora rn, so there's no point.
 
-// TODO taiko
+// zoraSepolia
+const zoraSepoliaETH = nativeCurrency(zoraSepolia);
+
+// taiko
+const taikoETH = nativeCurrency(taiko);
+
 // TODO taikoSepolia
+
+// immutableZkEvm
+const immutableZkEvmETH = nativeCurrency(immutableZkEvm);
+
+// TODO immutableZkEvmSepolia
 
 // polygonZkEvm
 // mainnet bridge https://portal.polygon.technology/bridge
@@ -184,7 +197,19 @@ const polygonZkEvmUSDT = token(polygonZkEvm, { name: 'Tether USD', ticker: 'USDT
 const polygonZkEvmDAI = token(polygonZkEvm, { name: 'Dai', ticker: 'DAI', contractAddress: '0xC5015b9d9161Dca7e18e32f6f25C4aD850731Fd4' });
 const polygonZkEvmLUSD = token(polygonZkEvm, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x01E9A866c361eAd20Ab4e838287DD464dc67A50e' });
 
-// TODO polygonZkEvmSepolia (ZkEvm Cardona)
+// polygonZkEvmCardona (settles on sepolia)
+const polygonZkEvmCardonaETH = nativeCurrency(polygonZkEvmCardona);
+
+// blast
+const blastETH = nativeCurrency(blast);
+
+// blastSepolia
+const blastSepoliaETH = nativeCurrency(blastSepolia);
+
+// mode
+const modeETH = nativeCurrency(mode);
+
+// TODO modeSepolia
 
 // polygon
 // https://github.com/maticnetwork/polygon-token-list
@@ -196,9 +221,10 @@ const polygonUSDCNative = token(polygon, { name: 'USD Coin', ticker: 'USDC', con
 const polygonUSDT = token(polygon, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0xc2132d05d31c914a87c6611c10748aeb04b58e8f', decimals: 6 });
 const polygonLUSD = token(polygon, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x23001f892c0C82b79303EDC9B9033cD190BB21c7' });
 
-// TODO polygonTestnet (PoS Amoy)
+// polygonAmoy (PoS Amoy alt L1, snapshots to sepolia)
+const polygonAmoyETH = nativeCurrency(polygonAmoy);
 
-// Fluent Testnet https://docs.fluentlabs.xyz/fluent-private-beta-testnet/0aaRq0munng2A9mxZvt2/developer-preview/fluent-private-testnet
+// Fluent Testnet https://docs.fluentlabs.xyz
 const fluentTestnetETH = nativeCurrency(fluentTestnet);
 
 function isTokenOnASupportedChain(t: NativeCurrency | Token): boolean {
@@ -213,18 +239,30 @@ export const nativeCurrencies: Readonly<NonEmptyArray<NativeCurrency>> = (() => 
     optimismETH,
     arbitrumETH,
     arbitrumNovaETH,
+    baseETH,
     zkSyncETH,
     scrollETH,
     lineaETH,
     zoraETH,
+    taikoETH,
+    immutableZkEvmETH,
     polygonZkEvmETH,
-    baseETH,
+    blastETH,
+    modeETH,
     polygonMATIC,
   ] : [
     sepoliaETH,
+    optimismSepoliaETH,
+    arbitrumSepoliaETH,
     baseSepoliaETH,
     zkSyncSepoliaETH,
+    scrollSepoliaETH,
+    lineaSepoliaETH,
+    zoraSepoliaETH,
+    polygonZkEvmCardonaETH,
+    blastSepoliaETH,
     fluentTestnetETH,
+    polygonAmoyETH,
   ]).filter(isTokenOnASupportedChain); // here we must drop tokens on unsupported chains to ensure that all tokens in our registry are in fact on supported chains so that our token and chain registries are consistent with each other
   const t0 = ts[0];
   if (t0 === undefined) throw new Error(`nativeCurrencies: set of supported nativeCurrencies is empty`);
@@ -408,7 +446,7 @@ export function getTokenByTokenKey(tk: TokenKey): NativeCurrency | Token {
 }
 
 // Sanity tests:
-// TODO conditional compilation of these sanity tests using macros. Compile them in dev, prod-test (to be released at test.3cities.xyz), and prod-preview (a new environment and released at preview.3cities.xyz. preview is a production environment with the only difference between preview and prod being REACT_APP_ENABLE_SANITY_TESTS=true).
+// TODO conditional compilation of these sanity tests using macros
 if (isToken(ETH)) throw new Error(`isToken implementation error: ETH recognized as a token`);
 if (!isToken(WETH)) throw new Error(`isToken implementation error: WETH not recognized as a token`);
 if (tokens.find(t => !(

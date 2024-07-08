@@ -7,6 +7,13 @@
     "react"
   ],
   "private": true,
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.14.1",
+    "@typescript-eslint/parser": "^7.14.1",
+    "eslint": "^8.57.0",
+    "eslint-plugin-rulesdir": "^0.2.2",
+    "typescript": "^5.5.2"
+  },
   "scripts": {
     "lint": "yarn workspace @3cities/react-app lint && yarn workspace @3cities/eth-transfer-proxy lint",
     "build": "yarn workspace @3cities/eth-transfer-proxy build && yarn workspace @3cities/react-app build",

@@ -1,4 +1,5 @@
 import { IntRange } from "./IntRange";
+import { hasOwnProperty } from "./hasOwnProperty";
 
 // Token is our type for fungible (ERC-20) tokens. An instance of
 // Token represents a token's definition and not a balance denominated
@@ -31,7 +32,7 @@ export type NativeCurrency = Readonly<{
 // isToken is a TypeScript type guard helper function to match
 // `NativeCurrency | Token` into `Token` or `NativeCurrency`
 export function isToken(o: NativeCurrency | Token): o is Token {
-  return Object.prototype.hasOwnProperty.call(o, "contractAddress");
+  return hasOwnProperty(o, "contractAddress");
 }
 
 // isNativeCurrency is a TypeScript type guard helper function to match

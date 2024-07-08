@@ -1,4 +1,5 @@
 import { DeepWritable } from "./Writable";
+import { hasOwnProperty } from "./hasOwnProperty";
 import { LogicalAssetTicker, parseLogicalAssetAmount } from "./logicalAssets";
 import { toUppercase } from "./toUppercase";
 
@@ -24,7 +25,7 @@ export function areExchangeRatesEqual(a: ExchangeRates | undefined, b: ExchangeR
       let isEqual = true;
       for (const keyARaw of keysA) {
         const keyA = toUppercase(keyARaw);
-        if (!Object.prototype.hasOwnProperty.call(b, keyA)) {
+        if (!hasOwnProperty(b, keyA)) {
           isEqual = false;
           break;
         } else {
@@ -38,7 +39,7 @@ export function areExchangeRatesEqual(a: ExchangeRates | undefined, b: ExchangeR
           } else for (const innerKeyRaw of innerKeysA) {
             const innerKey = toUppercase(innerKeyRaw);
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- here we know it exists
-            if (!Object.prototype.hasOwnProperty.call(b[keyA], innerKey) || a[keyA]![innerKey] !== b[keyA]![innerKey]) {
+            if (!hasOwnProperty(b[keyA], innerKey) || a[keyA]![innerKey] !== b[keyA]![innerKey]) {
               isEqual = false;
               break;
             }
@@ -125,7 +126,7 @@ function pow(base: bigint, exponent: bigint): bigint { // TODO deprecate this wh
   }
 }
 
-const oneUnitOfLogicalAsset: bigint = parseLogicalAssetAmount('1').toBigInt();
+const oneUnitOfLogicalAsset: bigint = parseLogicalAssetAmount('1');
 
 // unitRate computes the exchange rate for the passed pair. This can be
 // useful if the pair is not included directly in ExchangeRates. TODO

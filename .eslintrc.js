@@ -55,7 +55,11 @@ module.exports = {
                         "message": "Please use <Trans> instead of t."
                     },
                     {
-                        "name": "@wagmi/core/chains",
+                        "name": "wagmi/chains",
+                        "message": "Import from 3cities './chains' instead."
+                    },
+                    {
+                        "name": "viem/chains",
                         "message": "Import from 3cities './chains' instead."
                     },
                 ],

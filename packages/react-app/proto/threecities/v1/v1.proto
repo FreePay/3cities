@@ -49,7 +49,7 @@ message CheckoutSettings {
     }
 
     PayWhatYouWantFlags flags = 1; // required iff any flag is true, otherwise must be omitted iff all flags are false. See note on PayWhatYouWantFlags. Deserialized into multiple booleans inside CheckoutSettings.proposedPayment.paymentMode.payWhatYouWant
-    repeated bytes suggested_logical_asset_amounts = 2; // optional. Big-endian binary encoding of suggested payment logical asset amounts. Since this is "pay what you want" mode, these amounts are only suggested to the sender and not required. Deserialized as CheckoutSettings.proposedPayment.paymentMode.payWhatYouWant.suggestedLogicalAssetAmountsAsBigNumberHexStrings
+    repeated bytes suggested_logical_asset_amounts = 2; // optional. Big-endian binary encoding of suggested payment logical asset amounts. Since this is "pay what you want" mode, these amounts are only suggested to the sender and not required. Deserialized as CheckoutSettings.proposedPayment.paymentMode.payWhatYouWant.suggestedLogicalAssetAmounts
   }
 
   // SenderNoteSettingsMode determines whether the sender/buyer may not
@@ -76,7 +76,7 @@ message CheckoutSettings {
 
   repeated LogicalAssetTicker proposed_payment_logical_asset_tickers = 4; // required. The first element is the required ticker for the primary logical asset in which the payment is denominated. Other elements are the optional prioritized secondary logical assets that are also accepted for payment. Eg. the 2nd element is a higher priority secondary logical asset than the 3rd element. Deserialized as CheckoutSettings.proposedPayment.logicalAssetTickers
   oneof proposed_payment_payment_mode { // required.
-    bytes proposed_payment_payment_mode_logical_asset_amount = 5; // Big-endian binary encoding of payment logical asset amount. Deserialized as CheckoutSettings.proposedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString
+    bytes proposed_payment_payment_mode_logical_asset_amount = 5; // Big-endian binary encoding of payment logical asset amount. Deserialized as CheckoutSettings.proposedPayment.paymentMode.logicalAssetAmount
     PayWhatYouWant proposed_payment_payment_mode_pay_what_you_want = 6; // If oneof is this option, then this checkout is using "pay what you want" mode, which allows the sender to pay what they want within the constraints of these PayWhatYouWant details. Deserialized as CheckoutSettings.proposedPayment.paymentMode.payWhatYouWant
   }
 

@@ -1,11 +1,10 @@
 import { getETHTransferProxyContractAddress } from "@3cities/eth-transfer-proxy";
-import { BigNumber } from "@ethersproject/bignumber";
 import React, { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { FaEye } from "react-icons/fa";
 import { Link } from "react-router-dom";
 import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
-import { useAccount } from "wagmi";
+import { serialize, useAccount } from "wagmi";
 import { CheckoutSettings } from "./CheckoutSettings";
 import { CheckoutSettingsRequiresPassword, isCheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
 import { ConnectWalletButton } from "./ConnectWalletButton";
@@ -170,7 +169,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
 
     const payWhatYouWantAmount: bigint | undefined = (() => { // final amount specified by sender in PayWhatYouWant mode. Denominated in logical asset decimals
       // there are two ways for the sender to specify payWhatYouWantAmount: by typing in an amount or selecting a suggested amount:
-      if ((payWhatYouWantSelectedSuggestedAmount === undefined || payWhatYouWantSelectedSuggestedAmount === 'other') && payWhatYouWantAmountFromInput !== undefined) return parseLogicalAssetAmount(payWhatYouWantAmountFromInput.toString()).toBigInt(); // here we prioritize payWhatYouWantAmountFromInput as it's defined only if amount input is displayed and user has typed into it, which happens if we're in pay what you want mode AND (there's no suggested amounts OR there are suggested amounts and user picked 'other' to type in amount) --> WARNING must explicitly check for either no suggested amounts or suggested amount set to "other", otherwise a previously typed "other" amount will be used after the user selects a suggested amount because `payWhatYouWantAmountFromInput` is not set back to undefined after deselecting "other"
+      if ((payWhatYouWantSelectedSuggestedAmount === undefined || payWhatYouWantSelectedSuggestedAmount === 'other') && payWhatYouWantAmountFromInput !== undefined) return parseLogicalAssetAmount(payWhatYouWantAmountFromInput.toString()); // here we prioritize payWhatYouWantAmountFromInput as it's defined only if amount input is displayed and user has typed into it, which happens if we're in pay what you want mode AND (there's no suggested amounts OR there are suggested amounts and user picked 'other' to type in amount) --> WARNING must explicitly check for either no suggested amounts or suggested amount set to "other", otherwise a previously typed "other" amount will be used after the user selects a suggested amount because `payWhatYouWantAmountFromInput` is not set back to undefined after deselecting "other"
       else if (payWhatYouWantSelectedSuggestedAmount !== undefined && payWhatYouWantSelectedSuggestedAmount !== 'other') return payWhatYouWantSelectedSuggestedAmount; // NB payWhatYouWantSelectedSuggestedAmount is already denominated in logical asset decimals
       else return undefined;
     })();
@@ -191,7 +190,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
           }
         })()),
         paymentMode: {
-          logicalAssetAmountAsBigNumberHexString: BigNumber.from(payWhatYouWantAmount).toHexString(),
+          logicalAssetAmount: payWhatYouWantAmount,
         },
       };
       return derivedPayment;
@@ -233,7 +232,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
           transactionHash: status.successData.transactionHash,
           senderAddress: status.successData.from,
           currency: getLogicalAssetTickerForTokenOrNativeCurrencyTicker(status.activeTokenTransfer.token.ticker),
-          amount: BigNumber.from(status.activeTokenTransfer.amountAsBigNumberHexString).toString(),
+          amount: status.activeTokenTransfer.amount.toString(), // WARNING bigint can't be serialized with JSON.stringify
           tokenContractAddress: status.activeTokenTransfer.token.contractAddress || 'native',
           // TODO sender/buyer note
           // TODO the pay link itself?
@@ -245,33 +244,6 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         .catch(e => console.error("success webhook error", e));
     }
   }, [checkoutSettings.webhookUrl, statusIsSuccess, status?.successData, status?.activeTokenTransfer]);
-
-  const sr = status?.reset; // local var to have this useCallback depend only on status.reset
-  const doReset = useCallback(() => {
-    if (sr) sr();
-  }, [sr]);
-  // @eslint-no-use-below[sr]
-
-  const errMsgToCopyAnonymized: string = (() => {
-    if (status?.isError) {
-      const errString = `${status.error} ${JSON.stringify(status.error)}`.replace(checkoutSettings.proposedPayment.receiver.address ? new RegExp(checkoutSettings.proposedPayment.receiver.address, 'gi') : new RegExp(checkoutSettings.proposedPayment.receiver.ensName, 'gi'), `<redacted receiver ${checkoutSettings.proposedPayment.receiver.address ? 'address' : 'ens name'}>`);
-      if (connectedAddress === undefined) return errString;
-      else return errString.replace(new RegExp(connectedAddress, 'gi'), '<redacted connected wallet address>');
-    } else return ' ';
-  })();
-
-  const [isErrorCopied, setCopied] = useClipboard(errMsgToCopyAnonymized, {
-    successDuration: 10000, // `isErrorCopied` will go back to `false` after 10000ms
-  });
-
-  // TODO find a long-term solution instead of this retry button. Or maybe the long-term solution is a more polished retry button?
-  const retryButton = useMemo(() => statusIsError ? <div className="grid grid-cols-1 w-full gap-4">
-    <div className="mt-4 grid grid-cols-2 w-full gap-4">
-      <button className="bg-primary sm:hover:bg-primary-darker sm:hover:cursor-pointer text-white font-bold py-2 px-4 rounded" onClick={doReset}>Retry</button>
-      <button className="bg-primary sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer text-white font-bold py-2 px-4 rounded" disabled={isErrorCopied} onClick={setCopied}>{isErrorCopied ? 'Copied. DM to @3cities_xyz' : 'Copy Error'}</button>
-    </div>
-    <span className="text-sm text-center">Please <span className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker" onClick={setCopied}>copy error</span> and<br />paste in a DM to <ExternalLink href="https://twitter.com/3cities_xyz">@3cities_xyz</ExternalLink></span>
-  </div> : undefined, [statusIsError, doReset, isErrorCopied, setCopied]);
 
   const exchangeRates: ExchangeRates | undefined = useExchangeRates(checkoutSettings.exchangeRates);
 
@@ -288,7 +260,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       else return {
         ...csp,
         paymentMode: {
-          logicalAssetAmountAsBigNumberHexString: csp.paymentMode.payWhatYouWant.suggestedLogicalAssetAmountsAsBigNumberHexStrings[0] || BigNumber.from(defaultSmallAmountsPerLogicalAsset[csp.logicalAssetTickers.primary]).toHexString(), // WARNING here we fall back to synthetic (non-real, arbitrary) payment amounts for illustrative purposes
+          logicalAssetAmount: csp.paymentMode.payWhatYouWant.suggestedLogicalAssetAmounts[0] || defaultSmallAmountsPerLogicalAsset[csp.logicalAssetTickers.primary], // WARNING here we fall back to synthetic (non-real, arbitrary) payment amounts for illustrative purposes
         },
       };
     })();
@@ -301,6 +273,46 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   }, [checkoutSettings.receiverStrategyPreferences, derivedPaymentWithFixedAmount, ac, exchangeRates, isStrategyPermittedByCheckoutSettings]);
 
   const { bestStrategy, otherStrategies, disableAllStrategiesOriginatingFromChainId, selectStrategy } = useBestStrategy(strategies);
+
+  const { signature: caip222StyleSignature, message: caip222StyleMessageThatWasSigned, sign: caip222StyleExecuteSign, signRejected: caip222StyleSignRejected, signCalledAtLeastOnce: caip222StyleSignCalledAtLeastOnce, isError: caip222StyleSignatureIsError, error: caip222StyleSignatureError, isLoading: caip222StyleSignatureIsLoading, loadingStatus: caip222StyleSignatureLoadingStatus, reset: caip222StyleReset } = useCaip222StyleSignature({
+    enabled: checkoutSettings.authenticateSenderAddress !== undefined,
+    eip1271ChainId: bestStrategy?.tokenTransfer.token.chainId,
+  });
+
+  const sr = status?.reset; // local var to have this useCallback depend only on status.reset
+  const doReset = useCallback(() => {
+    caip222StyleReset();
+    if (sr) sr();
+  }, [caip222StyleReset, sr]);
+  // @eslint-no-use-below[sr]
+
+  const errMsgToCopyAnonymized: string = (() => {
+    let errString = ' ';
+    if (caip222StyleSignatureIsError) errString = `${caip222StyleSignatureError} ${serialize(caip222StyleSignatureError.cause)}`;
+    else if (status?.isError) errString = `${status.error} ${serialize(status.error)}`
+    return sanitize(errString);
+
+    function sanitize(s: string): string {
+      const s2 = s.replace(checkoutSettings.proposedPayment.receiver.address ? new RegExp(checkoutSettings.proposedPayment.receiver.address, 'gi') : new RegExp(checkoutSettings.proposedPayment.receiver.ensName, 'gi'), `<redacted receiver ${checkoutSettings.proposedPayment.receiver.address ? 'address' : 'ens name'}>`)
+      const s3 = connectedAddress === undefined ? s2 : s2.replace(new RegExp(connectedAddress, 'gi'), '<redacted connected wallet address>');
+      return s3;
+    }
+  })();
+
+  const [isErrorCopied, setCopied] = useClipboard(errMsgToCopyAnonymized, {
+    successDuration: 10000, // `isErrorCopied` will go back to `false` after 10000ms
+  });
+
+  const isAnyError: boolean = statusIsError || caip222StyleSignatureError !== undefined;
+
+  // TODO find a long-term solution instead of this retry button. Or maybe the long-term solution is a more polished retry button?
+  const retryButton = useMemo(() => isAnyError ? <div className="grid grid-cols-1 w-full gap-4">
+    <div className="mt-4 grid grid-cols-2 w-full gap-4">
+      <button className="bg-primary sm:hover:bg-primary-darker sm:hover:cursor-pointer text-white font-bold py-2 px-4 rounded" onClick={doReset}>Retry</button>
+      <button className="bg-primary sm:enabled:hover:bg-primary-darker sm:enabled:hover:cursor-pointer text-white font-bold py-2 px-4 rounded" disabled={isErrorCopied} onClick={setCopied}>{isErrorCopied ? 'Copied. DM to @3cities_xyz' : 'Copy Error'}</button>
+    </div>
+    <span className="text-sm text-center">Please <span className="font-bold text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker" onClick={setCopied}>copy error</span> and<br />paste in a DM to <ExternalLink href="https://twitter.com/3cities_xyz">@3cities_xyz</ExternalLink></span>
+  </div> : undefined, [doReset, isErrorCopied, setCopied, isAnyError]);
 
   const receiverAddressBlockExplorerLink = useMemo<string | undefined>(() => {
     if (receiverAddress) {
@@ -391,10 +403,6 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
 
   const activeDemoAccount: string | undefined = useActiveDemoAccount();
 
-  const { signature: caip222StyleSignature, message: caip222StyleMessageThatWasSigned, sign: caip222StyleExecuteSign, signRejected: caip222StyleSignRejected, error: caip222StyleSignatureError, isLoading: caip222StyleSignatureIsLoading } = useCaip222StyleSignature();
-
-  useEffect(() => { if (caip222StyleSignatureError) console.error('useCaip222StyleSignature error', caip222StyleSignatureError); }, [caip222StyleSignatureError]); // caip222StyleSignatureError isn't consumed in the state machine below, so we log it here for safety
-
   const [buttonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature, setButtonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature] = useState(false); // buttonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature is true iff the checkout button was clicked at least once after successful collection of the caip-222-style signature as part of the checkoutSettings.authenticateSenderAddress subsystem. See note on the related useEffect below for why this exists and how it works.
 
   useEffect(() => { // reset when signature changes as by definition, the button has not been clicked at least once for this signature when signature changes
@@ -406,10 +414,17 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     if (status?.buttonClickedAtLeastOnce && caip222StyleSignature) setButtonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature(true); // NB asymmetry here where we only ever set buttonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature to true and never back to false. This is because after the user signs the CAIP-222-style message, we want to conveniently auto-click the checkout button to prevent them from needing to click it twice, while only auto-clicking a single time after they've clicked the button to sign, because if eg. the user cancels the token transfer execution for any reason and/or if strategies update with auto reset and/or if they select a new payment method, then we don't want to repeatedly auto-click the button because this would represent an auto-click that wasn't prefaced by the user having clicked the button, and that's jarring UX (in the worst case, this could result in a chaotic series of auto clicks and wallet pop-ups, eg. if the button was auto resetting quickly due to a rapidly changing best strategy and auto-clicking itself each time)
   }, [status?.buttonClickedAtLeastOnce, caip222StyleSignature]);
 
+  const activeWalletLikelyDoesntSupportAutoExecuteAfterSign: boolean = (() => { // here we attempt auto detection of an active wallet that likely doesn't support auto executing after a successful signature
+    const isCoinbaseSmartWallet: boolean = Boolean(caip222StyleSignature && caip222StyleSignature.startsWith("0x0000000000000000000000000ba5ed")); // smart wallet signatures start with this pattern. smart wallet uses browser popup windows (using the browser API and not browser plugin API) to drive wallet functionality. We must disable certain auto-invocations of these because the browser blocks popups that don't originate from user actions --> TODO the signatures don't seem to always start with this. Maybe instead we should detect error `Details: Pop up window failed to open` in transactions and handle somehow? --> but once the error occurs, browser has queued pop-up suppression
+    const mightBeGnosisSafeStillIndexingSignatureTransaction: boolean = Boolean(caip222StyleSignature && caip222StyleSignature.startsWith("eip1271")) && caip222StyleSignCalledAtLeastOnce; // 3cities typically detects that a gnosis safe eip1271 signature transaction has confirmed onchain before the gnosis safe public indexer catches up. Then, 3cities immediately queues the auto executed payment transaction to sign, but gnosis safe silently drops this requested transaction if the previous one's indexing confirmation page is still up. So, we flag gnosis safe as not supporting auto execute when a new eip1271 transaction has just confiremd (which is when sign was called at least once)
+    return isCoinbaseSmartWallet || mightBeGnosisSafeStillIndexingSignatureTransaction;
+  })();
+
   const authenticateSenderAddressState: { // a state machine for checkoutSettings.authenticateSenderAddress
     state:
     'notNeeded' // authenticateSenderAddress subsystem is disabled
     | 'needed' // authentication of sender address is still needed
+    | 'error' // an error occurred during authentication
     | 'signingInProgress' // authentication is in progress
     | 'successWithAutoClick' // authentication was successful, and we're ready to auto-click the button once. See note on buttonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature
     | 'successWithoutAutoClick'; // authentication was successful, and we already auto-clicked the button once and won't do so again
@@ -418,6 +433,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     signRejected?: true; // true iff the user rejected the signature request
     signature?: string; // caip-222-style signature that was needed and successfully collected
     messageThatWasSigned?: object; // the message that was signed to produce the signature
+    error?: Error; // error that occurred during authentication
   } & ({
     state: 'notNeeded';
     sign?: never;
@@ -425,49 +441,68 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     // TODO consider rm signature/messageThatWasSigned as they are unused --> if this code was ever moved to a separate useAuthenticateSenderAddress, then this new hook could encapsulate use of useCaip222StyleSignature, in which case signature/messageThatWasSigned would be needed as the underlying caip222 variables would no longer be available to the client
     signature?: never;
     messageThatWasSigned?: never;
+    error?: never;
   } | {
     state: 'needed';
     sign?: () => void; // NB `sign` may be unavailable, eg. if the underlying hooks are loading. If `sign` is permanently unavailable for any reason, then checkout can't proceed
     signRejected?: true;
     signature?: never;
     messageThatWasSigned?: never;
+    error?: never;
+  } | {
+    state: 'error';
+    sign?: never;
+    signRejected?: never;
+    signature?: never;
+    messageThatWasSigned?: never;
+    error: Error;
   } | {
     state: 'signingInProgress';
     sign?: never;
     signRejected?: never;
     signature?: never;
     messageThatWasSigned?: never;
+    error?: never;
   } | {
     state: 'successWithAutoClick';
     sign?: never;
     signRejected?: never;
     signature: string;
     messageThatWasSigned: object;
+    error?: never;
   } | {
     state: 'successWithoutAutoClick';
     sign?: never;
     signRejected?: never;
     signature: string;
     messageThatWasSigned: object;
+    error?: never;
   }) = useMemo(() => {
-    if (checkoutSettings.authenticateSenderAddress === undefined || activeDemoAccount) return {
+    if (caip222StyleSignatureIsError) return {
+      state: 'error',
+      error: caip222StyleSignatureError,
+    }; else if (checkoutSettings.authenticateSenderAddress === undefined || activeDemoAccount) return {
       state: 'notNeeded',
-    }; else if (caip222StyleSignature && !buttonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature) return {
+    }; else if (caip222StyleSignature
+      && !buttonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature // auto click only the first time after successful signature. Eg. if the auto click is followed by the user rejecting the transaction, we don't want to auto-click again as this would be a jarring infinite loop of transaction confirmation pop-ups
+      && caip222StyleSignCalledAtLeastOnce // if sign was never called at least once then we won't autoclick because the user didn't have to click the button for the signature to be successful, so we don't want to auto click as this would result in a transaction pop-up with zero clicks which is jarring. Zero-click caip222Style signature success  happen when the connected account uses eip1271 verification and this was previously successful (as eip1271 signatures are saved onchain)
+      && !activeWalletLikelyDoesntSupportAutoExecuteAfterSign // ie. never auto execute if active wallet likely doesn't support it
+    ) return {
       state: 'successWithAutoClick',
       signature: caip222StyleSignature,
       messageThatWasSigned: caip222StyleMessageThatWasSigned,
-    }; else if (caip222StyleSignature && buttonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature) return {
+    }; else if (caip222StyleSignature) return {
       state: 'successWithoutAutoClick',
       signature: caip222StyleSignature,
       messageThatWasSigned: caip222StyleMessageThatWasSigned,
-    }; else if (caip222StyleSignatureIsLoading) return {
+    }; else if (caip222StyleSignatureIsLoading && caip222StyleSignatureLoadingStatus === "SigningInProgress") return {
       state: 'signingInProgress',
     }; else return {
       state: 'needed',
       ...(caip222StyleExecuteSign && { sign: caip222StyleExecuteSign }),
       ...(caip222StyleSignRejected && { signRejected: true }),
     };
-  }, [checkoutSettings.authenticateSenderAddress, activeDemoAccount, caip222StyleSignature, caip222StyleMessageThatWasSigned, caip222StyleExecuteSign, caip222StyleSignRejected, caip222StyleSignatureIsLoading, buttonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature]);
+  }, [checkoutSettings.authenticateSenderAddress, activeDemoAccount, caip222StyleSignature, caip222StyleMessageThatWasSigned, caip222StyleExecuteSign, caip222StyleSignRejected, caip222StyleSignCalledAtLeastOnce, caip222StyleSignatureIsLoading, caip222StyleSignatureLoadingStatus, caip222StyleSignatureIsError, caip222StyleSignatureError, buttonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature, activeWalletLikelyDoesntSupportAutoExecuteAfterSign]);
 
   useEffect(() => { // iframe postMessage Checkout on status.isSuccess, informing the parent window that a successful checkout has occurred
     if (isRunningInAnIframe && statusIsSuccess) {
@@ -482,7 +517,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     }
   }, [checkoutSettings.iframeParentWindowOrigin, statusIsSuccess, status?.signedTransaction?.transactionHash, status?.signedTransaction?.chainId, caip222StyleSignature, caip222StyleMessageThatWasSigned]);
 
-  const executeTokenTransferButtonPropValues = useMemo((): Pick<ExecuteTokenTransferButtonProps, 'onClickPassthrough' | 'autoClickIfNeverClicked' | 'warningLabel' | 'disabled' | 'showLoadingSpinnerWhenDisabled'> => {
+  const executeTokenTransferButtonPropValues = useMemo((): Pick<ExecuteTokenTransferButtonProps, 'onClickPassthrough' | 'autoClickIfNeverClicked' | 'warningLabel' | 'errorLabel' | 'disabled' | 'showLoadingSpinnerWhenDisabled'> => {
     switch (authenticateSenderAddressState.state) {
       case 'notNeeded': return {
         autoClickIfNeverClicked: false,
@@ -491,9 +526,12 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         ...(authenticateSenderAddressState.signRejected && { warningLabel: <span>Rejected<br />in wallet</span> } satisfies Pick<ExecuteTokenTransferButtonProps, 'warningLabel'>),
         autoClickIfNeverClicked: false,
         ...(!authenticateSenderAddressState.sign && { // if underlying sign is unavailable, we'll show the button as loading in the hopes that sign may soon become available. If sign never becomes unavailable, checkout can't proceed
-          disabled: 'Sign Message in Wallet',
+          disabled: 'Pay Now', // here we show the disabled label as 'Pay Now' such that the button looks the same if caip222style's sign or initial eip1271 verification is loading as when the button is laoding ordinarily without use of caip222. If instead we used "Sign Message in Wallet" here, then the button would briefly flicker "Sign Message in Wallet" for accounts with eip1271 signature verification when a signature was previously verified and didn't require re-verification
           showLoadingSpinnerWhenDisabled: true,
         } satisfies Pick<ExecuteTokenTransferButtonProps, 'disabled' | 'showLoadingSpinnerWhenDisabled'>),
+      }; case 'error': return {
+        errorLabel: authenticateSenderAddressState.error.message,
+        disabled: true,
       }; case 'signingInProgress': return {
         autoClickIfNeverClicked: false,
         disabled: 'Sign Message in Wallet',
@@ -504,7 +542,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         autoClickIfNeverClicked: false,
       };
     }
-  }, [authenticateSenderAddressState.state, authenticateSenderAddressState.sign, authenticateSenderAddressState.signRejected]);
+  }, [authenticateSenderAddressState.state, authenticateSenderAddressState.sign, authenticateSenderAddressState.signRejected, authenticateSenderAddressState.error?.message]);
 
 
   const makeExecuteTokenTransferButton = useCallback((tt: TokenTransfer | undefined, disabled?: true | string) => {
@@ -555,7 +593,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         };
 
         const maybeMakePayWhatYouWantAmountUiNoSuggestedAmounts = (el: JSX.Element) => { // see design note on maybeMakeFixedAmountUiMaybeWithSuggestedAmounts
-          if (checkoutSettings.proposedPayment.paymentMode.payWhatYouWant !== undefined && checkoutSettings.proposedPayment.paymentMode.payWhatYouWant.suggestedLogicalAssetAmountsAsBigNumberHexStrings.length < 1) return <div>{makePayWhatYouWantAmountUiNoSuggestedAmounts({ includeAmountHeader: true })}{el}</div>; else return el;
+          if (checkoutSettings.proposedPayment.paymentMode.payWhatYouWant !== undefined && checkoutSettings.proposedPayment.paymentMode.payWhatYouWant.suggestedLogicalAssetAmounts.length < 1) return <div>{makePayWhatYouWantAmountUiNoSuggestedAmounts({ includeAmountHeader: true })}{el}</div>; else return el;
         }
 
         const payWhatYouWantAmountUiWithSuggestedAmounts: JSX.Element = (() => {
@@ -563,21 +601,20 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
             <div className="w-full flex flex-col items-center justify-center gap-2 mb-6">
               {payWhatYouWantAmountHeader}
               <div className="w-full flex flex-wrap items-center justify-between gap-6">
-                {(checkoutSettings.proposedPayment.paymentMode.payWhatYouWant?.suggestedLogicalAssetAmountsAsBigNumberHexStrings || []).map((a, i) => {
-                  const abn: bigint = BigNumber.from(a).toBigInt();
+                {(checkoutSettings.proposedPayment.paymentMode.payWhatYouWant?.suggestedLogicalAssetAmounts || []).map((a, i) => {
                   return <button
                     key={i}
                     type="button"
-                    disabled={payWhatYouWantSelectedSuggestedAmount === abn}
+                    disabled={payWhatYouWantSelectedSuggestedAmount === a}
                     className="focus:outline-none rounded-md min-w-[6em] px-2 py-1 font-medium border border-primary enabled:active:scale-95 enabled:bg-white enabled:text-primary sm:enabled:hover:bg-primary sm:enabled:hover:text-white disabled:bg-primary disabled:text-white disabled:cursor-not-allowed"
                     onClick={() => startTransition(() => { // NB wrap this state update in startTransition because it causes strategies to be synchronously regenerated and we want the UI to remain snappy during this process
-                      setPayWhatYouWantSelectedSuggestedAmount(abn);
+                      setPayWhatYouWantSelectedSuggestedAmount(a);
                       setRawPayWhatYouWantAmountFromInput(undefined); // clear any previously set "other" amount so that the next time the user clicks on "other", the old, stale amount isn't still there, which causes UI jank where the old, stale amount is briefly used to generate a strategy pipeline before the newly mounted CurrencyAmountInput sets it to undefined
                     })}
                   >
                     <RenderLogicalAssetAmount
                       logicalAssetTicker={checkoutSettings.proposedPayment.logicalAssetTickers.primary /* suggested amounts always use the original logical asset ticker, or else the suggested amount denominations would change when the sender selects a different logical asset during 'Other' */}
-                      amountAsBigNumberHexString={a}
+                      amount={a}
                     />
                   </button>;
                 })}
@@ -595,7 +632,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
 
         const maybeMakePayWhatYouWantAmountUiMaybeWithSuggestedAmounts = (el: JSX.Element) => { // the idea here with maybeMakeFixedAmountUiNoSuggestedAmounts vs. maybeMakeFixedAmountUiMaybeWithSuggestedAmounts is that if we may show a fixed amount UI that includes suggested amounts, then we never want to show it until the sender's account context had a chance to load because the suggested amounts may be adjusted based on the sender's wallet contents, so if we eagerly displayed suggested amounts, then they'd jankily change as the sender's account context loads. In contrast, if we won't show suggested amounts (ie. because the payment has no suggested amounts), then we'll show the amount input widget earlier during rendering, before the sender's account context is loaded and even before the receiver's address is loaded
           if (checkoutSettings.proposedPayment.paymentMode.payWhatYouWant !== undefined) {
-            if (checkoutSettings.proposedPayment.paymentMode.payWhatYouWant.suggestedLogicalAssetAmountsAsBigNumberHexStrings.length < 1) return <div>{makePayWhatYouWantAmountUiNoSuggestedAmounts({ includeAmountHeader: true })}{el}</div>;
+            if (checkoutSettings.proposedPayment.paymentMode.payWhatYouWant.suggestedLogicalAssetAmounts.length < 1) return <div>{makePayWhatYouWantAmountUiNoSuggestedAmounts({ includeAmountHeader: true })}{el}</div>;
             else return <div>{payWhatYouWantAmountUiWithSuggestedAmounts}{el}</div>;
           } else return el;
         }
@@ -647,7 +684,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
           <span className="font-bold col-span-2">Total:</span>
           <span className="font-bold text-right col-span-4"><RenderLogicalAssetAmount
             logicalAssetTicker={fixedPayment.logicalAssetTickers.primary}
-            amountAsBigNumberHexString={fixedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString}
+            amount={fixedPayment.paymentMode.logicalAssetAmount}
           /></span>
           {(() => {
             // We'll attempt to display a secondary logical asset amount below the primary logical asset amount. NB here we have a bias for USD in that if the payment's primary logical asset is not USD, we unconditionally attempt to show its USD equivalent, but if the payment's primary logical asset is USD, we only conditionally attempt to show its non-USD equivalent. This asymmetry (USD bias) is because most users seem to prefer USD.
@@ -664,14 +701,14 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
                     || (!isConnected ? fixedPayment.logicalAssetTickers.secondaries[0] : undefined); // we'll define the least relevant secondary logical asset ticker as the highest-priority of the payment secondaries only if the wallet not connected. This helps showcase 3cities's exchange rate capability when the wallet isn't connected, while avoiding UI jank if the wallet is connected because then, it's likely that soon (eg. after strategies finish loading), activeTokenTransfer will become USD-denominated, resulting in no secondary logical asset equivalent being displayed (as we don't display a non-USD equivalent if activeTokenTransfer is in USD for a USD payment). Ie. if we were to drop `!isConnected` here, then a typical page load for a USD payment with an already-connected wallet would have jank where the extra space for secondary equivalent is shown briefly until strategies finish loading and activeTokenTransfer likely becomes USD-denominated (and if activeTokenTransfer becomes non-USD-denominated, then we'll show a bit of jank where the space soon expands to display the non-USD equivalent, which is fine)
                 })();
                 if (mostRelevantSecondaryLat && mostRelevantSecondaryLat !== 'USD') {
-                  const paymentAmountInMostRelevantSecondaryLat: bigint | undefined = convert({ er: exchangeRates, fromTicker: 'USD', toTicker: mostRelevantSecondaryLat, fromAmount: BigNumber.from(fixedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString).toBigInt() });
+                  const paymentAmountInMostRelevantSecondaryLat: bigint | undefined = convert({ er: exchangeRates, fromTicker: 'USD', toTicker: mostRelevantSecondaryLat, fromAmount: fixedPayment.paymentMode.logicalAssetAmount });
                   if (paymentAmountInMostRelevantSecondaryLat !== undefined) return {
                     lat: mostRelevantSecondaryLat,
                     amount: paymentAmountInMostRelevantSecondaryLat,
                   }; else return 'preserve space'; // here we 'preserve space' because the most likely reason that paymentAmountInMostRelevantSecondaryLat is undefined is because exchange rates are initially loading, so we don't want to collapse the space now only to have it un-collapse after rates finish loading and cause UI jank
                 } else return 'collapse space'; // no relevant non-USD secondary lat was found and one is unlikely to be automatically found soon, so we collapse space to avoid the ugly blank space
               } else { // the payment's primary logical asset is not USD, so we always show the USD equivalent (see note above on our asymmetric bias for USD)
-                const usdAmount: bigint | undefined = convert({ er: exchangeRates, fromTicker: fixedPayment.logicalAssetTickers.primary, toTicker: 'USD', fromAmount: BigNumber.from(fixedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString).toBigInt() });
+                const usdAmount: bigint | undefined = convert({ er: exchangeRates, fromTicker: fixedPayment.logicalAssetTickers.primary, toTicker: 'USD', fromAmount: fixedPayment.paymentMode.logicalAssetAmount });
                 if (usdAmount !== undefined) return {
                   lat: 'USD',
                   amount: usdAmount,
@@ -682,7 +719,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
               <span className="col-span-2"></span> {/* empty span to align grid cols*/}
               <span className="text-gray-500 text-right col-span-4">{otherLogicalAssetAmountToDisplay !== 'preserve space' ? <RenderLogicalAssetAmount
                 logicalAssetTicker={otherLogicalAssetAmountToDisplay.lat}
-                amountAsBigNumberHexString={BigNumber.from(otherLogicalAssetAmountToDisplay.amount).toHexString()}
+                amount={otherLogicalAssetAmountToDisplay.amount}
               /> : <span>&nbsp;</span>}</span>
             </> : undefined;
           })()}
@@ -791,7 +828,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     if (derivedPaymentWithFixedAmount && status?.isSuccess) {
       return `Hey, I ${checkoutSettings.mode === "deposit" ? "deposited" : "paid you"} ${renderLogicalAssetAmount({
         logicalAssetTicker: derivedPaymentWithFixedAmount.logicalAssetTickers.primary,
-        amountAsBigNumberHexString: derivedPaymentWithFixedAmount.paymentMode.logicalAssetAmountAsBigNumberHexString,
+        amount: derivedPaymentWithFixedAmount.paymentMode.logicalAssetAmount,
       })}${checkoutSettings.note ? ` for ${checkoutSettings.note}` : ''} using 3cities.xyz`;
     } else return ' ';
   })();

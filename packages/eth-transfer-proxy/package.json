@@ -21,8 +21,7 @@
     "forge-std": "github:foundry-rs/forge-std#v1.8.1"
   },
   "devDependencies": {
-    "solhint": "^5.0.1",
-    "typescript": "^5.4.5"
+    "solhint": "^5.0.1"
   },
   "scripts": {
     "clean:forge": "rm -rf cache out",

@@ -2,6 +2,7 @@ import { AddressOrEnsName } from "./AddressOrEnsName";
 import { Narrow } from "./Narrow";
 import { PartialFor } from "./PartialFor";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
+import { hasOwnPropertyOfType } from "./hasOwnProperty";
 import { LogicalAssetTicker } from "./logicalAssets";
 
 // TODO consider adding an TokenAmount(token: NativeCurrency | Token, amount: bigint) and LogicalAssetAmount(lat: LogicalAssetTicker, amount: bigint) for contexts where the amount should be coupled to its token, with eg. helper functions to convert amounts to other tokens/logical assets given exchange rates, or add/subtract amounts if they share a token/lat --> in some contexts, coupling the token to its amount can lead to undesirable or representable illegal states, such as in Payment where we want to separate the amount from the logical asset because "pay what you want" mode doesn't have a fixed amount. But in many other cases, combining the token/lat with its amount can lead to safer code because the amount is never detached from its token/decimals --> NB for these abstractions to be compatible with eventually supporting arbitrary tokens beyond our manifest of supported tokens, perhaps they should include the Token/NativeCurrency objects directly instead of their tickers, which prevents having to map the ticker to the Token using the global manifest, which is impossible when the Token was dynamically constructed from tokenlist, eg. user has UNI in their wallet.
@@ -14,22 +15,22 @@ import { LogicalAssetTicker } from "./logicalAssets";
 export type PayWhatYouWant = Readonly<{
   isDynamicPricingEnabled: boolean; // iff true, 3cities may suggest different amounts to pay to a sender/buyer based on contextual factors, such as the contents of a sender/buyer's connected account
   canPayAnyAsset: boolean; // iff true, the sender/buyer may settle the payment by paying any token, instead of only tokens denominated in the payment's specified logical asset. TODO support canPayAnyAsset
-  suggestedLogicalAssetAmountsAsBigNumberHexStrings: string[]; // payment amounts which 3cities may suggest to the sender/buyer as options to settle the payment. For example, donation amounts to suggest
+  suggestedLogicalAssetAmounts: bigint[]; // payment amounts which 3cities may suggest to the sender/buyer as options to settle the payment, denominated in full-precision logical asset amounts. For example, donation amounts to suggest
 }>
 
 // PaymentMode represents the different ways in which a Payment may be
 // settled by one or more transactions. Currently, we support two modes:
 // "pay fixed amount" mode and "pay what you want" mode.
 export type PaymentMode = Readonly<{
-  logicalAssetAmountAsBigNumberHexString: string; // we refer to this payment mode as "pay fixed amount mode" even though it's a single field and not a product type. We considered making this into a product type PayFixedAmount, but I couldn't think of any new fields that may likely go in the product type, and the cost of adding PayFixedAmount is that every generated link with a fixed amount becomes a couple chars longer because of the new proto submessage PayFixedAmount. We have examples to support eg. minimum payment amounts, etc, but currently have no plans to soon support these complex logical amounts. So that's why we went with a single field for "pay fixed amount mode"
+  logicalAssetAmount: bigint; // the full-precision logical asset amount that must be remitted to settle this payment. Design note: we refer to this payment mode as "pay fixed amount mode" even though it's a single field and not a product type. We considered making this into a product type PayFixedAmount, but I couldn't think of any new fields that may likely go in the product type, and the cost of adding PayFixedAmount is that every generated link with a fixed amount becomes a couple chars longer because of the new proto submessage PayFixedAmount. We have examples to support eg. minimum payment amounts, etc, but currently have no plans to soon support these complex logical amounts. So that's why we went with a single field for "pay fixed amount mode"
   payWhatYouWant?: never;
 } | {
-  logicalAssetAmountAsBigNumberHexString?: never;
+  logicalAssetAmount?: never;
   payWhatYouWant: PayWhatYouWant;
 }>;
 
-export function isPaymentModeWithFixedAmount(pm: PaymentMode): pm is { logicalAssetAmountAsBigNumberHexString: string; } {
-  return Object.prototype.hasOwnProperty.call(pm, "logicalAssetAmountAsBigNumberHexString");
+export function isPaymentModeWithFixedAmount(pm: PaymentMode): pm is { logicalAssetAmount: bigint; } {
+  return hasOwnPropertyOfType(pm, "logicalAssetAmount", "bigint");
 }
 
 // PaymentBase is a logical payment from a sender to a receiver. This
@@ -54,7 +55,7 @@ type PaymentBase = Readonly<{
 // PaymentWithFixedAmount is a Payment that's been narrowed to require
 // its payment mode to be a fixed amount (and not permit "pay what you
 // want" mode).
-export type PaymentWithFixedAmount = Narrow<PaymentBase, 'paymentMode', { logicalAssetAmountAsBigNumberHexString: string }>;
+export type PaymentWithFixedAmount = Narrow<PaymentBase, 'paymentMode', { logicalAssetAmount: bigint }>;
 
 // PaymentWithPayWhatYouWant is a Payment that's been narrowed to
 // require its payment mode to be pay what you want (and not permit a
@@ -64,7 +65,7 @@ export type PaymentWithPayWhatYouWant = Narrow<PaymentBase, 'paymentMode', { pay
 export type Payment = PaymentWithFixedAmount | PaymentWithPayWhatYouWant;
 
 export function isPaymentWithFixedAmount(p: Payment): p is PaymentWithFixedAmount {
-  return Object.prototype.hasOwnProperty.call(p.paymentMode, "logicalAssetAmountAsBigNumberHexString");
+  return isPaymentModeWithFixedAmount(p.paymentMode);
 }
 
 // ProposedPayment is a payment to a specified receiver that may be
@@ -89,7 +90,7 @@ type ProposedPaymentBase = Readonly<PartialFor<
 // ProposedPaymentWithFixedAmount is a ProposedPayment that's been
 // narrowed to require its payment mode to be a fixed amount (and not
 // permit "pay what you want" mode).
-export type ProposedPaymentWithFixedAmount = Narrow<ProposedPaymentBase, 'paymentMode', { logicalAssetAmountAsBigNumberHexString: string; }>;
+export type ProposedPaymentWithFixedAmount = Narrow<ProposedPaymentBase, 'paymentMode', { logicalAssetAmount: bigint; }>;
 
 // ProposedPaymentWithPayWhatYouWant is a ProposedPayment that's been
 // narrowed to require its payment mode to be pay what you want (and not
@@ -103,7 +104,7 @@ export function isPayment(p: Payment | ProposedPayment): p is Payment {
 }
 
 export function isProposedPaymentWithFixedAmount(p: ProposedPayment): p is ProposedPaymentWithFixedAmount {
-  return Object.prototype.hasOwnProperty.call(p.paymentMode, "logicalAssetAmountAsBigNumberHexString");
+  return isPaymentModeWithFixedAmount(p.paymentMode);
 }
 
 // ProposedPaymentWithReceiverAddress is a ProposedPayment that's been
@@ -115,6 +116,9 @@ export function isProposedPaymentWithReceiverAddress(pp: ProposedPayment): pp is
   return pp.receiver.address !== undefined;
 }
 
+// acceptProposedPayment is passed a proposed payment (whose sender has
+// not yet been specified) and "promotes" it to a payment by adding that
+// required sender.
 export function acceptProposedPayment(senderAddress: `0x${string}`, pp: ProposedPaymentWithReceiverAddress): Payment {
   // The following curious block of code is needed because until the type guard isProposedPaymentWithFixedAmount is executed, TypeScript can't infer that `pp.paymentMode` is assignable to Payment.paymentMode:
   if (isProposedPaymentWithFixedAmount(pp)) return {

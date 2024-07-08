@@ -1,4 +1,3 @@
-import { BigNumber } from "@ethersproject/bignumber";
 import { CheckoutSettings, SenderNoteSettings, SuccessActionRedirect } from "./CheckoutSettings";
 import { NonEmptyArray, ensureNonEmptyArray } from "./NonEmptyArray";
 import { PaymentMode, ProposedPayment, isPaymentModeWithFixedAmount } from "./Payment";
@@ -43,12 +42,12 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
       return {
         value: new PayWhatYouWantPb({
           ...(flags && { flags } satisfies Pick<PayWhatYouWantPb, 'flags'>),
-          suggestedLogicalAssetAmounts: p.suggestedLogicalAssetAmountsAsBigNumberHexStrings.map(a => bigIntToFromBytes.to(BigNumber.from(a).toBigInt())),
+          suggestedLogicalAssetAmounts: p.suggestedLogicalAssetAmounts.map(a => bigIntToFromBytes.to(a)),
         }),
         case: "proposedPaymentPaymentModePayWhatYouWant",
       };
     } else return {
-      value: bigIntToFromBytes.to(BigNumber.from(pm.logicalAssetAmountAsBigNumberHexString).toBigInt()),
+      value: bigIntToFromBytes.to(pm.logicalAssetAmount),
       case: "proposedPaymentPaymentModeLogicalAssetAmount",
     };
   })();
@@ -141,7 +140,7 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
         switch (pm.case) { // NB we use switch instead of an if statement to get case exhaustivity checks in linter
           case undefined: throw new Error("illegal serialization: proposedPaymentPaymentMode.case is undefined");
           case "proposedPaymentPaymentModeLogicalAssetAmount": return {
-            logicalAssetAmountAsBigNumberHexString: BigNumber.from(bigIntToFromBytes.from(pm.value)).toHexString(),
+            logicalAssetAmount: bigIntToFromBytes.from(pm.value),
           };
           case "proposedPaymentPaymentModePayWhatYouWant": {
             const [isDynamicPricingEnabled, canPayAnyAsset] = ((): [boolean, boolean] => {
@@ -156,7 +155,7 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
               payWhatYouWant: {
                 isDynamicPricingEnabled,
                 canPayAnyAsset,
-                suggestedLogicalAssetAmountsAsBigNumberHexStrings: pm.value.suggestedLogicalAssetAmounts.map(a => BigNumber.from(bigIntToFromBytes.from(a)).toHexString()),
+                suggestedLogicalAssetAmounts: pm.value.suggestedLogicalAssetAmounts.map(bigIntToFromBytes.from),
               }
             };
           }

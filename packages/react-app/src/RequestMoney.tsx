@@ -1,10 +1,10 @@
-import { isAddress } from "@ethersproject/address";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaRegCopy, FaTimesCircle } from "react-icons/fa";
 import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
 import { useImmer } from "use-immer";
-import { useAccount, useDisconnect } from "wagmi";
+import { isAddress } from "viem";
+import { useAccount, useAccountEffect, useDisconnect } from "wagmi";
 import { CheckoutSettings, SuccessActionRedirect } from "./CheckoutSettings";
 import { serializedCheckoutSettingsUrlParam } from "./CheckoutSettingsProvider";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
@@ -82,9 +82,15 @@ export const RequestMoney: React.FC = () => {
 
   const { address: addressForDebouncedRawReceiverEnsName, isLoading: addressForDebouncedRawReceiverEnsNameIsLoading } = useEnsAddress(debouncedRawReceiver); // the resolved ethereum address for the ENS name which the user typed into the receiver input. NB here we do nothing with the returned error which is fine because instead, below, we show a visual warning if a non-empty debouncedRawReceiver results in an empty computedReceiver (for which one possible but not the only root cause is an error here)
 
-  const clearRawReceiver = useCallback(() => setRawReceiver(''), [setRawReceiver]);
+  const useAccountEffectArgs = useMemo(() => {
+    return {
+      onConnect: () => setRawReceiver(''), // we must clear rawReceiver when wallet connects to avoid an inconsistent state where the value of rawReceiver is stale (something previously typed) prior to wallet being connected
+    };
+  }, [setRawReceiver]);
 
-  const { address: connectedWalletAddress, isConnected } = useAccount({ onConnect: clearRawReceiver }); // here we must clear rawReceiver when wallet connects to avoid an inconsistent state where the value of rawReceiver is stale (something previously typed) prior to wallet being connected
+  useAccountEffect(useAccountEffectArgs);
+
+  const { address: connectedWalletAddress, isConnected } = useAccount();
   const connectedWalletAddressRendered: string | undefined = connectedWalletAddress ? truncateEthAddress(connectedWalletAddress) : undefined; // NB we eagerly calculate connectedWalletAddressRendered to use it as the default value of computedReceiverRendered. If we didn't do this and instead defaulted computedReceiverRendered to undefined, and if the user's wallet is already connected on component mount, the first render from shows "Receive money at <nothing>" until the useEffect runs to set it. A long-term solution may be to migrate to a modern state management library like jotai that provides atomic renders for derived state, which offers benefits of (i) preventing renders from occuring before initial derived state is rendered and (ii) eliminating redundant rerenders from multiple useEffects calculate derived states (ie. jotai calculates any amount of derived state atomically before the next render).
 
   const { ensName: ensNameForConnectedWalletAddress } = useEnsName(connectedWalletAddress);
@@ -268,7 +274,7 @@ export const RequestMoney: React.FC = () => {
   const { payWhatYouWant, payWhatYouWantInputElement } = usePayWhatYouWantInput("PayWhatYouWant-input");
 
   const paymentMode = useMemo((): PaymentMode | undefined => {
-    if (paymentModeType === 'FixedAmount' && amount && amount > 0) return { logicalAssetAmountAsBigNumberHexString: parseLogicalAssetAmount(amount.toString()).toHexString() };
+    if (paymentModeType === 'FixedAmount' && amount && amount > 0) return { logicalAssetAmount: parseLogicalAssetAmount(amount.toString()) };
     else if (paymentModeType === 'PayWhatYouWant') return {
       payWhatYouWant,
     }; else return undefined;
@@ -349,7 +355,7 @@ export const RequestMoney: React.FC = () => {
 
   const renderedProposedPaymentFixedAmount: string | undefined = checkoutSettings && isProposedPaymentWithFixedAmount(checkoutSettings.proposedPayment) ? renderLogicalAssetAmount({
     logicalAssetTicker: checkoutSettings.proposedPayment.logicalAssetTickers.primary,
-    amountAsBigNumberHexString: checkoutSettings.proposedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString,
+    amount: checkoutSettings.proposedPayment.paymentMode.logicalAssetAmount,
   }) : undefined;
 
   const checkoutTextToShare: string = (() => `Hey, can you please pay me${renderedProposedPaymentFixedAmount !== undefined ? ` ${renderedProposedPaymentFixedAmount}` : ''} using this link`)();

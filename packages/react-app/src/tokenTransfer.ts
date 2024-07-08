@@ -1,7 +1,7 @@
+import { AddressOrEnsName } from "./AddressOrEnsName";
 import { Narrow } from "./Narrow";
 import { PartialFor } from "./PartialFor";
-import { AddressOrEnsName } from "./AddressOrEnsName";
-import { NativeCurrency, Token } from "./Token";
+import { NativeCurrency, Token, isToken } from "./Token";
 
 // TokenTransfer represents a single token transfer of a native currency
 // or token from a sender to a receiver. The TokenTransferBase base type
@@ -17,7 +17,7 @@ type TokenTransferBase = Readonly<{
   receiverAddress: `0x${string}`; // address receiving this token transfer
   senderAddress: `0x${string}`; // address sending this token transfer
   token: NativeCurrency | Token; // token or native currency being transferred
-  amountAsBigNumberHexString: string; // amount of the transfer in full-precision units of the token (ie. the amount expressed in minimal units of the token based on its number of decimals, eg. wei for ETH, 10^-18 dollars for DAI, 10^-6 dollars for USDC, etc.) as a BigNumber.toHexString()
+  amount: bigint; // amount of the transfer in full-precision units of the token (ie. the amount expressed in minimal units of the token based on its number of decimals, eg. wei for ETH, 10^-18 dollars for DAI, 10^-6 dollars for USDC, etc.)
 }>;
 
 export type TokenTransferForToken = Narrow<TokenTransferBase, 'token', Token>; // TokenTransferForToken is a convenience type for the subset of TokenTransfers where a token (and not a native currency) is being transferred. But where possible, clients should prefer using TokenTransfer to abstract over the type of transfer
@@ -27,7 +27,7 @@ export type TokenTransferForNativeCurrency = Narrow<TokenTransferBase, 'token', 
 export type TokenTransfer = TokenTransferForToken | TokenTransferForNativeCurrency;
 
 export function isTokenAndNotNativeCurrencyTransfer(tt: TokenTransfer): tt is TokenTransferForToken {
-  return Object.prototype.hasOwnProperty.call(tt.token, "contractAddress");
+  return isToken(tt.token);
 }
 
 // ProposedTokenTransfer is a token transfer to a specified receiver

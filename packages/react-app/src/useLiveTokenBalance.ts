@@ -1,30 +1,25 @@
-import { BigNumber } from "@ethersproject/bignumber";
-import { useMemo } from "react";
-import { useBalance } from 'wagmi';
-import { useIsEnabledSmartRefresh } from "./useIsEnabledSmartRefresh";
+import { erc20Abi } from "viem";
+import { useReadContract } from 'wagmi';
+import { useLiveReloadQueryOptions } from "./useLiveReloadQueryOptions";
 
-// useLiveTokenBalance is a React hook that returns a live-reloaded token
-// balance for the passed token contract address, address, and chainId.
+// useLiveTokenBalance returns a live-reloaded token balance for the
+// passed token contract address, address, and chainId.
 export function useLiveTokenBalance(
-  tokenContractAddress: `0x${string}`, // token contract address whose token balance will be live-reloaded
-  address: `0x${string}`, // address whose token balance will be live-reloaded
-  chainId: number, // chainId on which tokenAddress contract resides
-): BigNumber | undefined {
-  const enabled = useIsEnabledSmartRefresh();
-  const args = useMemo(() => {
-    return {
-      enabled, // here, we are periodically toggling enabled to force a useBalance refresh. We explored solutions like `watch: true` and `staleTime/cacheTime`, and none of them worked for us. See 'redesign of live balance fetching' in 3cities design. Crucially, this toggle works because when useBalance is disabled, it continues returning the most recent result and doesn't return undefined, so the client is unaware that useBalance has been disabled.
-      token: tokenContractAddress,
-      address,
-      chainId,
-      onError(error: Error) {
-        console.error('useLiveTokenBalance: error fetching balance with wagmi.useBalance, chainId', chainId, 'token', tokenContractAddress, 'address', address, 'error', error);
-      },
-    };
-  }, [chainId, address, tokenContractAddress, enabled]);
-  const r = useBalance(args);
-  const bRaw = r.data === undefined ? undefined : r.data.value;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const b = useMemo(() => bRaw, [bRaw && bRaw._hex]); // ensure memoization of underlying balance as the BigNumber object instance may change when toggling enabled/disabled of useBalance
-  return b;
+  tokenContractAddress: `0x${string}`, // erc20 token contract address for which the balance will be live reloaded
+  address: `0x${string}`, // address whose token balance will be live reloaded
+  chainId: number, // chainId on which tokenContractAddress contract resides
+): bigint | undefined {
+  const queryOpts = useLiveReloadQueryOptions();
+  const { isSuccess, data } = useReadContract({
+    abi: erc20Abi,
+    chainId,
+    address: tokenContractAddress,
+    functionName: 'balanceOf',
+    args: [address],
+    query: {
+      ...queryOpts,
+      notifyOnChangeProps: ['isSuccess', 'data', 'fetchStatus'],
+    },
+  });
+  return isSuccess ? data : undefined;
 }

@@ -1,5 +1,4 @@
-import { Chain } from "wagmi";
-import { getChain } from "./chains";
+import { getChain, type Chain } from "./chains";
 
 export function getBlockExplorerUrlForTransaction(chainId: number | undefined, transactionHash: string): string | undefined {
   const chain: Chain | undefined = getChain(chainId);

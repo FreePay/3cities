@@ -1,11 +1,11 @@
-import { formatUnits } from "@ethersproject/units";
 import React from "react";
+import { formatUnits } from "viem";
 import { formatFloat, FormatFloatOpts } from "./formatFloat";
 import { addCanonicalFormatToLogicalAssetValue, getDecimalsToRenderForLogicalAssetTicker, getDefaultTruncateTrailingZeroesForLogicalAssetTicker, logicalAssetDecimals, LogicalAssetTicker } from "./logicalAssets";
 
 type RenderLogicalAssetAmountProps = {
   logicalAssetTicker: LogicalAssetTicker; // logical asset ticker of the amount to be rendered
-  amountAsBigNumberHexString: string; // logical asset amount to render as a BigNumber.toHexString(). Note that this amount must have been constructed using parseLogicalAssetAmount to properly respect logical asset decimal count
+  amount: bigint; // full-precision logical asset amount to render. Note that this amount must have been constructed using parseLogicalAssetAmount to properly respect logical asset decimal count
   truncateTrailingZeroes?: boolean; // iff true, any zeroes (after the decimal point AND after the last significant digit that wasn't rounded) will be truncated. Iff undefined, the passed logical asset ticker's default truncateTrailingZeroes will be used
 }
 
@@ -15,10 +15,10 @@ export const RenderLogicalAssetAmount: React.FC<RenderLogicalAssetAmountProps> =
   return <span>{renderLogicalAssetAmount(props)}</span>;
 }
 
-export function renderLogicalAssetAmount({ logicalAssetTicker, amountAsBigNumberHexString, truncateTrailingZeroes }: RenderLogicalAssetAmountProps): string {
+export function renderLogicalAssetAmount({ logicalAssetTicker, amount, truncateTrailingZeroes }: RenderLogicalAssetAmountProps): string {
   const formatFloatOpts: FormatFloatOpts = {
     truncateTrailingZeroes: truncateTrailingZeroes !== undefined ? truncateTrailingZeroes : getDefaultTruncateTrailingZeroesForLogicalAssetTicker(logicalAssetTicker),
   };
-  const formattedFloat = formatFloat(formatUnits(amountAsBigNumberHexString, logicalAssetDecimals), getDecimalsToRenderForLogicalAssetTicker(logicalAssetTicker), formatFloatOpts);
+  const formattedFloat = formatFloat(formatUnits(amount, logicalAssetDecimals), getDecimalsToRenderForLogicalAssetTicker(logicalAssetTicker), formatFloatOpts);
   return `${addCanonicalFormatToLogicalAssetValue(logicalAssetTicker, formattedFloat)}`;
 }
