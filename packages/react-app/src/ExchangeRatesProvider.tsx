@@ -1,6 +1,6 @@
-import { BigNumber } from "@ethersproject/bignumber";
 import React, { useEffect, useState } from 'react';
 import { useImmer } from 'use-immer';
+import { serialize } from 'wagmi';
 import { readContracts } from 'wagmi/actions';
 import { ExchangeRates, areExchangeRatesEqual } from './ExchangeRates';
 import { ExchangeRatesContext } from './ExchangeRatesContext';
@@ -11,6 +11,7 @@ import { ObservableValue, ObservableValueUpdater, ObservableValueUpdaterWithCurr
 import { toUppercase } from './toUppercase';
 import useDebounce from './useDebounce';
 import { useIsPageVisibleOrRecentlyVisible } from './useIsPageVisibleOrRecentlyVisible';
+import { wagmiConfig } from './wagmiClient';
 
 type ExchangeRatesProviderProps = {
   children?: React.ReactNode;
@@ -132,9 +133,9 @@ const exchangeRatesToFetch: Array<ExchangeRateFetcher> = [
       const chainlinkUSDETHOracleContract = {
         chainId,
         address,
-        abi: [{ "inputs": [], "name": "decimals", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "latestRoundData", "outputs": [{ "internalType": "uint80", "name": "roundId", "type": "uint80" }, { "internalType": "int256", "name": "answer", "type": "int256" }, { "internalType": "uint256", "name": "startedAt", "type": "uint256" }, { "internalType": "uint256", "name": "updatedAt", "type": "uint256" }, { "internalType": "uint80", "name": "answeredInRound", "type": "uint80" }], "stateMutability": "view", "type": "function" }], // only the subset of the ABI we use here. TODO use https://abitype.dev/ for strongly typed abis and result types
+        abi: [{ "inputs": [], "name": "decimals", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "latestRoundData", "outputs": [{ "internalType": "uint80", "name": "roundId", "type": "uint80" }, { "internalType": "int256", "name": "answer", "type": "int256" }, { "internalType": "uint256", "name": "startedAt", "type": "uint256" }, { "internalType": "uint256", "name": "updatedAt", "type": "uint256" }, { "internalType": "uint80", "name": "answeredInRound", "type": "uint80" }], "stateMutability": "view", "type": "function" }] as const,
       };
-      const [decimals, latestRoundData] = await readContracts({
+      const [decimals, latestRoundData] = await readContracts(wagmiConfig, {
         allowFailure: false,
         contracts: [
           {
@@ -150,14 +151,12 @@ const exchangeRatesToFetch: Array<ExchangeRateFetcher> = [
       });
       if (typeof decimals === 'number' && Array.isArray(latestRoundData)) {
         const price = latestRoundData[1];
-        if (BigNumber.isBigNumber(price)) {
-          const scaleToCents = BigNumber.from(Math.pow(10, decimals - 2));
-          const halfScale = scaleToCents.div(2); // "The technique of adding half of the scale before dividing is a common way to achieve rounding in integer division. It's based on the idea that adding half of the divisor (the scale in this case) to the dividend will push the quotient over the threshold to the next integer if the remainder of the division is more than half of the divisor."
-          const roundedPriceInCents = price.add(halfScale).div(scaleToCents);
-          const priceRoundedToNearestCentInDollars = roundedPriceInCents.toNumber() / 100;
-          return priceRoundedToNearestCentInDollars;
-        } else throw new Error(`invalid price: ${price}`);
-      } else throw new Error(`invalid response: ${JSON.stringify({ decimals, latestRoundData })}`);
+        const scaleToCents = 10n ** BigInt(decimals - 2);
+        const halfScale = scaleToCents / 2n; // "The technique of adding half of the scale before dividing is a common way to achieve rounding in integer division. It's based on the idea that adding half of the divisor (the scale in this case) to the dividend will push the quotient over the threshold to the next integer if the remainder of the division is more than half of the divisor."
+        const roundedPriceInCents = (price + halfScale) / scaleToCents;
+        const priceRoundedToNearestCentInDollars = Number(roundedPriceInCents) / 100;
+        return priceRoundedToNearestCentInDollars;
+      } else throw new Error(`invalid response: ${serialize({ decimals, latestRoundData })}`);
     },
     refetchIntervalMilliseconds: defaultRefetchIntervalMilliseconds,
   },

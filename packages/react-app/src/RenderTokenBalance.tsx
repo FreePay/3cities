@@ -12,7 +12,7 @@ type RenderTokenBalanceProps = {
 // the passed TokenBalance.
 export const RenderTokenBalance: React.FC<RenderTokenBalanceProps> = (props) => {
   return <RenderRawTokenBalance
-    balance={props.tb.balanceAsBigNumberHexString}
+    balance={props.tb.balance}
     nativeCurrencyOrToken={getTokenByTokenKey(props.tb.tokenKey)}
     {...(props.opts && { opts: props.opts })}
   />;

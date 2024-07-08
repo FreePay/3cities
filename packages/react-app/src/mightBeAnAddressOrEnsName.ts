@@ -1,4 +1,4 @@
-import { isAddress } from "@ethersproject/address";
+import { isAddress } from "viem";
 import { mightBeAnEnsName } from "./mightBeAnEnsName";
 
 // mightBeAnAddressOrEnsName returns true iff the passed

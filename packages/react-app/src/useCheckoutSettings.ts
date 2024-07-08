@@ -1,6 +1,6 @@
-import { parseUnits } from "@ethersproject/units";
 import { useContext, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
+import { parseUnits } from "viem";
 import { AuthenticateSenderAddress, CheckoutSettings } from "./CheckoutSettings";
 import { CheckoutSettingsContext, CheckoutSettingsRequiresPassword, isCheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
 import { ProposedPayment, isProposedPaymentWithFixedAmount } from "./Payment";
@@ -65,18 +65,18 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
             paymentMode: {
               payWhatYouWant: {
                 ...cs.proposedPayment.paymentMode.payWhatYouWant,
-                suggestedLogicalAssetAmountsAsBigNumberHexStrings: newPrimaryLat === 'USD' ? [ // NB the idea here is that if we're overriding the primary currency and prior suggested amounts exist, we will attempt to rewrite those suggested amounts with sane defaults for the new primary currency. Otherwise, the old suggested amounts may make no sense (eg. a suggested logical amount of '100' is $100 for USD, which is reasonable, but 100 ETH for ETH, which is not reasonable.) --> TODO when we support overriding suggested amounts, we could instead here always erase any prior suggested amounts and then the user can optionally override them for the overridden primary currency
-                  parseLogicalAssetAmount('5').toHexString(),
-                  parseLogicalAssetAmount('10').toHexString(),
-                  parseLogicalAssetAmount('20').toHexString(),
-                  parseLogicalAssetAmount('50').toHexString(),
-                  parseLogicalAssetAmount('100').toHexString(),
+                suggestedLogicalAssetAmounts: newPrimaryLat === 'USD' ? [ // NB the idea here is that if we're overriding the primary currency and prior suggested amounts exist, we will attempt to rewrite those suggested amounts with sane defaults for the new primary currency. Otherwise, the old suggested amounts may make no sense (eg. a suggested logical amount of '100' is $100 for USD, which is reasonable, but 100 ETH for ETH, which is not reasonable.) --> TODO when we support overriding suggested amounts, we could instead here always erase any prior suggested amounts and then the user can optionally override them for the overridden primary currency
+                  parseLogicalAssetAmount('5'),
+                  parseLogicalAssetAmount('10'),
+                  parseLogicalAssetAmount('20'),
+                  parseLogicalAssetAmount('50'),
+                  parseLogicalAssetAmount('100'),
                 ] : newPrimaryLat === 'ETH' ? [
-                  parseLogicalAssetAmount('0.01').toHexString(),
-                  parseLogicalAssetAmount('0.05').toHexString(),
-                  parseLogicalAssetAmount('0.25').toHexString(),
-                  parseLogicalAssetAmount('0.5').toHexString(),
-                  parseLogicalAssetAmount('1').toHexString(),
+                  parseLogicalAssetAmount('0.01'),
+                  parseLogicalAssetAmount('0.05'),
+                  parseLogicalAssetAmount('0.25'),
+                  parseLogicalAssetAmount('0.5'),
+                  parseLogicalAssetAmount('1'),
                 ] : [],
               },
             },
@@ -103,7 +103,7 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
           proposedPayment: {
             ...cs.proposedPayment,
             paymentMode: {
-              logicalAssetAmountAsBigNumberHexString: parseUnits(logicalAssetAmountFullPrecision, 0).toHexString(),
+              logicalAssetAmount: parseUnits(logicalAssetAmountFullPrecision, 0),
             },
           },
         };

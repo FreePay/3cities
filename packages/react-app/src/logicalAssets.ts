@@ -1,5 +1,5 @@
-import { BigNumber } from "@ethersproject/bignumber";
-import { parseUnits } from "@ethersproject/units";
+import { parseUnits } from 'viem';
+import { IntRange } from "./IntRange";
 import { LogicalAssetTicker as LogicalAssetTickerPb } from "./gen/threecities/v1/v1_pb";
 
 export type LogicalAssetTicker = Exclude<keyof typeof LogicalAssetTickerPb, 'UNSPECIFIED'>; // here, we use the protobuf definition of logical asset tickers to be our single authoritative definition, and derive our app-layer logical asset ticker types from protobuf definitions in a typesafe manner.
@@ -79,11 +79,9 @@ export const logicalAssetDecimals = 18; // all logical assets have 18 decimals, 
 // amount, such as "5.75" and returns the full-precision logical asset
 // integer amount based on the number of token decimals used for logical
 // assets.
-export function parseLogicalAssetAmount(amount: string): BigNumber {
+export function parseLogicalAssetAmount(amount: string): bigint {
   return parseUnits(amount, logicalAssetDecimals);
 }
-
-const ten: BigNumber = BigNumber.from(10);
 
 // convertLogicalAssetUnits converts the passed logicalAssetAmount
 // (which is assumed to have the full-precision logicalAssetDecimals
@@ -93,14 +91,14 @@ const ten: BigNumber = BigNumber.from(10);
 // USDC.decimals)` converts the passed logical asset amount into an
 // amount with USDC's decimals. WARNING however, the returned amount may
 // still need exchange rate conversions applied to be sensical.
-export function convertLogicalAssetUnits(logicalAssetAmount: BigNumber, newDecimals: number): BigNumber {
+export function convertLogicalAssetUnits(logicalAssetAmount: bigint, newDecimals: IntRange<0, 19>): bigint {
   const decimalDiff = logicalAssetDecimals - newDecimals;
   if (decimalDiff === 0) return logicalAssetAmount; // no conversion needed if the decimals are the same
   else if (decimalDiff > 0) {
-    const scale = ten.pow(decimalDiff); // scale for narrowing the precision
-    const halfScale = scale.div(2); // half of the scale for rounding. "The technique of adding half of the scale before dividing is a common way to achieve rounding in integer division. It's based on the idea that adding half of the divisor (the scale in this case) to the dividend will push the quotient over the threshold to the next integer if the remainder of the division is more than half of the divisor."
-    return logicalAssetAmount.add(halfScale).div(scale); // add half of the scale for rounding and then divide by the scale to narrow the precision
-  } else return logicalAssetAmount.mul(ten.pow(-decimalDiff));
+    const scale = 10n ** BigInt(decimalDiff); // scale for narrowing the precision
+    const halfScale = scale / 2n; // half of the scale for rounding. "The technique of adding half of the scale before dividing is a common way to achieve rounding in integer division. It's based on the idea that adding half of the divisor (the scale in this case) to the dividend will push the quotient over the threshold to the next integer if the remainder of the division is more than half of the divisor."
+    return (logicalAssetAmount + halfScale) / scale; // add half of the scale for rounding and then divide by the scale to narrow the precision
+  } else return logicalAssetAmount * (10n ** BigInt(-decimalDiff));
 }
 
 // getDecimalsToRenderForTLogicalAsseticker returns the canonical number
@@ -155,8 +153,8 @@ export function addVerboseFormatToLogicalAssetValue(lat: LogicalAssetTicker, val
 // defaultSmallAmountsPerLogicalAsset provides arbitrary, fixed small
 // amounts in each logical asset for illustrative purposes.
 export const defaultSmallAmountsPerLogicalAsset: Readonly<{ [key in LogicalAssetTicker]: bigint }> = {
-  ETH: parseLogicalAssetAmount('0.0005').toBigInt(), // approximately $1 in ETH
-  USD: parseLogicalAssetAmount('1').toBigInt(),
-  CAD: parseLogicalAssetAmount('1').toBigInt(),
-  EUR: parseLogicalAssetAmount('1').toBigInt(),
+  ETH: parseLogicalAssetAmount('0.0005'), // approximately $1 in ETH
+  USD: parseLogicalAssetAmount('1'),
+  CAD: parseLogicalAssetAmount('1'),
+  EUR: parseLogicalAssetAmount('1'),
 }

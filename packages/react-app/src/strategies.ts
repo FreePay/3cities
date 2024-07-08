@@ -1,4 +1,3 @@
-import { BigNumber } from "@ethersproject/bignumber";
 import { AddressContext } from "./AddressContext";
 import { ExchangeRates, convert } from "./ExchangeRates";
 import { Intersection } from "./Intersection";
@@ -7,7 +6,7 @@ import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import { StrategyPreferences } from "./StrategyPreferences";
 import { NativeCurrency, Token, isToken } from "./Token";
 import { canAfford } from "./canAfford";
-import { arbitrum, arbitrumNova, base, baseSepolia, chainsSupportedBy3cities, linea, mainnet, optimism, polygon, polygonZkEvm, scroll, sepolia, zkSync, zkSyncSepolia, zora } from './chains';
+import { arbitrum, arbitrumNova, base, baseSepolia, blast, chainsSupportedBy3cities, immutableZkEvm, linea, mainnet, mode, optimism, polygon, polygonZkEvm, scroll, sepolia, taiko, zkSync, zkSyncSepolia, zora } from './chains';
 import { flatMap } from "./flatMap";
 import { isProduction } from "./isProduction";
 import { LogicalAssetTicker, convertLogicalAssetUnits } from "./logicalAssets";
@@ -146,7 +145,7 @@ export function getStrategiesForPayment(er: ExchangeRates | undefined, receiverS
         };
         return s;
       }
-    }).filter(s => canAfford(senderAddressContext, getTokenKey(s.tokenTransfer.token), s.tokenTransfer.amountAsBigNumberHexString)) // having already generated the set of possible token transfer strategies, we now further filter these strategies to accept only those affordable by the passed sender address context. Ie. here is where we ensure that the computed token transfer strategies are affordable by the sender
+    }).filter(s => canAfford(senderAddressContext, getTokenKey(s.tokenTransfer.token), s.tokenTransfer.amount)) // having already generated the set of possible token transfer strategies, we now further filter these strategies to accept only those affordable by the passed sender address context. Ie. here is where we ensure that the computed token transfer strategies are affordable by the sender
   );
 
   return sortStrategiesByPriority(staticChainIdPriority, staticTokenTickerPriority, ss);
@@ -164,7 +163,7 @@ function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined
 function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: PaymentWithFixedAmount | ProposedPaymentWithFixedAmount, token: Token | NativeCurrency): TokenTransfer | ProposedTokenTransfer | undefined
 function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: PaymentWithFixedAmount | ProposedPaymentWithFixedAmount, token: Token | NativeCurrency): TokenTransfer | ProposedTokenTransfer | undefined {
   const amountDenominatedInToken: undefined | bigint = (() => {
-    const amountDenominatedInPrimaryLogicalAssetWithTokensDecimals: bigint = convertLogicalAssetUnits(BigNumber.from(p.paymentMode.logicalAssetAmountAsBigNumberHexString), token.decimals).toBigInt(); // WARNING this amount is denominated in the passed Payment's primary logical asset and using the passed token's decimals. But, any exchange rate conversion that may need to be applied has not yet been applied
+    const amountDenominatedInPrimaryLogicalAssetWithTokensDecimals: bigint = convertLogicalAssetUnits(p.paymentMode.logicalAssetAmount, token.decimals); // WARNING this amount is denominated in the passed Payment's primary logical asset and using the passed token's decimals. But, any exchange rate conversion that may need to be applied has not yet been applied
     const logicalAssetTickerForThisTokenTransfer: LogicalAssetTicker | undefined = getLogicalAssetTickerForTokenOrNativeCurrencyTicker(token.ticker);
     if (logicalAssetTickerForThisTokenTransfer === undefined) {
       // case 1. the passed token is not supported by any logical asset. For example, UNI's is not supported by any logical asset because 1 unit of UNI is not pegged to any logical asset. Since the token transfer we're attempting to construct is not supported by any logical asset, we'll attempt an exchange rate conversion directly from the Payment's primary logical asset to the token
@@ -187,8 +186,8 @@ function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined
   })();
   if (amountDenominatedInToken === undefined) return undefined;
   else {
-    const ttPartial: Pick<Intersection<TokenTransfer, ProposedTokenTransfer>, 'amountAsBigNumberHexString'> = {
-      amountAsBigNumberHexString: BigNumber.from(amountDenominatedInToken).toHexString(),
+    const ttPartial: Pick<Intersection<TokenTransfer, ProposedTokenTransfer>, 'amount'> = {
+      amount: amountDenominatedInToken,
     };
     if (isPayment(p)) {
       const ttPartial2: Omit<TokenTransfer, 'token'> = Object.assign({}, ttPartial, {
@@ -330,20 +329,37 @@ const staticChainIdPriority: ChainIdPriority = { // TODO move this to a new file
   // fee structures are always changing, and fees can differ for more
   // complex reasons, so this is just a start.
 
-  // This is intended to be a complete set of prioritized production networks (higher priority is better; we try to priorize primarily by L2Beat.com decentralization Stage and secondarily by expected transaction fee):
+
+  // This is intended to be a complete set of prioritized production networks (higher priority is better; we try to priorize primarily by L2Beat.com decentralization stage and secondarily by expected transaction fee; L2s with the same stage are attempted to be sorted by number of red L2Beat pie slices, and then yellow pie slice):
+  // Stage 1
   [arbitrum.id]: 900,
   [base.id]: 850,
   [optimism.id]: 800,
-  [polygonZkEvm.id]: 750,
-  [zkSync.id]: 700,
+
+  // Stage 0
+  // 1 red L2Beat pie slice
+  // 2 red L2Beat pie slice
+  [polygonZkEvm.id]: 750, // 0 yellow slice
+  [immutableZkEvm.id]: 740, // not on L2Beat but presuming same as polygonZkEvm
+  [taiko.id]: 725, // 0 yellow slice
+  [zkSync.id]: 700, // 1 yellow slice
+  // 3 red L2Beat pie slice
   [scroll.id]: 650,
   [linea.id]: 625,
   [zora.id]: 600,
-  [arbitrumNova.id]: 550, // arbitrum nova is an optimium that falls back to a rollup if the DA committee becomes unavailable
-  [polygon.id]: 500, // polygon PoS is an alt L1 and so we assign it lowest priority since we prefer L2s
+  [blast.id]: 500,
+  [mode.id]: 400,
+
+  // Stage N/A (Optimium)
+  [arbitrumNova.id]: 300, // arbitrum nova is an optimium that falls back to a rollup if the DA committee becomes unavailable
+
+  // Alt L1
+  [polygon.id]: 100, // polygon PoS is an alt L1 and so we assign it lowest priority since we prefer L2s
+
+  // Ethereum L1 (lowest priority due to high fees)
   [mainnet.id]: 1,
 
-  // Testnet priorities below here (higher priority is better):
+  // Testnet priorities below here (higher priority is better; testnet priorities are meaningless):
   [baseSepolia.id]: 1000,
   [zkSyncSepolia.id]: 500,
   [sepolia.id]: 1,

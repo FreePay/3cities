@@ -1,6 +1,6 @@
-import { isAddress } from "@ethersproject/address";
 import React from "react";
 import { useParams } from "react-router-dom";
+import { isAddress } from "viem";
 import { AddressOrEnsName } from "./AddressOrEnsName";
 import { CheckoutSettings } from "./CheckoutSettings";
 import { CheckoutSettingsContext } from "./CheckoutSettingsContext";
@@ -33,12 +33,12 @@ export const MaybeUserPage: React.FC = () => {
           payWhatYouWant: {
             isDynamicPricingEnabled: true,
             canPayAnyAsset: true,
-            suggestedLogicalAssetAmountsAsBigNumberHexStrings: [
-              parseLogicalAssetAmount('5').toHexString(),
-              parseLogicalAssetAmount('10').toHexString(),
-              parseLogicalAssetAmount('20').toHexString(),
-              parseLogicalAssetAmount('50').toHexString(),
-              parseLogicalAssetAmount('100').toHexString(),
+            suggestedLogicalAssetAmounts: [
+              parseLogicalAssetAmount('5'),
+              parseLogicalAssetAmount('10'),
+              parseLogicalAssetAmount('20'),
+              parseLogicalAssetAmount('50'),
+              parseLogicalAssetAmount('100'),
             ],
           },
         },
