@@ -25,9 +25,23 @@
 
 [etherscan]
   mainnet = { key = "${API_KEY_ETHERSCAN}" }
+  optimism = { key = "${API_KEY_ETHERSCAN_OPTIMISM}" }
+  arbitrum = { key = "${API_KEY_ETHERSCAN_ARBITRUM}" }
+  base = { key = "${API_KEY_ETHERSCAN_BASE}" }
+  scroll = { key = "${API_KEY_ETHERSCAN_SCROLL}" }
+  linea = { key = "${API_KEY_ETHERSCAN_LINEA}" }
+  polygon_zkevm = { key = "${API_KEY_ETHERSCAN_POLYGON_ZKEVM}" }
+  blast = { key = "${API_KEY_ETHERSCAN_BLAST}" }
   sepolia = { key = "${API_KEY_ETHERSCAN}" }
 
 [rpc_endpoints]
   localhost = "http://localhost:8545"
   mainnet = "https://eth-mainnet.g.alchemy.com/v2/${API_KEY_ALCHEMY}"
+  optimism = "https://opt-mainnet.g.alchemy.com/v2/${API_KEY_ALCHEMY}"
+  arbitrum = "https://arb-mainnet.g.alchemy.com/v2/${API_KEY_ALCHEMY}"
+  base = "https://base-mainnet.g.alchemy.com/v2/${API_KEY_ALCHEMY}"
+  scroll = "https://rpc.scroll.io"
+  linea = "https://rpc.linea.build"
+  polygon_zkevm = "https://polygonzkevm-mainnet.g.alchemy.com/v2/${API_KEY_ALCHEMY}"
+  blast = "https://rpc.blast.io"
   sepolia = "https://eth-sepolia.g.alchemy.com/v2/${API_KEY_ALCHEMY}"

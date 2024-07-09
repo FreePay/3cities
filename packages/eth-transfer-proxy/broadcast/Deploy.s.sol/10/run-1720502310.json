@@ -1,0 +1,57 @@
+{
+  "transactions": [
+    {
+      "hash": "0xa22e7feb51c24de7a6b8b3fb41c6530d2443a7c018b1d4eedb0e13f386548d3a",
+      "transactionType": "CREATE",
+      "contractName": "ETHTransferProxy",
+      "contractAddress": "0x1f9ab0430654d8d0e03d1b1c730e9e7d176ee399",
+      "function": null,
+      "arguments": null,
+      "transaction": {
+        "from": "0x4e06388233477376fd21c787aba9cca793f3bcd7",
+        "gas": "0x29a7d",
+        "value": "0x0",
+        "input": "0x6080806040523460155761016b908161001a8239f35b5f80fdfe60806040526004361015610011575f80fd5b5f3560e01c63d50f6bf014610024575f80fd5b60207ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffc3601126101675760043573ffffffffffffffffffffffffffffffffffffffff8116809103610167575f80808034855af13d156101625767ffffffffffffffff3d8181116101355760405191601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0908116603f01168301908111838210176101355760405281525f60203d92013e5b1561010b576040513481527fddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef60203392a3005b60046040517fb12d13eb000000000000000000000000000000000000000000000000000000008152fd5b7f4e487b71000000000000000000000000000000000000000000000000000000005f52604160045260245ffd5b6100d8565b5f80fd",
+        "nonce": "0x1",
+        "chainId": "0xa"
+      },
+      "additionalContracts": [],
+      "isFixedGasLimit": false
+    }
+  ],
+  "receipts": [
+    {
+      "status": "0x1",
+      "cumulativeGasUsed": "0x1f75fd",
+      "logs": [],
+      "logsBloom": "0x00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+      "type": "0x2",
+      "transactionHash": "0xa22e7feb51c24de7a6b8b3fb41c6530d2443a7c018b1d4eedb0e13f386548d3a",
+      "transactionIndex": "0xb",
+      "blockHash": "0x13385f65e486a8f901f64df4de6d7a07d4d2b21624bc44835cf38cf877e70afe",
+      "blockNumber": "0x74c772b",
+      "gasUsed": "0x200af",
+      "effectiveGasPrice": "0x3b273bb",
+      "from": "0x4e06388233477376fd21c787aba9cca793f3bcd7",
+      "to": null,
+      "contractAddress": "0x1f9ab0430654d8d0e03d1b1c730e9e7d176ee399",
+      "l1BaseFeeScalar": "0x558",
+      "l1BlobBaseFee": "0x11",
+      "l1BlobBaseFeeScalar": "0xc5fc5",
+      "l1Fee": "0x33522baf5",
+      "l1GasPrice": "0x56314cbe",
+      "l1GasUsed": "0x1b34"
+    }
+  ],
+  "libraries": [],
+  "pending": [],
+  "returns": {
+    "e": {
+      "internal_type": "contract ETHTransferProxy",
+      "value": "0x1F9Ab0430654d8d0e03D1B1c730e9e7d176ee399"
+    }
+  },
+  "timestamp": 1720502310,
+  "chain": 10,
+  "commit": "dbb849d"
+}
