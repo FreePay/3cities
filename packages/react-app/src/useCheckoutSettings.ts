@@ -1,6 +1,6 @@
 import { useContext, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
-import { parseUnits } from "viem";
+import { isHex, parseUnits } from "viem";
 import { AuthenticateSenderAddress, CheckoutSettings } from "./CheckoutSettings";
 import { CheckoutSettingsContext, CheckoutSettingsRequiresPassword, isCheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
 import { ProposedPayment, isProposedPaymentWithFixedAmount } from "./Payment";
@@ -25,6 +25,10 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
   const [searchParams] = useSearchParams();
   const chainIdsRaw: string | undefined = searchParams.get("chainIds") || undefined;
   const mode: string | undefined = searchParams.get("mode") || undefined;
+  const receiverAddress: `0x${string}` | undefined = (() => {
+    const raw = searchParams.get("receiverAddress");
+    return isHex(raw) ? raw : undefined;
+  })();
   const currency: string | undefined = searchParams.get("currency") || undefined;
   const usdPerEth: string | undefined = searchParams.get("usdPerEth") || undefined;
   const logicalAssetAmountFullPrecision: string | undefined = searchParams.get("amount") || undefined; // iff set, the proposed payment mode will be overridden to be fixed using this passed logical asset amount denominated in full precision logical asset units (eg. 1 logical asset == 10^18)
@@ -46,6 +50,18 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
       }
 
       if (mode?.toLowerCase() === "deposit") cs = { ...cs, mode: "deposit" };
+
+      if (receiverAddress) {
+        cs = {
+          ...cs,
+          proposedPayment: {
+            ...cs.proposedPayment,
+            receiver: {
+              address: receiverAddress,
+            },
+          },
+        };
+      }
 
       const newPrimaryLat: LogicalAssetTicker | undefined = allLogicalAssetTickers.find((lat) => lat === currency?.toUpperCase());
       if (newPrimaryLat && cs.proposedPayment.logicalAssetTickers.primary !== newPrimaryLat) {
@@ -140,7 +156,7 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
 
       return cs;
     }
-  }, [csIn, chainIdsRaw, mode, currency, usdPerEth, logicalAssetAmountFullPrecision, requireInIframeOrErrorWith, iframeParentWindowOrigin, authenticateSenderAddress, verifyEip1271Signature, clickToCloseIframeLabel, requireNativeTokenTransferProxy]);
+  }, [csIn, chainIdsRaw, mode, receiverAddress, currency, usdPerEth, logicalAssetAmountFullPrecision, requireInIframeOrErrorWith, iframeParentWindowOrigin, authenticateSenderAddress, verifyEip1271Signature, clickToCloseIframeLabel, requireNativeTokenTransferProxy]);
 
   return csOut;
 }
