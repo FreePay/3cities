@@ -24,11 +24,11 @@ export const ETHTransferProxyContractAddresses = {
   42_161: mk("Arbitrum One", "0x1F9Ab0430654d8d0e03D1B1c730e9e7d176ee399"), // NB the CREATE2 deployment also succeeded at the same address of 0x374f328BA653bc43e42cbEb41e4f8cf2647Edb6e, however that contract verification failed and I wasn't sure how to redrive it --> TODO use the same address once it's verified
   8453: mk("Base", "0x374f328BA653bc43e42cbEb41e4f8cf2647Edb6e"),
   534_352: mk("Scroll", "0x374f328BA653bc43e42cbEb41e4f8cf2647Edb6e"),
-  59_144: mk("Linea", "0x374f328BA653bc43e42cbEb41e4f8cf2647Edb6e"),
+  // 59_144: mk("Linea", "0x374f328BA653bc43e42cbEb41e4f8cf2647Edb6e"), // TODO Linea proxy payments are broken --> reenable when working
   7777777: mk("Zora", "0x374f328BA653bc43e42cbEb41e4f8cf2647Edb6e"), // TODO verify
   1101: mk("Polygon zkEVM", "0x374f328BA653bc43e42cbEb41e4f8cf2647Edb6e"),
   81457: mk("Blast", "0x374f328BA653bc43e42cbEb41e4f8cf2647Edb6e"),
-  34443: mk("Mode Mainnet", "0x374f328BA653bc43e42cbEb41e4f8cf2647Edb6e."), // TODO verify
+  // 34443: mk("Mode Mainnet", "0x374f328BA653bc43e42cbEb41e4f8cf2647Edb6e."), // TODO verify --> TODO Mode proxy payments are broken --> reenable when working
   // **** END mainnet networks ****
 
   // **** BEGIN testnet networks ****
