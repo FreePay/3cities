@@ -21,7 +21,7 @@ import { ToggleSwitch } from "./ToggleSwitch";
 import { isNativeCurrency } from "./Token";
 import { getBlockExplorerUrlForAddress, getBlockExplorerUrlForTransaction } from "./blockExplorerUrls";
 import { getChain, getSupportedChainName } from "./chains";
-import { IframeMessage, closeIframe, isRunningInAStandaloneWindow, isRunningInAnIframe, notifyParentWindowOfSuccessfulCheckout } from "./iframe";
+import { IframeMessage, closeIframe, isRunningInAStandaloneWindow, isRunningInAnIframe, notifyParentWindowOfSuccessfulCheckout, notifyParentWindowOfTransactionSigned } from "./iframe";
 import { LogicalAssetTicker, defaultSmallAmountsPerLogicalAsset, parseLogicalAssetAmount } from "./logicalAssets";
 import { getLogicalAssetTickerForTokenOrNativeCurrencyTicker } from "./logicalAssetsToTokens";
 import { ProposedStrategy, Strategy, getProposedStrategiesForProposedPayment, getStrategiesForPayment } from "./strategies";
@@ -504,18 +504,46 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     };
   }, [checkoutSettings.authenticateSenderAddress, activeDemoAccount, caip222StyleSignature, caip222StyleMessageThatWasSigned, caip222StyleExecuteSign, caip222StyleSignRejected, caip222StyleSignCalledAtLeastOnce, caip222StyleSignatureIsLoading, caip222StyleSignatureLoadingStatus, caip222StyleSignatureIsError, caip222StyleSignatureError, buttonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature, activeWalletLikelyDoesntSupportAutoExecuteAfterSign]);
 
-  useEffect(() => { // iframe postMessage Checkout on status.isSuccess, informing the parent window that a successful checkout has occurred
-    if (isRunningInAnIframe && statusIsSuccess) {
-      const checkoutIframeMsg: IframeMessage<'Checkout'> = {
-        kind: 'Checkout', // here we specify the kind of message as 'Checkout', abstracting over the type of payment strategy used to complete the checkout. For example, the checkout might have been completed with a single token transfer, or (in future) via bridging, via defi position, etc
-        transactionHash: status.signedTransaction.transactionHash,
-        chainId: status.signedTransaction.chainId,
-        ...(caip222StyleSignature && { caip222StyleSignature }),
-        ...(caip222StyleMessageThatWasSigned && { caip222StyleMessageThatWasSigned }),
-      };
-      notifyParentWindowOfSuccessfulCheckout(checkoutSettings.iframeParentWindowOrigin, checkoutIframeMsg);
+  const [signedTransactionIframeMsgSent, setSignedTransactionIframeMsgSent] = useState(false);
+  useEffect(() => {
+    if (status?.signedTransaction && !signedTransactionIframeMsgSent) { // NB our strategy here is to notify the iframe as soon as a transaction is signed and before it confirms. This helps minimize the time window for a race condition where the user might close the window before the transaction details have been securely communicated to any server in the parent window. If we instead waited until checkout (ie. transaction confirmation), then we'd know the transaction confirmed, but more time would have elapsed - potentially a lot more time - giving a dangerous time window where the user could close the tab and prevent their transaction details from being sent to any server
+      if (isRunningInAnIframe) {
+        const txSignedIframeMsg: IframeMessage<'TransactionSigned'> = {
+          kind: 'TransactionSigned',
+          transactionHash: status.signedTransaction.transactionHash,
+          chainId: status.signedTransaction.chainId,
+          ...(caip222StyleSignature && { caip222StyleSignature }),
+          ...(caip222StyleMessageThatWasSigned && { caip222StyleMessageThatWasSigned }),
+          receiptUrl: getBlockExplorerUrlForTransaction(status.signedTransaction.chainId, status.signedTransaction.transactionHash),
+          tokenCurrency: getLogicalAssetTickerForTokenOrNativeCurrencyTicker(status.signedTransaction.tokenTransfer.token.ticker),
+          tokenTicker: status.signedTransaction.tokenTransfer.token.ticker,
+          tokenName: status.signedTransaction.tokenTransfer.token.name,
+          tokenAmount: status.signedTransaction.tokenTransfer.amount.toString(),
+          tokenDecimals: status.signedTransaction.tokenTransfer.token.decimals,
+          tokenContractAddress: status.signedTransaction.tokenTransfer.token.contractAddress,
+          chainName: getChain(status.signedTransaction.chainId)?.name,
+          isTestnet: getChain(status.signedTransaction.chainId)?.testnet,
+        };
+        notifyParentWindowOfTransactionSigned(checkoutSettings.iframeParentWindowOrigin, txSignedIframeMsg);
+      }
+      setSignedTransactionIframeMsgSent(true); // NB we never reset signedTransactionIframeMsgSent to false as Pay is currently designed to be a single-use component
     }
-  }, [checkoutSettings.iframeParentWindowOrigin, statusIsSuccess, status?.signedTransaction?.transactionHash, status?.signedTransaction?.chainId, caip222StyleSignature, caip222StyleMessageThatWasSigned]);
+  }, [checkoutSettings.iframeParentWindowOrigin, status?.signedTransaction, caip222StyleSignature, caip222StyleMessageThatWasSigned, signedTransactionIframeMsgSent]);
+
+  const [checkoutIframeMsgSent, setCheckoutIframeMsgSent] = useState(false);
+  useEffect(() => { // iframe postMessage Checkout on status.isSuccess, informing the parent window that a successful checkout has occurred
+    if (statusIsSuccess && !checkoutIframeMsgSent) {
+      if (isRunningInAnIframe) {
+        const checkoutIframeMsg: IframeMessage<'Checkout'> = {
+          kind: 'Checkout', // here we specify the kind of message as 'Checkout', abstracting over the type of payment strategy used to complete the checkout. For example, the checkout might have been completed with a single token transfer, or (in future) via bridging, via defi position, etc
+          // TODO re-pass transaction data and share its generation with TransactionSigned iframe msg
+        };
+        notifyParentWindowOfSuccessfulCheckout(checkoutSettings.iframeParentWindowOrigin, checkoutIframeMsg);
+      }
+      setCheckoutIframeMsgSent(true); // NB we never reset checkoutIframeMsgSent to false as Pay is currently designed to be a single-use component
+    }
+  }, [checkoutSettings.iframeParentWindowOrigin, statusIsSuccess, checkoutIframeMsgSent]);
+
 
   const executeTokenTransferButtonPropValues = useMemo((): Pick<ExecuteTokenTransferButtonProps, 'onClickPassthrough' | 'autoClickIfNeverClicked' | 'warningLabel' | 'errorLabel' | 'disabled' | 'showLoadingSpinnerWhenDisabled'> => {
     switch (authenticateSenderAddressState.state) {
