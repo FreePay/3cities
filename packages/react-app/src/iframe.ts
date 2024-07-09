@@ -30,6 +30,13 @@ export interface IframeMessage<K extends string> {
   [key: string]: Serializable;
 }
 
+// notifyParentWindowOfSuccessfulCheckout notifies the parent window
+// that a transaction was signed during a checkout. Any data that may be
+// included in the message are anonymous to this function.
+export function notifyParentWindowOfTransactionSigned(targetOrigin: string | undefined, msg: IframeMessage<'TransactionSigned'>): void {
+  postMessageToParentWindow(targetOrigin, msg);
+}
+
 // notifyParentWindowOfSuccessfulCheckout notifies the parent window of
 // a successful checkout. Any additional checkout data that may be
 // included in the message are anonymous to this function.
