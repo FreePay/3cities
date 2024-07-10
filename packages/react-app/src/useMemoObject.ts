@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
 
+// NB we might be tempted to think that useMemoObject is a direct substitute of tanstack query's notifyOnChangeProps. However, this isn't the case, they are actually mostly unrelated although they interact. It's because notifyOnChangeProps determines when the component rerenders, whereas useMemoObject maintains object reference stability whenever renders happen to occur if dependencies haven't changed. For example, useSimulateContract may be called with notifyOnChangeProps, and that will prevent the component from rerendering due to this hook instance unless those props change, however, if the component rerenders for any other reason, then the object returned by useSimulateContract will still be unconditionally recreated every render.
+
 // TODO doc
 export function useMemoObject<O extends object, K extends keyof O>(o: O, keys: K[]): O {
   return useMemo(() => {
