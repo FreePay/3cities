@@ -501,10 +501,15 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
   }, [onTransactionSigned]);
   const writeContractForErc20Transfer = useMemoObject(useWriteContract(writeContractParamsForErc20Transfer), ['writeContract', 'data', 'status', 'error', 'reset']); // WARNING the object returned by useWriteContract is unconditionally recreated each render and so we use useMemoObject to stabilize the reference
 
+  const wcerc20 = writeContractForErc20Transfer.writeContract; // allow hook dependency to be only on writeContract instead of entire object
+  const { isSuccess: serc20isSuccess, data: serc20Data } = simulateContractForErc20Transfer; // allow hook dependency to be only on isSuccess and data instead of entire object
   const executeWriteContractForErc20Transfer = useMemo((): (() => void) | undefined => {
-    if (simulateContractForErc20Transfer.isSuccess) return () => writeContractForErc20Transfer.writeContract(simulateContractForErc20Transfer.data?.request);
+    if (serc20isSuccess) return () => wcerc20(serc20Data.request);
     else return undefined;
-  }, [simulateContractForErc20Transfer, writeContractForErc20Transfer]);
+  }, [serc20isSuccess, serc20Data, wcerc20]);
+  // @eslint-no-use-below[serc20isSuccess]
+  // @eslint-no-use-below[serc20Data]
+  // @eslint-no-use-below[wcerc20]
   // ********** END hooks used only for token transfers (and not native currency transfers) **********
 
   // ********** BEGIN hooks used only for native currency transfers (and not token transfers or native currency transfers using the proxy) **********
@@ -531,13 +536,18 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
   const sendTransactionForNativeTokenTransfer = useMemoObject(useSendTransaction(sendTransactionParamsForNativeTokenTransfer), ['sendTransaction', 'data', 'status', 'error', 'reset']); // WARNING the object returned by useSendTransaction is unconditionally recreated each render and so we use useMemoObject to stabilize the reference
   // TODO warning are 'sendTransaction', 'data', 'error' stable across renders?
 
+  const stntt = sendTransactionForNativeTokenTransfer.sendTransaction; // allow hook dependency to be only on sendTransaction instead of entire object
+  const { isSuccess: egnttisSuccess, data: egnttData } = estimateGasForNativeTokenTransfer; // allow hook dependency to be only on isSuccess and data instead of entire object
   const executeSendTransactionForNativeTokenTransfer = useMemo((): (() => void) | undefined => {
-    if (estimateGasForNativeTokenTransfer.isSuccess) return () => sendTransactionForNativeTokenTransfer.sendTransaction({
+    if (egnttisSuccess) return () => stntt({
       ...unsafeRawSendTransactionParamsForNativeTokenTransfer,
-      gas: estimateGasForNativeTokenTransfer.data,
+      gas: egnttData,
     });
     else return undefined;
-  }, [unsafeRawSendTransactionParamsForNativeTokenTransfer, estimateGasForNativeTokenTransfer, sendTransactionForNativeTokenTransfer]);
+  }, [unsafeRawSendTransactionParamsForNativeTokenTransfer, egnttisSuccess, egnttData, stntt]);
+  // @eslint-no-use-below[stntt]
+  // @eslint-no-use-below[egnttisSuccess]
+  // @eslint-no-use-below[egnttData]
   // ********** END hooks used only for native currency transfers (and not token transfers or native currency transfers using the proxy) **********
 
   // ********** BEGIN hooks used only for native currency transfers using the proxy (and not token transfers or native currency transfers without the proxy) **********
@@ -560,12 +570,17 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
       },
     };
   }, [onTransactionSigned]);
-  const writeContractForNativeTokenTransferProxy = useWriteContract(writeContractParamsForNativeTokenTransferProxy);
+  const writeContractForNativeTokenTransferProxy = useMemoObject(useWriteContract(writeContractParamsForNativeTokenTransferProxy), ['writeContract', 'data', 'status', 'error', 'reset']); // WARNING the object returned by useWriteContract is unconditionally recreated each render and so we use useMemoObject to stabilize the reference --> TODO actual
 
+  const { isSuccess: wcnttIsSuccess, data: wcnttData } = simulateContractForNativeTokenTransferProxy; // allow hook dependency to be only on isSuccess and data instead of entire object
+  const wcntp = writeContractForNativeTokenTransferProxy.writeContract; // allow hook dependency to be only on writeContract instead of entire object
   const executeWriteContractForNativeTokenTransferProxy = useMemo((): (() => void) | undefined => {
-    if (simulateContractForNativeTokenTransferProxy.isSuccess) return () => writeContractForNativeTokenTransferProxy.writeContract(simulateContractForNativeTokenTransferProxy.data?.request);
+    if (wcnttIsSuccess) return () => wcntp(wcnttData.request);
     else return undefined;
-  }, [simulateContractForNativeTokenTransferProxy, writeContractForNativeTokenTransferProxy]);
+  }, [wcnttIsSuccess, wcnttData, wcntp]);
+  // @eslint-no-use-below[wcnttIsSuccess]
+  // @eslint-no-use-below[wcnttData]
+  // @eslint-no-use-below[wcntp]
   // ********** END hooks used only for native currency transfers using the proxy (and not token transfers or native currency transfers without the proxy) **********
 
   // ********** BEGIN variables that unify token and native currency hook states and provide an abstraction boundary for downstream to not know or care if cachedTT is a token or native currency transfer **********
@@ -691,14 +706,16 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
   const switchChain = useMemoObject(useSwitchChain(switchChainParams), ['switchChain', 'data', 'status', 'error', 'reset']);  // WARNING the object returned by useSwitchChain is unconditionally recreated each render and so we use useMemoObject to stabilize the reference
   // TODO are switchChain, data, error actually stable across renders?
 
+  const swsw = switchChain.switchChain; // allow hook dependency to be only on switchChain.switchChain instead of entire object
   const executeChainSwitch = useCallback<() => void>(() => {
-    switchChain.switchChain({
+    swsw({
       chainId: cachedTT.token.chainId,
     }, {
       onSuccess: switchChainOnSuccess,
       onError: switchChainOnError,
     });
-  }, [cachedTT.token.chainId, switchChain, switchChainOnError, switchChainOnSuccess]);
+  }, [cachedTT.token.chainId, swsw, switchChainOnError, switchChainOnSuccess]);
+  // @eslint-no-use-below[swsw]
 
   const shouldAutoRetry: boolean = (() => {
     const isErrorRetryable: boolean = isRetryableError(prepare.error) || isRetryableError(write.error) || isRetryableError(waitError) || isRetryableError(switchChain.error); // an error is said to be "retryable" (instead of fatal) if we want to automatically reset the button and automatically retry again
