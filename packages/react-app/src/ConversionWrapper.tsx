@@ -2,8 +2,11 @@ import React from "react";
 import { Outlet } from "react-router-dom";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
 import { useActiveDemoAccount } from "./useActiveDemoAccount";
+import { useAccount, useDisconnect } from "wagmi";
 
 function ConversionHeader() {
+  const { address } = useAccount();
+  const { disconnect } = useDisconnect();
   const activeDemoAccount: string | undefined = useActiveDemoAccount();
   return (
     <header className="relative bg-quaternary p-5 min-h-[80px] flex items-center">
@@ -18,7 +21,8 @@ function ConversionHeader() {
               enabledClassName="text-quaternary"
               loadingSpinnerClassName="text-quaternary-darker fill-white"
             />
-            {activeDemoAccount && <div className="absolute bottom-[-1.5em] right-1/2 transform translate-x-1/2 whitespace-nowrap z-1 text-black text-sm">demo account</div>}
+            {activeDemoAccount && <div className="absolute top-[-1.5em] right-1/2 transform translate-x-1/2 whitespace-nowrap z-1 text-black text-sm">demo account</div>}
+            {address && <button onClick={() => disconnect()} className="absolute bottom-[-1.64em] right-1/2 transform translate-x-1/2 whitespace-nowrap z-1 text-gray-800 rounded-md px-3.5 py-0 text-xs font-medium  sm:enabled:hover:bg-gray-100 focus:outline-none enabled:active:scale-95">change wallet</button>}
           </div>
         </div>
       </div>
