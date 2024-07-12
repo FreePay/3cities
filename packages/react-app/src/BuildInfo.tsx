@@ -1,5 +1,5 @@
+import { isProduction } from "@3cities/core";
 import React from "react";
-import { isProduction } from "./isProduction";
 
 // buildInfo is a library that enables the app to include its own
 // build info. For example, this can be used to double-check which

@@ -1,9 +1,8 @@
 // TODO s/wagmiClient.ts/wagmiConfig.ts/
 
+import { alchemyHttpUrl, chainsSupportedBy3cities, infuraHttpUrl } from '@3cities/core';
 import { createConfig, fallback, http, type Transport } from '@wagmi/core';
 import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors';
-import { chainsSupportedBy3cities } from './chains';
-import { alchemyHttpUrl, infuraHttpUrl } from './rpcUrls';
 
 const walletConnectProjectId: string = (() => {
   const s = process.env['REACT_APP_WALLETCONNECT_PROJECT_ID'];

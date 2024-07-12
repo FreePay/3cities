@@ -1,14 +1,15 @@
+import { type NativeCurrency, type Token, getTokenKey, nativeCurrencies, tokens } from '@3cities/core';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useImmer } from 'use-immer';
 import { useAccount } from 'wagmi';
-import { AddressContext, emptyAddressContext } from './AddressContext';
+import { type AddressContext, emptyAddressContext } from './AddressContext';
 import { ConnectedAccountContextObserverContext } from './ConnectedAccountContextObserverContext';
-import { NativeCurrency, Token } from './Token';
-import { TokenBalance, isDust } from './TokenBalance';
-import { ObservableValueUpdater, makeObservableValue } from './observer';
-import { getTokenKey, nativeCurrencies, tokens } from './tokens';
+import { type TokenBalance, isDust } from './TokenBalance';
+import { type ObservableValueUpdater, makeObservableValue } from './observer';
 import { useLiveNativeCurrencyBalance } from './useLiveNativeCurrencyBalance';
 import { useLiveTokenBalance } from './useLiveTokenBalance';
+
+// TODO there's a performance bug in ConnectedAccountContextObserverProvider in that ConnectedAccountContextUpdaterInner is both the container for the AddressContext maintained as state as well as the parent for the TokenBalanceUpdater and NativeCurrencyBalanceUpdater components. The result is that every time _any_ token or native currency balance updates, the AddressContext is updated as state, and this causes an unconditional rerender in _all_ updater child components since their parent rerendered due to state update. The solution is to employ a 2nd layer of observer indirection similar to ExchangeRatesUpdater, such that the updater components are not descendants of the component storing AddressContext as state
 
 type ConnectedAccountContextObserverProviderProps = {
   children?: React.ReactNode;

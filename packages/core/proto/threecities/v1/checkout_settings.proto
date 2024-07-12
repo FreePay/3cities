@@ -1,17 +1,7 @@
 syntax = "proto3";
 package threecities.v1; // we follow a major versioning scheme for our proto files. All files in the threecities.v1 package are compatible with the first major version. In the future, new major versions like threecities.v2 will be introduced. At that point, threecities.v1 types will be deprecated. The v2 app layer will attempt v2 deserialization first, falling back to v1 only if the former fails.
 
-// LogicalAssetTicker is the set of all logical asset tickers we
-// support. Our app-layer LogicalAssetTicker types are automatically
-// derived from this single authoritative definition in a typesafe
-// manner.
-enum LogicalAssetTicker {
-  LOGICAL_ASSET_TICKER_UNSPECIFIED = 0;
-  LOGICAL_ASSET_TICKER_ETH = 1;
-  LOGICAL_ASSET_TICKER_USD = 2;
-  LOGICAL_ASSET_TICKER_EUR = 3;
-  LOGICAL_ASSET_TICKER_CAD = 4;
-}
+import "threecities/v1/logical_assets.proto";
 
 // CheckoutSettings is a flattened variant of our app-layer type
 // CheckoutSettings. This CheckoutSettings has been flattened into a

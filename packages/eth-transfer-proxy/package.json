@@ -37,6 +37,8 @@
     "build:types": "yarn clean:types && tsc --declarationDir ./dist/types --emitDeclarationOnly --declaration --declarationMap",
     "build:ts": "yarn build:cjs && yarn build:esm && yarn build:types",
     "build": "yarn build:forge && yarn build:gen && yarn build:ts",
+    "build:dev": "yarn build # NB eth-transfer-proxy has no dev build, but we include this so that the root build:dev task works for all packages",
+    "build:prod-test": "yarn build # NB eth-transfer-proxy has no prod-test build, but we include this so that the root build:prod-test task works for all packages",
     "deploy:local": "PRIVATE_KEY='' MNEMONIC='' forge script script/Deploy.s.sol --broadcast --fork-url http://localhost:8545",
     "deploy:sepolia": "CHAIN=sepolia forge script script/Deploy.s.sol --broadcast --verify -vvv",
     "deploy:mainnet": "CHAIN=mainnet forge script script/Deploy.s.sol --broadcast --verify -vvv",
@@ -51,7 +53,7 @@
     "deploy:mode": "forge script script/Deploy.s.sol --broadcast --chain-id 34443 --rpc-url https://mainnet.mode.network --verify -vvv --verifier blockscout  --verifier-url https://modescan.io/api\\?",
     "fmt": "forge fmt",
     "gas": "forge test --gas-report",
-    "lint": "forge fmt --check && yarn solhint {script,src,test}/**/*.sol && eslint --max-warnings 0",
+    "lint": "forge fmt --check && yarn solhint {script,src,test}/**/*.sol && eslint . --max-warnings 0",
     "prepack": "yarn && yarn build",
     "test": "forge test",
     "test:coverage": "forge coverage"

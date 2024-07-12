@@ -1,6 +1,6 @@
 import { useContext } from "react";
 import { IsPageVisibleOrRecentlyVisibleContext } from "./IsPageVisibleOrRecentlyVisibleContext";
-import { Observer, useObservedValue } from "./observer";
+import { type Observer, useObservedValue } from "./observer";
 
 // useIsPageVisibleOrRecentlyVisible returns true iff the page is
 // currently visible or has been visible in the past opts.recentMillis

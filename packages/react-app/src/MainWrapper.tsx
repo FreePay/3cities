@@ -1,7 +1,7 @@
 import React, { useContext } from "react";
 import { FaHandHoldingUsd, FaHome, FaQuestionCircle } from "react-icons/fa";
 import { FaTelegram, FaTwitter } from "react-icons/fa6";
-import { NavLink, NavLinkProps, Outlet } from "react-router-dom";
+import { NavLink, type NavLinkProps, Outlet } from "react-router-dom";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
 import { HideFooterOnMobileContext } from "./HideFooter";
 import { Wordmark } from "./Wordmark";

@@ -1,0 +1,45 @@
+{
+  "name": "@3cities/verifier",
+  "license": "MIT",
+  "version": "1.0.0",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "files": [
+    "dist/cjs/**/*",
+    "dist/esm/**/*",
+    "dist/types/**/*"
+  ],
+  "exports": {
+    ".": {
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js",
+      "types": "./dist/types/index.d.ts"
+    }
+  },
+  "dependencies": {
+    "@3cities/core": "^1.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  },
+  "scripts": {
+    "clean:ts": "rm -rf ./dist",
+    "clean:cjs": "rm -rf ./dist/cjs",
+    "clean:esm": "rm -rf ./dist/esm",
+    "clean:types": "rm -rf ./dist/types",
+    "clean": "yarn clean:ts",
+    "build:cjs": "yarn clean:cjs && tsc --module commonjs --moduleResolution node --outDir ./dist/cjs --verbatimModuleSyntax false --sourceMap",
+    "build:esm": "yarn clean:esm && tsc --outDir ./dist/esm  --sourceMap",
+    "build:types": "yarn clean:types && tsc --declarationDir ./dist/types --emitDeclarationOnly --declaration --declarationMap",
+    "build:ts": "yarn build:cjs && yarn build:esm && yarn build:types",
+    "build": "yarn build:ts",
+    "build:dev": "yarn build # NB verifier has no dev build, but we include this so that the root build:dev task works for all packages. Clients must apply any env-specific settings",
+    "build:prod-test": "yarn build # NB verifier has no prod-test build, but we include this so that the root build:prod-test task works for all packages. Clients must apply any env-specific settings",
+    "lint": "eslint . --max-warnings 0",
+    "prepack": "yarn && yarn build",
+    "start": "nodemon --watch 'src/**/*' --ext 'ts,proto' --exec 'yarn build'",
+    "test": "forge test",
+    "test:coverage": "forge coverage"
+  }
+}

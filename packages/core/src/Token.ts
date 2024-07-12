@@ -1,4 +1,4 @@
-import { IntRange } from "./IntRange";
+import { type IntRange } from "./IntRange";
 import { hasOwnProperty } from "./hasOwnProperty";
 
 // Token is our type for fungible (ERC-20) tokens. An instance of

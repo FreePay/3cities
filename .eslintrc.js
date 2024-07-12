@@ -44,10 +44,6 @@ module.exports = {
             {
                 "paths": [
                     {
-                        "name": "ethers",
-                        "message": "Please import from '@ethersproject/module' directly to support tree-shaking."
-                    },
-                    {
                         "name": "@lingui/macro",
                         "importNames": [
                             "t"

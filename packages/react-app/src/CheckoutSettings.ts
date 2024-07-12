@@ -1,6 +1,6 @@
-import { ExchangeRates } from "./ExchangeRates";
-import { ProposedPayment } from "./Payment";
-import { StrategyPreferences } from "./StrategyPreferences";
+import { type ExchangeRates } from "@3cities/core";
+import { type ProposedPayment } from "./Payment";
+import { type StrategyPreferences } from "./StrategyPreferences";
 
 // SenderNoteSettings describes whether the sender/buyer may optionally
 // or must provide a note to the receiver/seller.

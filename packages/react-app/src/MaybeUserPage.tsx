@@ -1,14 +1,14 @@
+import { parseLogicalAssetAmount } from "@3cities/core";
 import React from "react";
 import { useParams } from "react-router-dom";
 import { isAddress } from "viem";
-import { AddressOrEnsName } from "./AddressOrEnsName";
-import { CheckoutSettings } from "./CheckoutSettings";
+import { type AddressOrEnsName } from "./AddressOrEnsName";
+import { type CheckoutSettings } from "./CheckoutSettings";
 import { CheckoutSettingsContext } from "./CheckoutSettingsContext";
 import { ConversionWrapperWithChildren } from "./ConversionWrapper";
+import { mightBeAnEnsName } from "./mightBeAnEnsName";
 import { Pay } from "./Pay";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
-import { parseLogicalAssetAmount } from "./logicalAssets";
-import { mightBeAnEnsName } from "./mightBeAnEnsName";
 
 export const MaybeUserPage: React.FC = () => {
   // const { isConnected } = useAccount();

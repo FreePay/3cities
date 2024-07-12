@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import { Observer, makeObservableValue } from './observer';
+import { type Observer, makeObservableValue } from './observer';
 
 // ActiveDemoAccountContext provides an observer for the currently
 // active demo account managed via DemoAccountProvider. If the observed

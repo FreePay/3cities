@@ -1,15 +1,8 @@
+import { caip222StyleSignatureMessageDomain, caip222StyleSignatureMessagePrimaryType, caip222StyleSignatureMessageTypes, chainIdOnWhichToSignMessagesAndVerifySignatures, chainsSupportedBy3cities, convert, convertLogicalAssetUnits, erc1271MagicValue, erc1271SmartAccountAbi, getConfirmationsToWait, getLogicalAssetTickerForTokenOrNativeCurrencyTicker, nativeCurrencies, tokens, type Caip222StyleMessageToSign, type Caip222StyleSignature } from "@3cities/core";
 import { ETHTransferProxyABI, getETHTransferProxyContractAddress } from "@3cities/eth-transfer-proxy";
 import { getTransactionConfirmations, getTransactionReceipt, readContract, verifyTypedData, type Config } from "@wagmi/core";
 import { erc20Abi, hashTypedData, isHex, parseEventLogs } from "viem";
 import { serialize } from "wagmi";
-import { convert } from "./ExchangeRates";
-import { mainnet, sepolia, type Chain } from "./chains";
-import { getConfirmationsToWait } from "./getConfirmationsToWait";
-import { isProduction } from "./isProduction";
-import { convertLogicalAssetUnits } from "./logicalAssets";
-import { getLogicalAssetTickerForTokenOrNativeCurrencyTicker } from "./logicalAssetsToTokens";
-import { nativeCurrencies, tokens } from "./tokens";
-import { Caip222StyleMessageToSign, Caip222StyleSignature, domain, eip1271MagicValue, primaryType, smartAccountAbi, types } from "./useCaip222StyleSignature";
 
 export type TransferVerificationRequest = {
   trusted: { // from the point of view of the verification client (caller), these data are trusted and will be used to verify the untrustedToBeVerified data
@@ -51,12 +44,15 @@ type TransferVerificationResult = {
 } | {
   successVerified: false;
   description: string;
-  error?: Error; // TODO should Error be unconditionally defined when successVerified=false? probably?
+  error?: Error; //  TODO should Error be unconditionally defined when successVerified=false? probably?
   failureReason: "todo";
   successData?: never;
 });
 
-export async function verify(wagmiConfig: Config, supportedChains: Chain[], req: TransferVerificationRequest): Promise<TransferVerificationResult> {
+export async function verifyTransfer({ wagmiConfig, req }: {
+  wagmiConfig: Config,
+  req: TransferVerificationRequest,
+}): Promise<TransferVerificationResult> {
   const [senderAddress, senderAddressError]: [`0x${string}`, undefined] | [undefined, Error] = (() => {
     const a = req.untrustedToBeVerified.senderAddress;
     const b = req.untrustedToBeVerified.caip222StyleSignature?.message.senderAddress;
@@ -75,7 +71,7 @@ export async function verify(wagmiConfig: Config, supportedChains: Chain[], req:
     description: `Invalid request: sender address error`,
     error: senderAddressError,
     failureReason: "todo",
-  }; else if (supportedChains.find(c => c.id === req.untrustedToBeVerified.chainId) === undefined) return {
+  }; else if (chainsSupportedBy3cities.find(c => c.id === req.untrustedToBeVerified.chainId) === undefined) return {
     successVerified: false,
     description: `Chain ID ${req.untrustedToBeVerified.chainId} is unsupported by 3cities`,
     failureReason: "todo", // TODO eg. CHAIN_ID_UNSUPPORTED
@@ -87,25 +83,25 @@ export async function verify(wagmiConfig: Config, supportedChains: Chain[], req:
     const getTransactionReceiptPromise = getTransactionReceipt(wagmiConfig, { hash: req.untrustedToBeVerified.transactionHash, chainId: req.untrustedToBeVerified.chainId });
     const getTransactionConfirmationsPromise = getTransactionConfirmations(wagmiConfig, { hash: req.untrustedToBeVerified.transactionHash, chainId: req.untrustedToBeVerified.chainId });
     const verifyTypedDataPromise: Promise<boolean> | undefined = req.untrustedToBeVerified.caip222StyleSignature && isHex(req.untrustedToBeVerified.caip222StyleSignature.signature) ? verifyTypedData(wagmiConfig, {
-      chainId: isProduction ? mainnet.id : sepolia.id, // TODO pass this is in as verifier does not have production/non-production builds
+      chainId: chainIdOnWhichToSignMessagesAndVerifySignatures,
       address: req.untrustedToBeVerified.caip222StyleSignature.message.senderAddress,
-      domain,
-      types,
-      primaryType,
+      domain: caip222StyleSignatureMessageDomain,
+      types: caip222StyleSignatureMessageTypes,
+      primaryType: caip222StyleSignatureMessagePrimaryType,
       message: req.untrustedToBeVerified.caip222StyleSignature.message,
       signature: req.untrustedToBeVerified.caip222StyleSignature.signature,
     }) : undefined;
 
     const eip1271ChainId: number | undefined = req.untrustedToBeVerified.caip222StyleSignature && !isHex(req.untrustedToBeVerified.caip222StyleSignature.signature) ? parseInt(req.untrustedToBeVerified.caip222StyleSignature.signature.split('eip1271-chainId-')[1] || '') : undefined;
     const eip1271IsValidSignaturePromise = req.untrustedToBeVerified.caip222StyleSignature && eip1271ChainId && !isNaN(eip1271ChainId) ? readContract(wagmiConfig, { // NB here we know that caip222StyleSignature is defined if eip1271ChainId is defined, but the typescript compiler doesn't
-      abi: smartAccountAbi,
+      abi: erc1271SmartAccountAbi,
       chainId: eip1271ChainId,
       address: req.untrustedToBeVerified.caip222StyleSignature.message.senderAddress,
       functionName: 'isValidSignature',
       args: [hashTypedData({
-        domain,
-        types,
-        primaryType,
+        domain: caip222StyleSignatureMessageDomain,
+        types: caip222StyleSignatureMessageTypes,
+        primaryType: caip222StyleSignatureMessagePrimaryType,
         message: req.untrustedToBeVerified.caip222StyleSignature.message,
       }), '0x'],
     }) : undefined;
@@ -139,7 +135,7 @@ export async function verify(wagmiConfig: Config, supportedChains: Chain[], req:
     const [eip1271SignatureIsVerified, eip1271SignatureVerificationError]: [Awaited<ReturnType<typeof verifyTypedData>> | undefined, undefined] | [undefined, Error] = await (async () => {
       try {
         const v = await eip1271IsValidSignaturePromise;
-        return [v === undefined ? undefined : v === eip1271MagicValue, undefined];
+        return [v === undefined ? undefined : v === erc1271MagicValue, undefined];
       } catch (e) {
         return [undefined, Error(`Failed to verify caip222-style eip1271 signature. tx hash=${req.untrustedToBeVerified.transactionHash} chainId=${req.untrustedToBeVerified.chainId} caip222=${JSON.stringify(req.untrustedToBeVerified.caip222StyleSignature)} eip1271ChainId=${eip1271ChainId}`, { cause: e })];
       }
@@ -159,7 +155,7 @@ export async function verify(wagmiConfig: Config, supportedChains: Chain[], req:
       successVerified: false,
       description: `Transaction reverted`,
       failureReason: "todo", // TODO eg. TRANSACTION_REVERTED
-    }; else if (txConfirmations < 0 /* TODO actual: confirmationsToWait */) return {
+    }; else if (txConfirmations < confirmationsToWait) return {
       successVerified: false,
       description: `Transaction has insufficient confirmations, wanted=${confirmationsToWait}, found=${txConfirmations}`,
       failureReason: "todo", // TODO eg. TRANSACTION_HAS_INSUFFICIENT_CONFIRMATIONS
@@ -190,7 +186,7 @@ export async function verify(wagmiConfig: Config, supportedChains: Chain[], req:
         logs: tx.logs,
       }).filter(l => l.address.toLowerCase() === ethTransferProxyContractAddress.toLowerCase()) : [];
 
-      const tokensAllowedOnThisChain = tokens.filter(t => t.chainId === req.untrustedToBeVerified.chainId).filter(t => req.trusted.tokenTickerAllowlist.map(tt => tt.toLowerCase()).includes(t.ticker.toLowerCase())); // TODO pass in tokens as verifier doesn't have production/non-production builds
+      const tokensAllowedOnThisChain = tokens.filter(t => t.chainId === req.untrustedToBeVerified.chainId).filter(t => req.trusted.tokenTickerAllowlist.map(tt => tt.toLowerCase()).includes(t.ticker.toLowerCase()));
 
       const erc20TransferLogs = parseEventLogs({
         abi: erc20Abi,

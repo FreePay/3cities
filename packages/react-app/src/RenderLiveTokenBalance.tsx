@@ -1,6 +1,6 @@
 import React from "react";
 import { RenderRawTokenBalance } from "./RenderRawTokenBalance";
-import { NativeCurrency, Token, isToken } from "./Token";
+import { type NativeCurrency, type Token, isToken } from "@3cities/core";
 import { useLiveNativeCurrencyBalance } from "./useLiveNativeCurrencyBalance";
 import { useLiveTokenBalance } from "./useLiveTokenBalance";
 

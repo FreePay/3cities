@@ -1,9 +1,8 @@
+import { type ExchangeRates, type LogicalAsset, type LogicalAssetTicker, convert, getDecimalsToRenderForLogicalAssetTicker, logicalAssetsByTicker, parseLogicalAssetAmount } from "@3cities/core";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CurrencyInput from "react-currency-input-field";
 import { FaTimesCircle } from "react-icons/fa";
-import { ExchangeRates, convert } from "./ExchangeRates";
 import { RenderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
-import { LogicalAsset, LogicalAssetTicker, getDecimalsToRenderForLogicalAssetTicker, logicalAssetsByTicker, parseLogicalAssetAmount } from "./logicalAssets";
 import { useExchangeRates } from "./useExchangeRates";
 
 interface CurrencyAmountInputProps {

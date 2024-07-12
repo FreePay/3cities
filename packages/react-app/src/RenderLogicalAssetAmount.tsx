@@ -1,7 +1,7 @@
+import { addCanonicalFormatToLogicalAssetValue, getDecimalsToRenderForLogicalAssetTicker, getDefaultTruncateTrailingZeroesForLogicalAssetTicker, logicalAssetDecimals, type LogicalAssetTicker } from "@3cities/core";
 import React from "react";
 import { formatUnits } from "viem";
-import { formatFloat, FormatFloatOpts } from "./formatFloat";
-import { addCanonicalFormatToLogicalAssetValue, getDecimalsToRenderForLogicalAssetTicker, getDefaultTruncateTrailingZeroesForLogicalAssetTicker, logicalAssetDecimals, LogicalAssetTicker } from "./logicalAssets";
+import { formatFloat, type FormatFloatOpts } from "./formatFloat";
 
 type RenderLogicalAssetAmountProps = {
   logicalAssetTicker: LogicalAssetTicker; // logical asset ticker of the amount to be rendered

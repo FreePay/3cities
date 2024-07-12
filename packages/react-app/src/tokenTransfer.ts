@@ -1,7 +1,7 @@
-import { AddressOrEnsName } from "./AddressOrEnsName";
-import { Narrow } from "./Narrow";
-import { PartialFor } from "./PartialFor";
-import { NativeCurrency, Token, isToken } from "./Token";
+import { type NativeCurrency, type Token, isToken } from "@3cities/core";
+import { type AddressOrEnsName } from "./AddressOrEnsName";
+import { type Narrow } from "./Narrow";
+import { type PartialFor } from "./PartialFor";
 
 // TokenTransfer represents a single token transfer of a native currency
 // or token from a sender to a receiver. The TokenTransferBase base type

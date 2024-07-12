@@ -1,9 +1,7 @@
-import { formatUnits } from "viem";
+import { type NativeCurrency, type Token, getDecimalsToRenderForTokenTicker, getDefaultTruncateTrailingZeroesForTokenTicker, getSupportedChainName } from "@3cities/core";
 import React from "react";
-import { NativeCurrency, Token } from "./Token";
-import { getSupportedChainName } from "./chains";
-import { FormatFloatOpts, formatFloat } from "./formatFloat";
-import { getDecimalsToRenderForTokenTicker, getDefaultTruncateTrailingZeroesForTokenTicker } from "./logicalAssetsToTokens";
+import { formatUnits } from "viem";
+import { type FormatFloatOpts, formatFloat } from "./formatFloat";
 
 export type RenderRawTokenBalanceProps = {
   balance: bigint | undefined; // token balance to render WARNING must be denominated in full-precision units of the passed nativeCurrencyOrToken

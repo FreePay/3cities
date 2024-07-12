@@ -1,10 +1,10 @@
-import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
+import React, { type FC, useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from 'react-router-dom';
 import { isAddress } from "viem";
 import { useAccount, useAccountEffect, useConnect, useDisconnect } from 'wagmi';
 import { mock } from 'wagmi/connectors';
 import { ActiveDemoAccountContext } from './ActiveDemoAccountContext';
-import { ObservableValueUpdater, Observer, makeObservableValue } from './observer';
+import { type ObservableValueUpdater, type Observer, makeObservableValue } from './observer';
 import { useEnsAddress } from './useEnsAddress';
 
 type DemoAccountProviderProps = {

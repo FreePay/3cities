@@ -1,6 +1,6 @@
+import { type ExchangeRates } from '@3cities/core';
 import React from 'react';
-import { ExchangeRates } from './ExchangeRates';
-import { Observer, makeObservableValue } from './observer';
+import { type Observer, makeObservableValue } from './observer';
 
 // ExchangeRatesContext provides an observer for the global exchange
 // rates, which is automatically kept up-to-date with the latest

@@ -1,6 +1,6 @@
-import { DeepWritable } from "./Writable";
+import { type DeepWritable } from "./Writable";
 import { hasOwnProperty } from "./hasOwnProperty";
-import { LogicalAssetTicker, parseLogicalAssetAmount } from "./logicalAssets";
+import { type LogicalAssetTicker, parseLogicalAssetAmount } from "./logicalAssets";
 import { toUppercase } from "./toUppercase";
 
 export type ExchangeRates = Readonly<{

@@ -1,5 +1,5 @@
+import { type LogicalAssetTicker, logicalAssetsByTicker } from "@3cities/core";
 import React, { useMemo, useState } from "react";
-import { LogicalAssetTicker, logicalAssetsByTicker } from "./logicalAssets";
 
 // TODO consider converting useLogicalAssetTickerSelectionInput into the
 // LogicalAssetTickerSelectionInput component so that clients aren't

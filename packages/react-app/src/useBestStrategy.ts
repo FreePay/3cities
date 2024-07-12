@@ -1,7 +1,7 @@
+import { getTokenKey } from "@3cities/core";
 import { useCallback, useMemo, useState } from "react";
 import { useImmer } from "use-immer";
-import { Strategy } from "./strategies";
-import { getTokenKey } from "./tokens";
+import { type Strategy } from "./strategies";
 
 const emptySet = new Set<number>(); // WARNING useImmer may use object identity for render stability and so we pass a static object as the default value to avoid rerenders
 

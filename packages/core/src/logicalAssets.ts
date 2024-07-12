@@ -1,6 +1,6 @@
 import { parseUnits } from 'viem';
-import { IntRange } from "./IntRange";
-import { LogicalAssetTicker as LogicalAssetTickerPb } from "./gen/threecities/v1/v1_pb";
+import { type IntRange } from "./IntRange";
+import { LogicalAssetTicker as LogicalAssetTickerPb } from "./gen/threecities/v1/logical_assets_pb";
 
 export type LogicalAssetTicker = Exclude<keyof typeof LogicalAssetTickerPb, 'UNSPECIFIED'>; // here, we use the protobuf definition of logical asset tickers to be our single authoritative definition, and derive our app-layer logical asset ticker types from protobuf definitions in a typesafe manner.
 

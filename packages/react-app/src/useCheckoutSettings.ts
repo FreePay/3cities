@@ -1,11 +1,11 @@
+import { type LogicalAssetTicker, allLogicalAssetTickers, parseLogicalAssetAmount } from "@3cities/core";
 import { useContext, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { isHex, parseUnits } from "viem";
-import { AuthenticateSenderAddress, CheckoutSettings } from "./CheckoutSettings";
-import { CheckoutSettingsContext, CheckoutSettingsRequiresPassword, isCheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
-import { ProposedPayment, isProposedPaymentWithFixedAmount } from "./Payment";
+import { type AuthenticateSenderAddress, type CheckoutSettings } from "./CheckoutSettings";
+import { CheckoutSettingsContext, type CheckoutSettingsRequiresPassword, isCheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
+import { type ProposedPayment, isProposedPaymentWithFixedAmount } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
-import { LogicalAssetTicker, allLogicalAssetTickers, parseLogicalAssetAmount } from "./logicalAssets";
 
 // useCheckoutSettings returns the contextual CheckoutSettings that's
 // been provided by CheckoutSettingsProvider, or a

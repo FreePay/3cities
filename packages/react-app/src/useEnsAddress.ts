@@ -1,8 +1,7 @@
+import { isProduction, mainnet, sepolia } from "@3cities/core";
 import { useMemo } from "react";
 import { isAddress } from "viem";
 import { useEnsAddress as wagmiUseEnsAddress } from 'wagmi';
-import { mainnet, sepolia } from "./chains";
-import { isProduction } from "./isProduction";
 import { useLiveReloadQueryOptions } from "./useLiveReloadQueryOptions";
 
 // useEnsAddress is our higher-level wrapper around wagmi.useEnsAddress.

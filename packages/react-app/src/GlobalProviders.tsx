@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConnectKitProvider } from "connectkit";
-import { ConnectKitOptions } from "connectkit/build/types";
 import React from "react";
 import { Outlet, ScrollRestoration } from "react-router-dom";
 import { Toaster } from 'sonner';
@@ -23,7 +22,7 @@ const queryClient = new QueryClient({
   }
 });
 
-const connectKitOptions: ConnectKitOptions = {
+const connectKitOptions/* : ConnectKitOptions --> type ConnectKitOptions no longer imports successfully after we switched from tsconfig moduleResolution "node" to "bundler" --> TODO fix it, perhaps by asking connectkit to make their export compatible with "bundler" */ = {
   hideBalance: true,
   walletConnectName: "WalletConnect", // default is "Other Wallets" which I find confusing because anybody who knows they can scan a qr code from mobile will most likely be looking for the name "WalletConnect"
   bufferPolyfill: false, // disable connectkit's Buffer polyfill because we have our own

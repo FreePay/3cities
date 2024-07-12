@@ -1,17 +1,15 @@
+import { type Writable, getSupportedChainName, hasOwnPropertyOfType } from "@3cities/core";
 import { ETHTransferProxyABI, getETHTransferProxyContractAddress } from "@3cities/eth-transfer-proxy";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ChainMismatchError, SwitchChainError, UserRejectedRequestError, erc20Abi, type TransactionReceipt } from "viem";
+import { ChainMismatchError, SwitchChainError, type TransactionReceipt, UserRejectedRequestError, erc20Abi } from "viem";
 import { serialize, useAccount, useEstimateGas, useSendTransaction, useSimulateContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
-import { SwitchChainErrorType } from "wagmi/actions";
-import { Intersection } from "./Intersection";
-import { Narrow } from "./Narrow";
-import { PartialFor } from "./PartialFor";
+import { type SwitchChainErrorType } from "wagmi/actions";
+import { type Intersection } from "./Intersection";
+import { type Narrow } from "./Narrow";
+import { type Observer, makeObservableValue, useObservedValue } from "./observer";
+import { type PartialFor } from "./PartialFor";
 import { Spinner } from "./Spinner";
-import { Writable } from "./Writable";
-import { getSupportedChainName } from "./chains";
-import { hasOwnPropertyOfType } from "./hasOwnProperty";
-import { Observer, makeObservableValue, useObservedValue } from "./observer";
-import { TokenTransfer, TokenTransferForNativeCurrency, TokenTransferForToken, isTokenAndNotNativeCurrencyTransfer } from "./tokenTransfer";
+import { type TokenTransfer, type TokenTransferForNativeCurrency, type TokenTransferForToken, isTokenAndNotNativeCurrencyTransfer } from "./tokenTransfer";
 import { useMemoObject } from "./useMemoObject";
 
 // TODO build and save list of test cases to check all ExecuteTokenTransfer code paths, eg. (automatic retries, other features) X (token, native currency) X (wallets) X (chains) X (different transfer amounts including very small amounts)
