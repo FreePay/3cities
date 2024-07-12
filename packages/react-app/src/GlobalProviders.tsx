@@ -9,7 +9,7 @@ import { ConnectedAccountContextObserverProvider } from "./ConnectedAccountConte
 import { DemoAccountProvider } from "./DemoAccountProvider";
 import { ExchangeRatesProvider } from "./ExchangeRatesProvider";
 import { IsPageVisibleOrRecentlyVisibleProvider } from "./IsPageVisibleOrRecentlyVisibleProvider";
-import { ShowIfRunningLocally } from "./ShowIfRunningLocally";
+import { ShowIfRunningNotInProduction } from "./ShowIfRunningNotInProduction";
 import { wagmiConfig } from './wagmiClient';
 
 const queryClient = new QueryClient({
@@ -35,7 +35,7 @@ const connectKitOptions: ConnectKitOptions = {
 
 export const GlobalProviders = () => {
   return <div>
-    <ShowIfRunningLocally />
+    <ShowIfRunningNotInProduction />
     <ScrollRestoration /> {/* https://reactrouter.com/en/main/components/scroll-restoration */}
     <WagmiProvider config={wagmiConfig} reconnectOnMount={true}>
       <QueryClientProvider client={queryClient}>
