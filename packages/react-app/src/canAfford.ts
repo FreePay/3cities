@@ -1,5 +1,5 @@
-import { AddressContext } from "./AddressContext";
-import { TokenKey } from "./tokens";
+import { type TokenKey } from "@3cities/core";
+import { type AddressContext } from "./AddressContext";
 
 // canAfford is a convenience predicate that returns true iff the passed
 // address context can afford to transfer the passed full-precision

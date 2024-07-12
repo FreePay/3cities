@@ -1,8 +1,8 @@
+import { parseLogicalAssetAmount } from "@3cities/core";
 import React, { useMemo, useState } from "react";
-import { PayWhatYouWant } from "./Payment";
+import { type PayWhatYouWant } from "./Payment";
 import { ToggleSwitch } from "./ToggleSwitch";
 import { flatMap } from "./flatMap";
-import { parseLogicalAssetAmount } from "./logicalAssets";
 import { useInput } from "./useInput";
 
 // TODO consider converting usePayWhatYouWantInput into the

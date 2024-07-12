@@ -1,10 +1,7 @@
+import { allLogicalAssetTickers, allTokenTickers, chainsSupportedBy3cities, getAllNativeCurrenciesAndTokensForLogicalAssetTicker, isTokenTickerSupportedByLogicalAsset } from "@3cities/core";
 import React from "react";
 import { FaTelegram, FaTwitter } from "react-icons/fa6";
 import { Link } from 'react-router-dom';
-import { chainsSupportedBy3cities } from "./chains";
-import { allLogicalAssetTickers } from "./logicalAssets";
-import { getAllNativeCurrenciesAndTokensForLogicalAssetTicker, isTokenTickerSupportedByLogicalAsset } from "./logicalAssetsToTokens";
-import { allTokenTickers } from "./tokens";
 
 export const About: React.FC = () => {
   return <div className="mt-8 text-left max-w-2xl mx-auto">

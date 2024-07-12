@@ -1,14 +1,12 @@
-import { CheckoutSettings, SenderNoteSettings, SuccessActionRedirect } from "./CheckoutSettings";
-import { NonEmptyArray, ensureNonEmptyArray } from "./NonEmptyArray";
-import { PaymentMode, ProposedPayment, isPaymentModeWithFixedAmount } from "./Payment";
+import { type LogicalAssetTicker, type NonEmptyArray, allLogicalAssetTickers, ensureNonEmptyArray, hasOwnProperty, hasOwnPropertyOfType, toUppercase } from "@3cities/core";
+import { CheckoutSettingsEncrypted as CheckoutSettingsEncryptedPb, CheckoutSettings as CheckoutSettingsPb, CheckoutSettingsSigned as CheckoutSettingsSignedPb, MessageType as MessageTypePb, CheckoutSettings_PayWhatYouWant_PayWhatYouWantFlags as PayWhatYouWantFlagsPb, CheckoutSettings_PayWhatYouWant as PayWhatYouWantPb, CheckoutSettings_SenderNoteSettingsMode as SenderNoteSettingsModePb } from "@3cities/core/proto/checkout-settings";
+import { LogicalAssetTicker as LogicalAssetTickerPb } from "@3cities/core/proto/logical-assets";
+import { type CheckoutSettings, type SenderNoteSettings, type SuccessActionRedirect } from "./CheckoutSettings";
+import { type PaymentMode, type ProposedPayment, isPaymentModeWithFixedAmount } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
-import { StrategyPreferences } from "./StrategyPreferences";
+import { type StrategyPreferences } from "./StrategyPreferences";
 import { modifiedBase64Decode, modifiedBase64Encode } from "./base64";
 import { decrypt, encrypt, generateSignature, makeIv, makeSalt, verifySignature } from "./crypto";
-import { CheckoutSettingsEncrypted as CheckoutSettingsEncryptedPb, CheckoutSettings as CheckoutSettingsPb, CheckoutSettingsSigned as CheckoutSettingsSignedPb, LogicalAssetTicker as LogicalAssetTickerPb, MessageType as MessageTypePb, CheckoutSettings_PayWhatYouWant_PayWhatYouWantFlags as PayWhatYouWantFlagsPb, CheckoutSettings_PayWhatYouWant as PayWhatYouWantPb, CheckoutSettings_SenderNoteSettingsMode as SenderNoteSettingsModePb } from "./gen/threecities/v1/v1_pb";
-import { hasOwnProperty, hasOwnPropertyOfType } from "./hasOwnProperty";
-import { LogicalAssetTicker, allLogicalAssetTickers } from "./logicalAssets";
-import { toUppercase } from "./toUppercase";
 
 // TODO unit tests for serialization functions. Especially a test that generates random CheckoutSettings and uses CheckoutSettingsPb.equals() to verify the serialization->deserialization didn't change anything
 

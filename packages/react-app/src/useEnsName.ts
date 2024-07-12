@@ -1,8 +1,7 @@
+import { isProduction, mainnet, sepolia } from "@3cities/core";
 import { useMemo } from "react";
 import { isAddress } from "viem";
 import { useEnsName as wagmiUseEnsName } from 'wagmi';
-import { mainnet, sepolia } from "./chains";
-import { isProduction } from "./isProduction";
 import { truncateEnsName } from "./truncateAddress";
 import { useEnsAddress } from "./useEnsAddress";
 import { useLiveReloadQueryOptions } from "./useLiveReloadQueryOptions";

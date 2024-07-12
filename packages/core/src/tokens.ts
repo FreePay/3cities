@@ -1,6 +1,6 @@
-import { NonEmptyArray } from "./NonEmptyArray";
-import { Optional } from './Optional';
-import { NativeCurrency, Token, isToken } from "./Token";
+import { type NonEmptyArray } from "./NonEmptyArray";
+import { type Optional } from './Optional';
+import { isToken, type NativeCurrency, type Token } from "./Token";
 import { allSupportedChainIds, arbitrum, arbitrumNova, arbitrumSepolia, base, baseSepolia, blast, blastSepolia, fluentTestnet, immutableZkEvm, linea, lineaSepolia, mainnet, mode, optimism, optimismSepolia, polygon, polygonAmoy, polygonZkEvm, polygonZkEvmCardona, scroll, scrollSepolia, sepolia, taiko, zkSync, zkSyncSepolia, zora, zoraSepolia, type Chain } from './chains';
 import { isProduction } from "./isProduction";
 import { toUppercase } from './toUppercase';
@@ -195,6 +195,7 @@ const polygonZkEvmWETH = token(polygonZkEvm, { name: 'Wrapped Ether', ticker: 'W
 const polygonZkEvmUSDC = token(polygonZkEvm, { name: 'USD Coin', ticker: 'USDC', contractAddress: '0xA8CE8aee21bC2A48a5EF670afCc9274C7bbbC035', decimals: 6 });
 const polygonZkEvmUSDT = token(polygonZkEvm, { name: 'Tether USD', ticker: 'USDT', contractAddress: '0x1E4a5963aBFD975d8c9021ce480b42188849D41d', decimals: 6 });
 const polygonZkEvmDAI = token(polygonZkEvm, { name: 'Dai', ticker: 'DAI', contractAddress: '0xC5015b9d9161Dca7e18e32f6f25C4aD850731Fd4' });
+// TODO there are two variants of DAI on polygonZkEvm. One is the above (called "Legacy DAI" by Quickswap). The other is 0x744C5860ba161b5316F7E80D9Ec415e2727e5bD5 (called "DAI.E" by Quickswap). It appears this latter is from the "zkEvm DAI bridge" - unsure why this exists https://github.com/BuildOnPolygon/zkevm-dai --> should we support both dais? --> there seems to be poor/zero liquidity for the new DAI.E
 const polygonZkEvmLUSD = token(polygonZkEvm, { name: 'Liquity USD', ticker: 'LUSD', contractAddress: '0x01E9A866c361eAd20Ab4e838287DD464dc67A50e' });
 
 // polygonZkEvmCardona (settles on sepolia)

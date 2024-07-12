@@ -1,6 +1,6 @@
+import { hasOwnPropertyOfType } from "@3cities/core";
 import React from "react";
-import { CheckoutSettings } from "./CheckoutSettings";
-import { hasOwnPropertyOfType } from "./hasOwnProperty";
+import { type CheckoutSettings } from "./CheckoutSettings";
 
 // CheckoutSettingsRequiresPassword represents the global contextual
 // CheckoutSettings requiring a password to proceed. The client should

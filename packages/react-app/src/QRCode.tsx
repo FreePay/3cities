@@ -1,4 +1,4 @@
-import QRCodeStyling, { Options } from 'qr-code-styling';
+import QRCodeStyling, { type Options } from 'qr-code-styling';
 import React, { useEffect, useRef, useState } from 'react';
 import { Spinner } from './Spinner';
 import useWindowSize from './useWindowSize';

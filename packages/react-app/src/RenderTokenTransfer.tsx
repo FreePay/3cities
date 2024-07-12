@@ -1,9 +1,8 @@
-import { formatUnits } from "viem";
+import { getDecimalsToRenderForTokenTicker, getDefaultTruncateTrailingZeroesForTokenTicker, getSupportedChainName } from "@3cities/core";
 import React from "react";
-import { getSupportedChainName } from "./chains";
-import { FormatFloatOpts, formatFloat } from "./formatFloat";
-import { getDecimalsToRenderForTokenTicker, getDefaultTruncateTrailingZeroesForTokenTicker } from "./logicalAssetsToTokens";
-import { ProposedTokenTransfer, TokenTransfer } from "./tokenTransfer";
+import { formatUnits } from "viem";
+import { type FormatFloatOpts, formatFloat } from "./formatFloat";
+import { type ProposedTokenTransfer, type TokenTransfer } from "./tokenTransfer";
 
 type RenderTokenTransferProps = {
   tt: TokenTransfer;

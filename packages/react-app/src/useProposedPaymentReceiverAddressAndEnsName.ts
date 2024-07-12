@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ProposedPayment, isProposedPaymentWithReceiverAddress } from "./Payment";
+import { type ProposedPayment, isProposedPaymentWithReceiverAddress } from "./Payment";
 import { useEnsAddress } from "./useEnsAddress";
 import { useEnsName } from "./useEnsName";
 

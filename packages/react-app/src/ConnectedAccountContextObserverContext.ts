@@ -1,6 +1,6 @@
 import React from 'react';
-import { AddressContext } from './AddressContext';
-import { Observer, makeObservableValue } from './observer';
+import { type AddressContext } from './AddressContext';
+import { type Observer, makeObservableValue } from './observer';
 
 // ConnectedAccountContextObserverContext provides an observer for the
 // connected account's AddressContext, which is automatically kept

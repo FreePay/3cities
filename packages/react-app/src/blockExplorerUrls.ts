@@ -1,4 +1,4 @@
-import { getChain, type Chain } from "./chains";
+import { getChain, type Chain } from "@3cities/core";
 
 export function getBlockExplorerUrlForTransaction(chainId: number | undefined, transactionHash: string): string | undefined {
   const chain: Chain | undefined = getChain(chainId);

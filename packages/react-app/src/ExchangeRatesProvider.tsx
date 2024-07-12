@@ -1,14 +1,10 @@
+import { type DeepWritable, type ExchangeRates, areExchangeRatesEqual, isProduction, mainnet, sepolia, toUppercase } from "@3cities/core";
 import React, { useEffect, useState } from 'react';
 import { useImmer } from 'use-immer';
 import { serialize } from 'wagmi';
 import { readContracts } from 'wagmi/actions';
-import { ExchangeRates, areExchangeRatesEqual } from './ExchangeRates';
 import { ExchangeRatesContext } from './ExchangeRatesContext';
-import { DeepWritable } from './Writable';
-import { mainnet, sepolia } from './chains';
-import { isProduction } from './isProduction';
-import { ObservableValue, ObservableValueUpdater, ObservableValueUpdaterWithCurrentValue, Observer, makeObservableValue } from './observer';
-import { toUppercase } from './toUppercase';
+import { type ObservableValue, type ObservableValueUpdater, type ObservableValueUpdaterWithCurrentValue, type Observer, makeObservableValue } from './observer';
 import useDebounce from './useDebounce';
 import { useIsPageVisibleOrRecentlyVisible } from './useIsPageVisibleOrRecentlyVisible';
 import { wagmiConfig } from './wagmiClient';

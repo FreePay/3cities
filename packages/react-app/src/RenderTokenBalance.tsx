@@ -1,7 +1,7 @@
+import { getTokenByTokenKey } from "@3cities/core";
 import React from "react";
-import { RenderRawTokenBalance, RenderRawTokenBalanceProps } from "./RenderRawTokenBalance";
-import { TokenBalance } from "./TokenBalance";
-import { getTokenByTokenKey } from "./tokens";
+import { RenderRawTokenBalance, type RenderRawTokenBalanceProps } from "./RenderRawTokenBalance";
+import { type TokenBalance } from "./TokenBalance";
 
 type RenderTokenBalanceProps = {
   tb: TokenBalance;

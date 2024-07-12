@@ -1,6 +1,5 @@
+import { getDecimalsToRenderForTokenTicker, getTokenByTokenKey, type TokenKey } from "@3cities/core";
 import { formatUnits } from 'viem';
-import { getDecimalsToRenderForTokenTicker } from "./logicalAssetsToTokens";
-import { getTokenByTokenKey, TokenKey } from "./tokens";
 
 // TokenBalance is a snapshot of an address's token balance on a
 // specific chain. For example, a snapshot of Bob's DAI balance on

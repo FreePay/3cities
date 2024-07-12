@@ -1,9 +1,9 @@
-import { AddressOrEnsName } from "./AddressOrEnsName";
-import { Narrow } from "./Narrow";
-import { PartialFor } from "./PartialFor";
+import { hasOwnPropertyOfType } from "@3cities/core";
+import { type AddressOrEnsName } from "./AddressOrEnsName";
+import { type LogicalAssetTicker } from "@3cities/core";
+import { type Narrow } from "./Narrow";
+import { type PartialFor } from "./PartialFor";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
-import { hasOwnPropertyOfType } from "./hasOwnProperty";
-import { LogicalAssetTicker } from "./logicalAssets";
 
 // TODO consider adding an TokenAmount(token: NativeCurrency | Token, amount: bigint) and LogicalAssetAmount(lat: LogicalAssetTicker, amount: bigint) for contexts where the amount should be coupled to its token, with eg. helper functions to convert amounts to other tokens/logical assets given exchange rates, or add/subtract amounts if they share a token/lat --> in some contexts, coupling the token to its amount can lead to undesirable or representable illegal states, such as in Payment where we want to separate the amount from the logical asset because "pay what you want" mode doesn't have a fixed amount. But in many other cases, combining the token/lat with its amount can lead to safer code because the amount is never detached from its token/decimals --> NB for these abstractions to be compatible with eventually supporting arbitrary tokens beyond our manifest of supported tokens, perhaps they should include the Token/NativeCurrency objects directly instead of their tickers, which prevents having to map the ticker to the Token using the global manifest, which is impossible when the Token was dynamically constructed from tokenlist, eg. user has UNI in their wallet.
 // TODO we also need much better and safer logical asset/token/native currency conversion facilities. Today, the ExchangeRates's convert will apply an exchange rate, but ignores decimals. We need type-safe amounts whose types and conversion facilities come from the modules to which they are related. For example, types and facilities to convert between logical asset amounts should be in logicalAssets.ts. Types and facilities to convert tokens/native currencies and logical assets that support them should be in logicalAssetsToTokens.ts. Types and facilities to convert between different tokens/native currencies/logical assets should be in exchange rates. No API should ever return an answer that needs further processing to become sensical. Eg. you should be able to pass convert a USDC amount and ask it to convert it to an ETH amount, and it should handle the conversion rate as well as the decimals. Btw, ETH is the only logical asset that's also a native currency, so that's another reason it's good for logical assets to use 18 decimals: it makes logical ETH amounts equivalent to ETH native currency amounts, supporting these APIs.

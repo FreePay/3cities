@@ -1,6 +1,6 @@
 //  eslint-disable-next-line no-restricted-imports -- here is our single allowed use of importing from wagmi/chains, used to construct 3cities chains which are then exported to the rest of 3cities
 import { arbitrum, arbitrumNova, arbitrumSepolia, base, baseSepolia, blast, blastSepolia, immutableZkEvm, optimism, optimismSepolia, polygon, polygonAmoy, polygonZkEvm, polygonZkEvmCardona, scroll, scrollSepolia, sepolia, linea as wagmiLinea, lineaSepolia as wagmiLineaSepolia, mainnet as wagmiMainnet, mode as wagmiMode, taiko as wagmiTaiko, zkSyncSepoliaTestnet as wagmiZkSyncSeplia, zkSync, zora, zoraSepolia, type Chain } from 'wagmi/chains';
-import { NonEmptyArray } from './NonEmptyArray';
+import { type NonEmptyArray } from './NonEmptyArray';
 import { isProduction } from './isProduction';
 
 // ***************************************************************

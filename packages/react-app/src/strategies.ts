@@ -1,18 +1,12 @@
-import { AddressContext } from "./AddressContext";
-import { ExchangeRates, convert } from "./ExchangeRates";
-import { Intersection } from "./Intersection";
-import { PaymentWithFixedAmount, ProposedPaymentWithFixedAmount, isPayment } from "./Payment";
-import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
-import { StrategyPreferences } from "./StrategyPreferences";
-import { NativeCurrency, Token, isToken } from "./Token";
+import { type ExchangeRates, type LogicalAssetTicker, type NativeCurrency, type Token, allTokenTickers, arbitrum, arbitrumNova, base, baseSepolia, blast, chainsSupportedBy3cities, convert, convertLogicalAssetUnits, getAllNativeCurrenciesAndTokensForLogicalAssetTicker, getLogicalAssetTickerForTokenOrNativeCurrencyTicker, getTokenKey, immutableZkEvm, isProduction, isToken, isTokenSupported, linea, mainnet, mode, optimism, polygon, polygonZkEvm, scroll, sepolia, taiko, zkSync, zkSyncSepolia, zora } from "@3cities/core";
+import { type AddressContext } from "./AddressContext";
 import { canAfford } from "./canAfford";
-import { arbitrum, arbitrumNova, base, baseSepolia, blast, chainsSupportedBy3cities, immutableZkEvm, linea, mainnet, mode, optimism, polygon, polygonZkEvm, scroll, sepolia, taiko, zkSync, zkSyncSepolia, zora } from './chains';
 import { flatMap } from "./flatMap";
-import { isProduction } from "./isProduction";
-import { LogicalAssetTicker, convertLogicalAssetUnits } from "./logicalAssets";
-import { getAllNativeCurrenciesAndTokensForLogicalAssetTicker, getLogicalAssetTickerForTokenOrNativeCurrencyTicker } from "./logicalAssetsToTokens";
-import { ProposedTokenTransfer, TokenTransfer, TokenTransferForNativeCurrency, TokenTransferForToken } from "./tokenTransfer";
-import { allTokenTickers, getTokenKey, isTokenSupported } from "./tokens";
+import { type Intersection } from "./Intersection";
+import { type PaymentWithFixedAmount, type ProposedPaymentWithFixedAmount, isPayment } from "./Payment";
+import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
+import { type StrategyPreferences } from "./StrategyPreferences";
+import { type ProposedTokenTransfer, type TokenTransfer, type TokenTransferForNativeCurrency, type TokenTransferForToken } from "./tokenTransfer";
 
 // TODO consider s/Strategy.payment/Strategy.paymentWithFixedAmount` and same for ProposedStrategy --> on the other hand, the requirement that strategies operate on payments with fixed amounts represents unresolved tension between the concept of a Payment, Strategy, and the steps taken to settle a payment. In theory, a Payment of "can donate any asset from sender to receiver" should be able to be settled with some Strategy. But today, our strategy generation pipeline requires that token transfers be constructed from payments with fixed amounts. Today we have the concept "Payment with non-fixed amount must be pre-resovled by upstream into a payment with a fixed amount before it can have strategies generated" but in the future, we could have the concept "Payment with fixed or non-fixedd amount can have strategies generated, given sufficient context"
 

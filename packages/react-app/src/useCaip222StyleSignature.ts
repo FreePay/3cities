@@ -1,54 +1,14 @@
+import { type Caip222StyleMessageToSign, type Caip222StyleSignature, caip222StyleSignatureMessageDomain, caip222StyleSignatureMessagePrimaryType, caip222StyleSignatureMessageTypes, chainIdOnWhichToSignMessagesAndVerifySignatures, erc1271MagicValue, erc1271SmartAccountAbi, hasOwnPropertyOfType } from "@3cities/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { UserRejectedRequestError, hashTypedData } from "viem";
 import { useAccount, useReadContract, useSignTypedData, useSwitchChain, useVerifyTypedData } from 'wagmi';
-import { mainnet, sepolia } from "./chains";
-import { hasOwnPropertyOfType } from "./hasOwnProperty";
-import { isProduction } from "./isProduction";
 import { useLiveReloadQueryOptions } from "./useLiveReloadQueryOptions";
 
-// ERC-1271
-// isValidSignature(bytes32 hash, bytes signature) → bytes4 magicValue
-export const smartAccountAbi = [
-  {
-    name: 'isValidSignature',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'hash', type: 'bytes32' },
-      { name: 'signature', type: 'bytes' },
-    ],
-    outputs: [{ name: '', type: 'bytes4' }],
-  },
-] as const;
-
-export const eip1271MagicValue = "0x1626ba7e" as const;
-
-export const domain = {
-  name: '3cities',
-  version: '1',
-  // NB chainId is not needed for our message as we only want to prove sender address ownership (on any chain, assuming it then applies to all chains). Note that any chainId provided here is purely signed data and not actually used by any wallet to eg. switch to that chainId prior to signing
-} as const;
-
-export const types = {
-  SenderAddress: [
-    { name: 'senderAddress', type: 'address' },
-  ],
-} as const;
-
-export const primaryType = 'SenderAddress' as const;
-
-export type Caip222StyleSignature = `0x${string}` | `eip1271-chainId-${number}`; // a successfully collected Caip222-style signature. `0x${string}` indicates an ordinary signature. `eip1271-chainId-${number}` indicates a smart contract wallet verified the message using eip1271 verification via a isValidSignature call on the provided chainId
-
-export type Caip222StyleMessageToSign = {
-  senderAddress: `0x${string}`;
-};
 
 type UseCaip222StyleSignatureParams = {
   enabled?: boolean; // iff true, the subsystem will attempt to collect a signature. If undefined or false, the subsystem will be disabled and will always return idle
   eip1271ChainId: number | undefined; // chain on which eip1271 isValidSignature verification will be attempted. Smart contract wallets implementing eip1271, like Gnosis Safe, don't actually produce signatures for signed messages. Instead, they keep an onchain collection of verified hashes of "signed" messages. This chain ID must be provided, or signature generation will never be attempted and the result will never become available, because this library currently doesn't know if the connected address uses ordinary signature generation/verification or eip1271-based signature verification.
 }
-
-export const caip222ChainId: number = isProduction ? mainnet.id : sepolia.id; // in certain caip222Style contexts, a concrete chainId is needed. When a chainId is needed, this one must be used.
 
 // useCaip222StyleSignature is an API to ask the user to sign a
 // CAIP-222-style message to verify ownership of the connected address.
@@ -138,14 +98,14 @@ export function useCaip222StyleSignature({ enabled: useCaip222StyleSignatureEnab
 
   const queryOpts = useLiveReloadQueryOptions();
   const { error: eip1271ContractReadError, isSuccess: eip1271ContractReadIsSuccess, data: eip1271RawResult } = useReadContract(messageToSign && eip1271ChainId ? {
-    abi: smartAccountAbi,
+    abi: erc1271SmartAccountAbi,
     chainId: eip1271ChainId,
     address: connectedAddress,
     functionName: 'isValidSignature',
     args: [hashTypedData({
-      domain,
-      types,
-      primaryType,
+      domain: caip222StyleSignatureMessageDomain,
+      types: caip222StyleSignatureMessageTypes,
+      primaryType: caip222StyleSignatureMessagePrimaryType,
       message: messageToSign,
     }), '0x'],
     query: {
@@ -156,7 +116,7 @@ export function useCaip222StyleSignature({ enabled: useCaip222StyleSignatureEnab
     },
   } : undefined);
 
-  const eip1271VerificationSuccessful = eip1271ContractReadIsSuccess && eip1271RawResult === eip1271MagicValue;
+  const eip1271VerificationSuccessful = eip1271ContractReadIsSuccess && eip1271RawResult === erc1271MagicValue;
 
   useEffect(() => {
     if (eip1271ContractReadError && !signTypedDataEnabled) setSignTypedDataEnabled(true);
@@ -177,11 +137,11 @@ export function useCaip222StyleSignature({ enabled: useCaip222StyleSignatureEnab
   const sign = useMemo((): (() => Promise<void>) | undefined => signTypedDataEnabled && messageToSign ? async () => {
     setSignCalledAtLeastOnce(true);
     try {
-      if (doesSignatureDependOnActiveChain && (activeChain === undefined || activeChain.id !== caip222ChainId)) await switchChainAsync({ chainId: caip222ChainId }); // NB the reason we bother computing `doesSignatureDependOnActiveChain` and don't just switchChain for all wallets is because for some wallets, that would result in potentially multiple switch chain pop-ups per checkout. Eg. with MetaMask, one switch chain prior to the signature, and then another switch chain for the chosen payment method - that'd be terrible UX.
+      if (doesSignatureDependOnActiveChain && (activeChain === undefined || activeChain.id !== chainIdOnWhichToSignMessagesAndVerifySignatures)) await switchChainAsync({ chainId: chainIdOnWhichToSignMessagesAndVerifySignatures }); // NB the reason we bother computing `doesSignatureDependOnActiveChain` and don't just switchChain for all wallets is because for some wallets, that would result in potentially multiple switch chain pop-ups per checkout. Eg. with MetaMask, one switch chain prior to the signature, and then another switch chain for the chosen payment method - that'd be terrible UX.
       signTypedData({
-        domain,
-        types,
-        primaryType,
+        domain: caip222StyleSignatureMessageDomain,
+        types: caip222StyleSignatureMessageTypes,
+        primaryType: caip222StyleSignatureMessagePrimaryType,
         message: messageToSign,
       });
     } catch (e) {
@@ -190,12 +150,11 @@ export function useCaip222StyleSignature({ enabled: useCaip222StyleSignatureEnab
   } : undefined, [activeChain, messageToSign, signTypedDataEnabled, doesSignatureDependOnActiveChain, signTypedData, switchChainAsync]);
 
   const { data: useSignTypedDataIsVerified, isLoading: useVerifyTypedDataIsLoading, error: useVerifyTypedDataError } = useVerifyTypedData({
-    // WARNING passing `chainId` here as some wallets (like coinbase smart wallet) will sign the message in the context of whatever chain they currently have selected, and then verification will fail if the passed chainId doesn't match this currently selected chain. Instead, we don't pass chainId and the wallet will sign and verify the message in the context of the same chain
-    chainId: caip222ChainId, // NB see the discussion above about "three kinds of wallets". For (1) EOA wallets, it doesn't matter on which chainId the signature is verified, but we pass it to ensure the chainId on which verification occurs is supported by our wagmiConfig. For (2) eip1271 smart contract wallets, useVerifyTypedData is unused because useSignTypedData hangs in pending forever. For (3) counterfactually instantiated smart contract wallets, the chainId used for verification is highly meaningful because the signatures generated are conditional on the active chain at the time of generation, and so WARNING this chainId must match the chainId on which the counterfactual smart wallet signature was generated.
+    chainId: chainIdOnWhichToSignMessagesAndVerifySignatures, // NB see the discussion above about "three kinds of wallets". For (1) EOA wallets, it doesn't matter on which chainId the signature is verified, but we pass it to ensure the chainId on which verification occurs is supported by our wagmiConfig. For (2) eip1271 smart contract wallets, useVerifyTypedData is unused because useSignTypedData might hang in pending forever. (WARNING: useSignTypedData hangs forever for our gnosis safe with walletconnect, but this is not intended behavior, https://github.com/WalletConnect/walletconnect-monorepo/issues/4464#issuecomment-2219668086.) For (3) counterfactually instantiated smart contract wallets, the chainId used for verification is highly meaningful because the signatures generated are conditional on the active chain at the time of generation, and so WARNING this chainId must match the chainId on which the counterfactual smart wallet signature was generated.
     address: connectedAddress,
-    domain,
-    types,
-    primaryType,
+    domain: caip222StyleSignatureMessageDomain,
+    types: caip222StyleSignatureMessageTypes,
+    primaryType: caip222StyleSignatureMessagePrimaryType,
     message: messageToSign,
     signature: rawSignature,
   });

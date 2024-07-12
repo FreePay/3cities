@@ -1,4 +1,4 @@
-import React, { InputHTMLAttributes, useCallback, useMemo, useState } from 'react';
+import React, { type InputHTMLAttributes, useCallback, useMemo, useState } from 'react';
 
 interface Opts {
   onEnterKeyPress?: (e: React.KeyboardEvent<HTMLInputElement>) => void; // callback that will be invoked when the user hits the enter key.

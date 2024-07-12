@@ -1,7 +1,7 @@
+import { type ExchangeRates, mergeExchangeRates } from "@3cities/core";
 import { useContext, useMemo } from "react";
-import { ExchangeRates, mergeExchangeRates } from "./ExchangeRates";
 import { ExchangeRatesContext } from "./ExchangeRatesContext";
-import { Observer, useObservedValue } from "./observer";
+import { type Observer, useObservedValue } from "./observer";
 
 // useExchangeRates returns the global exchange rates, which are
 // automatically kept up-to-date with the latest exchange rates for

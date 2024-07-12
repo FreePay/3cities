@@ -1,6 +1,6 @@
-import { Immutable, castImmutable } from "immer";
-import { NativeCurrency, Token } from "./Token";
-import { LogicalAssetTicker, allLogicalAssetTickers, getDecimalsToRenderForLogicalAssetTicker, getDefaultTruncateTrailingZeroesForLogicalAssetTicker } from "./logicalAssets";
+import { type Immutable, castImmutable } from "immer";
+import { type NativeCurrency, type Token } from "./Token";
+import { type LogicalAssetTicker, allLogicalAssetTickers, getDecimalsToRenderForLogicalAssetTicker, getDefaultTruncateTrailingZeroesForLogicalAssetTicker } from "./logicalAssets";
 import { tokensByTicker } from "./tokens";
 
 // logicalAssetsToSupportedNativeCurrencyAndTokenTickers is our single

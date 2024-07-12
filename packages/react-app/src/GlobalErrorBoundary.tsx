@@ -1,8 +1,8 @@
+import { hasOwnPropertyOfType } from "@3cities/core";
 import React from "react";
 import { Link, useRouteError } from "react-router-dom";
 import useClipboard from "react-use-clipboard";
 import { serialize, useAccount } from "wagmi";
-import { hasOwnPropertyOfType } from "./hasOwnProperty";
 
 const styleOuterDiv: React.CSSProperties = {
   position: 'absolute',
