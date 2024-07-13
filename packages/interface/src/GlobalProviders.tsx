@@ -9,7 +9,7 @@ import { DemoAccountProvider } from "./DemoAccountProvider";
 import { ExchangeRatesProvider } from "./ExchangeRatesProvider";
 import { IsPageVisibleOrRecentlyVisibleProvider } from "./IsPageVisibleOrRecentlyVisibleProvider";
 import { ShowIfRunningNotInProduction } from "./ShowIfRunningNotInProduction";
-import { wagmiConfig } from './wagmiClient';
+import { wagmiConfig } from './wagmiConfig';
 
 const queryClient = new QueryClient({
   // NB react-query supports refetchIntervalInBackground which is a partial substitute for our useIsPageVisibleOrRecentlyVisible

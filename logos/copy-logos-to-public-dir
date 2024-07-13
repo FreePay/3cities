@@ -1,2 +1,2 @@
 #!/bin/bash
-cp *.{png,ico} ../packages/react-app/public/
+cp *.{png,ico} ../packages/interface/public/
