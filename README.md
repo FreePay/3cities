@@ -24,3 +24,8 @@ Features
 Individuals can use 3cities to send or receive payments, donations, transfers, or deposits.
 
 Merchants can use 3cities to be accept transactional payments and self-process those payments offchain (be your own payment processor). Payments can be in USD or ETH, with EUR and other currencies soon to come.
+
+# Trusted by
+
+- [Devcon 7](https://devcon.org/en/tickets/) Ticket Payments
+- [Week in Ethereum News](https://weekinethereumnews.com/) Job Ad Payments
