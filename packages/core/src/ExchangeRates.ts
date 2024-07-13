@@ -107,22 +107,11 @@ export function convert(params: { er: ExchangeRates | undefined; fromTicker: Upp
       const rateBigInt: bigint = BigInt(rateStr.replace('.', ''));
       const resultMayNeedScaling: bigint = fromAmount * rateBigInt;
       if (scale > 0) {
-        const halfScale: bigint = pow(10n, (scale - 1n)); // "The technique of adding half of the scale before dividing is a common way to achieve rounding in integer division. It's based on the idea that adding half of the divisor (the scale in this case) to the dividend will push the quotient over the threshold to the next integer if the remainder of the division is more than half of the divisor."
-        const resultScaled: bigint = (resultMayNeedScaling + halfScale) / (pow(10n, scale));
+        const halfScale: bigint = 10n ** (scale - 1n); // "The technique of adding half of the scale before dividing is a common way to achieve rounding in integer division. It's based on the idea that adding half of the divisor (the scale in this case) to the dividend will push the quotient over the threshold to the next integer if the remainder of the division is more than half of the divisor."
+        const resultScaled: bigint = (resultMayNeedScaling + halfScale) / (10n ** scale);
         return resultScaled;
       } else return resultMayNeedScaling;
     }
-  }
-}
-
-function pow(base: bigint, exponent: bigint): bigint { // TODO deprecate this when our production build supports bigint exponentiation operator **. Right now, ** is rewritten to Math.pow by our fork of create-react-app's babel presets, and Math.pow does not support bigints.
-  if (exponent === 0n) return 1n;
-  else if (exponent === 1n) return base;
-  else if (exponent < 0n) throw new Error(`pow() does not support negative exponents, received: ${exponent}`);
-  else {
-    let result = base;
-    for (let i = 1n; i < exponent; i++) result *= base;
-    return result;
   }
 }
 
