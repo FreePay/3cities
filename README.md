@@ -15,11 +15,9 @@ Features
 - one-time or reusable [pay request links](https://3cities.xyz/#/pay-link)
 - merchant transactional payment, they pay using a pop-up without leaving your site - with no fees or API keys
 
-3cities is a tool to pay and get paid on Ethereum.
+3cities is a tool to help people pay and get paid on Ethereum.
 
-3cities is not a wallet, it's an app that lets you connect your wallet.
-
-3cities is not a token or a chain, it's an app that automatically searches the payment sender's wallet for the best payment method across ten popular tokens and a dozen L2s.
+3cities is not a wallet. It's an app that automatically searches the sender's wallet for the best way to pay across ten popular tokens and a dozen L2s.
 
 Individuals can use 3cities to send or receive payments, donations, transfers, or deposits.
 
