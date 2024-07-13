@@ -1,15 +1,7 @@
 import { alchemyHttpUrl, chainsSupportedBy3cities, infuraHttpUrl } from '@3cities/core';
 import { createConfig, fallback, http, type Transport } from '@wagmi/core';
-import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors';
 
-const walletConnectProjectId: string = (() => {
-  const s = process.env['REACT_APP_WALLETCONNECT_PROJECT_ID'];
-  if (s === undefined) {
-    console.error("REACT_APP_WALLETCONNECT_PROJECT_ID undefined");
-    return 'REACT_APP_WALLETCONNECT_PROJECT_ID_undefined';
-  } else return s;
-})();
-
+// TODO consider moving makeTransport to @3cities/core for shared use here and in @3cities/interface
 function makeTransport(chainId: number): Transport {
   // NB fallback attempts each transport in priority order for every query, only falling back to the next transport if a query fails for the previous. Ie. by default, if a transport is unreachable for an extended period, fallback will still attempt to query it for every single query. TODO smart detection for offline transports and/or slow transports can be accessed via transport auto ranking https://viem.sh/docs/clients/transports/fallback.html#transport-ranking
   // TODO consider supporting using the connected wallet's rpc https://wagmi.sh/react/api/transports/unstable_connector --> power users may prefer that queries be routed through their wallet's rpc
@@ -40,23 +32,5 @@ const transports = chainsSupportedBy3cities.reduce<{ [chainId: number]: Transpor
 
 export const wagmiConfig = createConfig({
   chains: chainsSupportedBy3cities,
-  connectors: [
-    injected(), // NB by default, wagmi automatically discovers all available injected providers via EIP-6963 https://wagmi.sh/vue/api/connectors/injected#target
-    coinbaseWallet({
-      appName: "3cities",
-      appLogoUrl: "https://3cities.xyz/android-chrome-192x192.png",
-      preference: "all", // support all of Browser Extension, Mobile Coinbase Wallet, and Smart Wallet
-    }),
-    walletConnect({
-      projectId: walletConnectProjectId,
-      showQrModal: false,
-      metadata: {
-        name: '3cities',
-        description: '3cities is decentralized payment processor for Ethereum',
-        url: 'https://3cities.xyz',
-        icons: ['https://3cities.xyz/android-chrome-192x192.png'],
-      },
-    }),
-  ],
   transports,
-})
+});
