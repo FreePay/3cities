@@ -1,5 +1,3 @@
-// TODO s/wagmiClient.ts/wagmiConfig.ts/
-
 import { alchemyHttpUrl, chainsSupportedBy3cities, infuraHttpUrl } from '@3cities/core';
 import { createConfig, fallback, http, type Transport } from '@wagmi/core';
 import { coinbaseWallet, injected, walletConnect } from 'wagmi/connectors';
