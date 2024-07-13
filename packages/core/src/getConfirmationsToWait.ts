@@ -1,8 +1,6 @@
 import { arbitrum, arbitrumNova, arbitrumSepolia, base, baseSepolia, blast, blastSepolia, chainsSupportedBy3cities, fluentTestnet, getChain, immutableZkEvm, linea, lineaSepolia, mainnet, mode, optimism, optimismSepolia, polygon, polygonAmoy, polygonZkEvm, polygonZkEvmCardona, scroll, scrollSepolia, sepolia, taiko, zkSync, zkSyncSepolia, zora, zoraSepolia } from './chains';
 import { isProduction } from './isProduction';
 
-// TODO do mainnet, too
-
 // These numbers were put together with low confidence
 // See https://developers.circle.com/circle-mint/docs/blockchain-confirmations
 // See https://developer.ipeakoin.com/docs/blockchain-confirmations

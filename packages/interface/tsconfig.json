@@ -1,4 +1,4 @@
-/* TODO extend monorepo base tsconfig.json "../../tsconfig.json", */
+/* TODO extend monorepo base tsconfig.json "../../tsconfig.json", after switching to vite, as legacy create-react-app seems to be incompatible with extending the base tsconfig */
 {
   "compilerOptions": {
     /* Visit https://aka.ms/tsconfig.json to read more about this file */
