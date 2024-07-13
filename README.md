@@ -6,7 +6,7 @@
 [![staging release](https://github.com/3cities/3cities/actions/workflows/1-deploy-main-to-staging.yml/badge.svg)](https://github.com/3cities/3cities/actions/workflows/1-deploy-main-to-staging.yml)
 [![prod release](https://github.com/3cities/3cities/actions/workflows/2-deploy-staging-to-prod.yml/badge.svg)](https://github.com/3cities/3cities/actions/workflows/2-deploy-staging-to-prod.yml)
 
-Easily pay & get paid with 3cities, a decentralized payment processor for Ethereum.
+Easily pay and get paid with 3cities, a decentralized payment processor for Ethereum.
 
 Features
 - automatic handling of multiple currencies, tokens, and L2s.
@@ -15,7 +15,7 @@ Features
 - one-time or reusable [pay request links](https://3cities.xyz/#/pay-link)
 - merchant transactional payment, they pay using a pop-up without leaving your site - with no fees or API keys
 
-3cities is a tool to pay & get paid on Ethereum.
+3cities is a tool to pay and get paid on Ethereum.
 
 3cities is not a wallet, it's an app that lets you connect your wallet.
 
