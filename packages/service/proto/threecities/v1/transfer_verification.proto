@@ -1,0 +1,38 @@
+syntax = "proto3";
+package threecities.v1;
+
+message TransferVerificationRequest {
+  message TrustedData { // from the point of view of the verification client (caller), these data are trusted and will be used to verify the untrustedToBeVerified data
+    string currency = 1; // primary currency of transfer being verified. Must be "USD". NB we already support ETH transfer amount verification via usd_per_eth, just not ETH-denominated requests. TODO unify with LogicalAssetTicker by exporting the proto file from @3cities/core
+    string logical_asset_amount = 2; // full-precision logical asset amount denominated in `currency` to expect was successfully transferred in the transfer being verified
+    repeated string token_ticker_allowlist = 3; // allowlist of tokens to permit for a successfully verified transfer. WARNING today, not all supported tokens by 3cities are supported by 3cities on every chain (ie. the matrix of tokens * chains is incomplete), so if a ticker in tokenTickerAllowList is not available on the passed chainId, then any transfers of that token will not be detected and verification will fail as if the transfer never happened
+    double usd_per_eth = 4; // ETH price in USD exchange rate to be used when verifying logical asset amounts
+    string receiver_address = 5; // receiver address on the passed chainId where transfer being verified is expected to have been sent
+  }
+
+  message UntrustedData { // from the point of view of the verification client (caller), these data are untrusted and will be verified. Verification will be successful if and only if all these untrusted data are proven to be correct and match/correspond to the trusted data. NB as always, the RPC providers used by verification are assumed to be trustworthy - clients are trusting their RPC providers to facilitate verification
+    uint32 chain_id = 1; // chainId on which the transfer is being verified
+    string transaction_hash = 2; // transaction hash of the transfer being verified
+    string sender_address = 3; // optional. senderAddress whose transfer to receiverAddress is being verified. NB senderAddress must match caip222StyleSignature.message.senderAddress if both are defined. The idea is that senderAddress may optionally be provided without a caip222StyleSignature to verify a transfer without also authenticating the sender
+    SignatureData caip222_style_signature = 4; // optional. A signature to authenticate senderAddress. If defined, the signature will be verified against 3cities's trusted caip222 message schema (domain, types, primaryType). This only proves that the signer of senderAddress provided the signature to the verification client (eg. to securely associate an onchain payment with an offchain order ID) and proves nothing about the transfer being verified. The provided `message` is expected to be JSON conforming to the typescript type Caip222StyleMessageToSign
+  }
+
+  message SignatureData {
+    string message = 1;
+    string signature = 2;
+  }
+
+  TrustedData trusted = 1;
+  UntrustedData untrusted_to_be_verified = 2;
+}
+
+// Response type for the result of a verification
+message TransferVerificationResponse {
+  bool is_verified = 1; // true iff the transfer verification was successful
+  string description = 2; // description of verification result. Eg. if success, "0.023 ETH sent on Arbitrum One", if failure, "ChainID 3933 is not supported", "Insufficient confirmations, wanted=2, found=1"
+  string error = 3; // optional error. Empty string indicates undefined. Always undefined if is_verified
+}
+
+service TransferVerificationService {
+  rpc TransferVerification(TransferVerificationRequest) returns (TransferVerificationResponse);
+}

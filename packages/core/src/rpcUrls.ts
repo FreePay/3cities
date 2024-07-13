@@ -1,24 +1,20 @@
 import { arbitrum, arbitrumSepolia, base, baseSepolia, blast, blastSepolia, getChain, linea, lineaSepolia, mainnet, optimism, optimismSepolia, polygon, polygonAmoy, polygonZkEvm, polygonZkEvmCardona, sepolia, zkSync, zkSyncSepolia, zora, zoraSepolia } from './chains';
 import { isProduction } from './isProduction';
 
-const alchemyApiKey: string = (() => {
-  const s = process.env['REACT_APP_ALCHEMY_API_KEY'];
-  if (s === undefined) {
-    console.error("REACT_APP_ALCHEMY_API_KEY undefined");
-    return 'REACT_APP_ALCHEMY_API_KEY_undefined';
-  } else return s;
+const alchemyApiKey: string | undefined = (() => {
+  const s = process.env['REACT_APP_ALCHEMY_API_KEY'] || process.env['ALCHEMY_API_KEY']; // TODO remove legacy REACT_APP_ env support after we switch to vite
+  if (s === undefined) console.error("alchemy API key undefined. Please set env ALCHEMY_API_KEY");
+  return s;
 })();
 
-const infuraApiKey: string = (() => {
-  const s = process.env['REACT_APP_INFURA_API_KEY'];
-  if (s === undefined) {
-    console.error("REACT_APP_INFURA_API_KEY undefined");
-    return 'REACT_APP_INFURA_API_KEY_undefined';
-  } else return s;
+const infuraApiKey: string | undefined = (() => {
+  const s = process.env['REACT_APP_INFURA_API_KEY'] || process.env['INFURA_API_KEY']; // TODO remove legacy REACT_APP_ env support after we switch to vite
+  if (s === undefined) console.error("infura API key undefined. Please set env ALCHEMY_API_KEY");
+  return s;
 })();
 
 // TODO semi-automate discovery of new alchemyHttpUrls, eg. by writing a tool to check for new endpoints for chains not yet supported here
-const alchemyHttpUrls: Readonly<{ [chainId: number]: string }> = isProduction ? {
+const alchemyHttpUrls: Readonly<{ [chainId: number]: string }> = !alchemyApiKey ? {} : isProduction ? {
   // ********* BEGIN PRODUCTION networks *********
   [mainnet.id]: `https://eth-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
   [optimism.id]: `https://opt-mainnet.g.alchemy.com/v2/${alchemyApiKey}`,
@@ -43,7 +39,7 @@ const alchemyHttpUrls: Readonly<{ [chainId: number]: string }> = isProduction ? 
 };
 
 // TODO semi-automate discovery of new infuraHttpUrls, eg. by writing a tool to check for new endpoints for chains not yet supported here
-const infuraHttpUrls: Readonly<{ [chainId: number]: string }> = isProduction ? {
+const infuraHttpUrls: Readonly<{ [chainId: number]: string }> = !infuraApiKey ? {} : isProduction ? {
   // ********* BEGIN PRODUCTION networks *********
   [mainnet.id]: `https://mainnet.infura.io/v3/${infuraApiKey}`,
   [optimism.id]: `https://optimism-mainnet.infura.io/v3/${infuraApiKey}`,

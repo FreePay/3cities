@@ -1,0 +1,12 @@
+version: v2
+plugins:
+  - local: protoc-gen-es
+    out: src/gen
+    opt: target=ts
+  - local: protoc-gen-connect-es
+    out: src/gen
+    opt: target=ts
+  - remote: buf.build/protocolbuffers/python:v25.3 # this plugin generates the protocolbuffers message types python client. WARNING we use v25.3 (the latest version supporting pip protobuf v4.*) and not latest because the latest has a runtime dependency on pip module protobuf~=5.26 but our current sole python client, pretix-eth-payment-plugin, has a dependency on the pip module pretix, which has a conflicting dependency on an earlier version of protobuf. pretix did not adopt protobuf 5.26 until March 15th, 2024 https://github.com/pretix/pretix/commit/459cb47ca83e3a33f09ec33afaa5350edd024116, so we can't use the latest version of this plugin until pretix-eth-payment-plugin upgrades to a version of pretix released after this date
+    out: gen/python
+  - remote: buf.build/grpc/python:v1.62.1 # this plugin generates the service's python client. NB buf.build makes the Connect rpc protocol which is a successor to gprc. It is recommended to use Connect, however buf.build doesn't yet make python clients for Connect. Once Connect for python clients becomes available, we can upgrade grpc to Connect. Progress on Connect for python is tracked here https://github.com/orgs/connectrpc/discussions/6
+    out: gen/python
