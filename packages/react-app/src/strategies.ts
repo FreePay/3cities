@@ -1,19 +1,12 @@
-import { BigNumber } from "@ethersproject/bignumber";
-import { AddressContext } from "./AddressContext";
-import { ExchangeRates, convert } from "./ExchangeRates";
-import { Intersection } from "./Intersection";
-import { PaymentWithFixedAmount, ProposedPaymentWithFixedAmount, isPayment } from "./Payment";
-import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
-import { StrategyPreferences } from "./StrategyPreferences";
-import { NativeCurrency, Token, isToken } from "./Token";
+import { type ExchangeRates, type LogicalAssetTicker, type NativeCurrency, type Token, allTokenTickers, arbitrum, arbitrumNova, base, baseSepolia, blast, chainsSupportedBy3cities, convert, convertLogicalAssetUnits, getAllNativeCurrenciesAndTokensForLogicalAssetTicker, getLogicalAssetTickerForTokenOrNativeCurrencyTicker, getTokenKey, immutableZkEvm, isProduction, isToken, isTokenSupported, linea, mainnet, mode, optimism, polygon, polygonZkEvm, scroll, sepolia, taiko, zkSync, zkSyncSepolia, zora } from "@3cities/core";
+import { type AddressContext } from "./AddressContext";
 import { canAfford } from "./canAfford";
-import { arbitrum, arbitrumGoerli, arbitrumNova, base, chainsSupportedBy3cities, linea, mainnet, optimism, optimismGoerli, polygon, polygonZkEvm, scroll, zkSync, zora } from './chains';
 import { flatMap } from "./flatMap";
-import { isProduction } from "./isProduction";
-import { LogicalAssetTicker, convertLogicalAssetUnits } from "./logicalAssets";
-import { getAllNativeCurrenciesAndTokensForLogicalAssetTicker, getLogicalAssetTickerForTokenOrNativeCurrencyTicker } from "./logicalAssetsToTokens";
-import { ProposedTokenTransfer, TokenTransfer, TokenTransferForNativeCurrency, TokenTransferForToken } from "./tokenTransfer";
-import { allTokenTickers, getTokenKey, isTokenSupported } from "./tokens";
+import { type Intersection } from "./Intersection";
+import { type PaymentWithFixedAmount, type ProposedPaymentWithFixedAmount, isPayment } from "./Payment";
+import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
+import { type StrategyPreferences } from "./StrategyPreferences";
+import { type ProposedTokenTransfer, type TokenTransfer, type TokenTransferForNativeCurrency, type TokenTransferForToken } from "./tokenTransfer";
 
 // TODO consider s/Strategy.payment/Strategy.paymentWithFixedAmount` and same for ProposedStrategy --> on the other hand, the requirement that strategies operate on payments with fixed amounts represents unresolved tension between the concept of a Payment, Strategy, and the steps taken to settle a payment. In theory, a Payment of "can donate any asset from sender to receiver" should be able to be settled with some Strategy. But today, our strategy generation pipeline requires that token transfers be constructed from payments with fixed amounts. Today we have the concept "Payment with non-fixed amount must be pre-resovled by upstream into a payment with a fixed amount before it can have strategies generated" but in the future, we could have the concept "Payment with fixed or non-fixedd amount can have strategies generated, given sufficient context"
 
@@ -146,7 +139,7 @@ export function getStrategiesForPayment(er: ExchangeRates | undefined, receiverS
         };
         return s;
       }
-    }).filter(s => canAfford(senderAddressContext, getTokenKey(s.tokenTransfer.token), s.tokenTransfer.amountAsBigNumberHexString)) // having already generated the set of possible token transfer strategies, we now further filter these strategies to accept only those affordable by the passed sender address context. Ie. here is where we ensure that the computed token transfer strategies are affordable by the sender
+    }).filter(s => canAfford(senderAddressContext, getTokenKey(s.tokenTransfer.token), s.tokenTransfer.amount)) // having already generated the set of possible token transfer strategies, we now further filter these strategies to accept only those affordable by the passed sender address context. Ie. here is where we ensure that the computed token transfer strategies are affordable by the sender
   );
 
   return sortStrategiesByPriority(staticChainIdPriority, staticTokenTickerPriority, ss);
@@ -164,7 +157,7 @@ function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined
 function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: PaymentWithFixedAmount | ProposedPaymentWithFixedAmount, token: Token | NativeCurrency): TokenTransfer | ProposedTokenTransfer | undefined
 function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: PaymentWithFixedAmount | ProposedPaymentWithFixedAmount, token: Token | NativeCurrency): TokenTransfer | ProposedTokenTransfer | undefined {
   const amountDenominatedInToken: undefined | bigint = (() => {
-    const amountDenominatedInPrimaryLogicalAssetWithTokensDecimals: bigint = convertLogicalAssetUnits(BigNumber.from(p.paymentMode.logicalAssetAmountAsBigNumberHexString), token.decimals).toBigInt(); // WARNING this amount is denominated in the passed Payment's primary logical asset and using the passed token's decimals. But, any exchange rate conversion that may need to be applied has not yet been applied
+    const amountDenominatedInPrimaryLogicalAssetWithTokensDecimals: bigint = convertLogicalAssetUnits(p.paymentMode.logicalAssetAmount, token.decimals); // WARNING this amount is denominated in the passed Payment's primary logical asset and using the passed token's decimals. But, any exchange rate conversion that may need to be applied has not yet been applied
     const logicalAssetTickerForThisTokenTransfer: LogicalAssetTicker | undefined = getLogicalAssetTickerForTokenOrNativeCurrencyTicker(token.ticker);
     if (logicalAssetTickerForThisTokenTransfer === undefined) {
       // case 1. the passed token is not supported by any logical asset. For example, UNI's is not supported by any logical asset because 1 unit of UNI is not pegged to any logical asset. Since the token transfer we're attempting to construct is not supported by any logical asset, we'll attempt an exchange rate conversion directly from the Payment's primary logical asset to the token
@@ -187,8 +180,8 @@ function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined
   })();
   if (amountDenominatedInToken === undefined) return undefined;
   else {
-    const ttPartial: Pick<Intersection<TokenTransfer, ProposedTokenTransfer>, 'amountAsBigNumberHexString'> = {
-      amountAsBigNumberHexString: BigNumber.from(amountDenominatedInToken).toHexString(),
+    const ttPartial: Pick<Intersection<TokenTransfer, ProposedTokenTransfer>, 'amount'> = {
+      amount: amountDenominatedInToken,
     };
     if (isPayment(p)) {
       const ttPartial2: Omit<TokenTransfer, 'token'> = Object.assign({}, ttPartial, {
@@ -237,6 +230,8 @@ type TokenTickerPriority = {
   [ticker: Uppercase<string>]: number;
 };
 
+const l1ChainId = isProduction ? mainnet.id : sepolia.id;
+
 // sortStrategiesByPriority sorts the passed (proposed) strategies from
 // most preferable to least preferable. Usually, the concept of
 // "preferable" is from the point of view of the sender since they are
@@ -267,28 +262,36 @@ function sortStrategiesByPriority(
     const bToken: Token | NativeCurrency = 'tokenTransfer' in b ? b.tokenTransfer.token : b.proposedTokenTransfer.token;
     const aChainId = aToken.chainId;
     const bChainId = bToken.chainId;
-    const aChainPriority = chainIdPriority[aChainId] ?? Number.NEGATIVE_INFINITY;
-    const bChainPriority = chainIdPriority[bChainId] ?? Number.NEGATIVE_INFINITY;
-    if (aChainPriority === bChainPriority) {
+    // First, de-prioritize strategies with L1 transfers as these have much higher fees than L2
+    if (aChainId === l1ChainId && bChainId !== l1ChainId) return 1;
+    else if (aChainId !== l1ChainId && bChainId === l1ChainId) return -1;
+    else {
       const aLogicalAssetPriority = getStrategyLogicalAssetPriority(a);
       const bLogicalAssetPriority = getStrategyLogicalAssetPriority(b);
+      // Second, prioritize strategies that better match a payment's logical asset preferences. For example, if the payment is USD-denominated, prefer strategies with USD-denominated transfers
       if (aLogicalAssetPriority === bLogicalAssetPriority) {
-        const aTicker = aToken.ticker;
-        const bTicker = bToken.ticker;
-        const aTickerPriority = tokenTickerPriority[aTicker] ?? Number.NEGATIVE_INFINITY;
-        const bTickerPriority = tokenTickerPriority[bTicker] ?? Number.NEGATIVE_INFINITY;
-        if (aTicker === bTicker) { // NB two tokens may share the same ticker, chain, and logical asset priority, such as with bridged and native USDC on the same L2. In this case, we tie-break by preferring the bridged variant, as the bridged variant gives the receiver greater protections vs. the native variant (since only the bridged variant can't be seized from the end-user and can often be force-exited from the L2)
-          // WARNING here we assume tickerCanonical defined indicates the token is bridged. This is because today, bridged variants of USDC are assigned a different canonical ticker by Circle (eg. USDC.e for Arb/Op):
-          const aIsBridged: boolean = 'tickerCanonical' in aToken;
-          const bIsBridged: boolean = 'tickerCanonical' in bToken;
-          if (aIsBridged === bIsBridged) { // both tokens are either bridged or not. TODO further tie-breaking logic
-            return 0; // for now, keep them in the same order they were
-          } else {
-            return aIsBridged ? -1 : 1; // prefer the bridged version
-          }
-        } else return bTickerPriority - aTickerPriority;
+        const aChainPriority = chainIdPriority[aChainId] ?? Number.NEGATIVE_INFINITY;
+        const bChainPriority = chainIdPriority[bChainId] ?? Number.NEGATIVE_INFINITY;
+        // Third, prioritize strategies with transfers on higher priority chains
+        if (aChainPriority === bChainPriority) {
+          const aTicker = aToken.ticker;
+          const bTicker = bToken.ticker;
+          const aTickerPriority = tokenTickerPriority[aTicker] ?? Number.NEGATIVE_INFINITY;
+          const bTickerPriority = tokenTickerPriority[bTicker] ?? Number.NEGATIVE_INFINITY;
+          // Fourth, prioritize strategies using bridged tokens over strategies using native tokens
+          if (aTicker === bTicker) { // NB two tokens may share the same ticker, chain, and logical asset priority, such as with bridged and native USDC on the same L2. In this case, we tie-break by preferring the bridged variant, as the bridged variant gives the receiver greater protections vs. the native variant (since only the bridged variant can't be seized from the end-user and can often be force-exited from the L2)
+            // WARNING here we assume tickerCanonical defined indicates the token is bridged. This is because today, bridged variants of USDC are assigned a different canonical ticker by Circle (eg. USDC.e for Arb/Op):
+            const aIsBridged: boolean = 'tickerCanonical' in aToken;
+            const bIsBridged: boolean = 'tickerCanonical' in bToken;
+            if (aIsBridged === bIsBridged) { // both tokens are either bridged or not. TODO further tie-breaking logic
+              return 0; // for now, keep them in the same order they were
+            } else {
+              return aIsBridged ? -1 : 1; // prefer the bridged version
+            }
+          } else return bTickerPriority - aTickerPriority;
+        } else return bChainPriority - aChainPriority;
       } else return bLogicalAssetPriority - aLogicalAssetPriority;
-    } else return bChainPriority - aChainPriority;
+    }
   });
 }
 
@@ -320,22 +323,40 @@ const staticChainIdPriority: ChainIdPriority = { // TODO move this to a new file
   // fee structures are always changing, and fees can differ for more
   // complex reasons, so this is just a start.
 
-  // This is intended to be a complete set of prioritized production networks (higher priority is better):
-  [arbitrumNova.id]: 1000,
+
+  // This is intended to be a complete set of prioritized production networks (higher priority is better; we try to priorize primarily by L2Beat.com decentralization stage and secondarily by expected transaction fee; L2s with the same stage are attempted to be sorted by number of red L2Beat pie slices, and then yellow pie slice):
+  // Stage 1
   [arbitrum.id]: 900,
+  [base.id]: 850,
   [optimism.id]: 800,
-  [polygonZkEvm.id]: 750,
-  [zkSync.id]: 700,
+
+  // Stage 0
+  // 1 red L2Beat pie slice
+  // 2 red L2Beat pie slice
+  [polygonZkEvm.id]: 750, // 0 yellow slice
+  [immutableZkEvm.id]: 740, // not on L2Beat but presuming same as polygonZkEvm
+  [taiko.id]: 725, // 0 yellow slice
+  [zkSync.id]: 700, // 1 yellow slice
+  // 3 red L2Beat pie slice
   [scroll.id]: 650,
   [linea.id]: 625,
   [zora.id]: 600,
-  [base.id]: 550,
-  [polygon.id]: 500, // polygon is currently an alt L1 and so we assign it lowest priority since we prefer L2s
+  [blast.id]: 500,
+  [mode.id]: 400,
+
+  // Stage N/A (Optimium)
+  [arbitrumNova.id]: 300, // arbitrum nova is an optimium that falls back to a rollup if the DA committee becomes unavailable
+
+  // Alt L1
+  [polygon.id]: 100, // polygon PoS is an alt L1 and so we assign it lowest priority since we prefer L2s
+
+  // Ethereum L1 (lowest priority due to high fees)
   [mainnet.id]: 1,
 
-  // Testnet priorities below here (higher priority is better):
-  [arbitrumGoerli.id]: 100,
-  [optimismGoerli.id]: 50,
+  // Testnet priorities below here (higher priority is better; testnet priorities are meaningless):
+  [baseSepolia.id]: 1000,
+  [zkSyncSepolia.id]: 500,
+  [sepolia.id]: 1,
 };
 
 if (isProduction) chainsSupportedBy3cities.forEach(c => {

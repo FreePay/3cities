@@ -1,14 +1,14 @@
-import { isAddress } from "@ethersproject/address";
+import { parseLogicalAssetAmount } from "@3cities/core";
 import React from "react";
 import { useParams } from "react-router-dom";
-import { AddressOrEnsName } from "./AddressOrEnsName";
-import { CheckoutSettings } from "./CheckoutSettings";
+import { isAddress } from "viem";
+import { type AddressOrEnsName } from "./AddressOrEnsName";
+import { type CheckoutSettings } from "./CheckoutSettings";
 import { CheckoutSettingsContext } from "./CheckoutSettingsContext";
 import { ConversionWrapperWithChildren } from "./ConversionWrapper";
+import { mightBeAnEnsName } from "./mightBeAnEnsName";
 import { Pay } from "./Pay";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
-import { parseLogicalAssetAmount } from "./logicalAssets";
-import { mightBeAnEnsName } from "./mightBeAnEnsName";
 
 export const MaybeUserPage: React.FC = () => {
   // const { isConnected } = useAccount();
@@ -33,18 +33,19 @@ export const MaybeUserPage: React.FC = () => {
           payWhatYouWant: {
             isDynamicPricingEnabled: true,
             canPayAnyAsset: true,
-            suggestedLogicalAssetAmountsAsBigNumberHexStrings: [
-              parseLogicalAssetAmount('5').toHexString(),
-              parseLogicalAssetAmount('10').toHexString(),
-              parseLogicalAssetAmount('20').toHexString(),
-              parseLogicalAssetAmount('50').toHexString(),
-              parseLogicalAssetAmount('100').toHexString(),
+            suggestedLogicalAssetAmounts: [
+              parseLogicalAssetAmount('5'),
+              parseLogicalAssetAmount('10'),
+              parseLogicalAssetAmount('20'),
+              parseLogicalAssetAmount('50'),
+              parseLogicalAssetAmount('100'),
             ],
           },
         },
       },
       receiverStrategyPreferences: {},
       senderNoteSettings: { mode: 'NONE' },
+      nativeTokenTransferProxy: 'never',
     };
     // TODO how to unify this use of CheckoutSettingsContext and ConversionWrapperWithChildren with ordinary providers/wrappers in Routes?
     return <CheckoutSettingsContext.Provider value={cs}>

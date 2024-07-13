@@ -1,9 +1,8 @@
-import { formatUnits } from "@ethersproject/units";
+import { getDecimalsToRenderForTokenTicker, getDefaultTruncateTrailingZeroesForTokenTicker, getSupportedChainName } from "@3cities/core";
 import React from "react";
-import { getSupportedChainName } from "./chains";
-import { FormatFloatOpts, formatFloat } from "./formatFloat";
-import { getDecimalsToRenderForTokenTicker, getDefaultTruncateTrailingZeroesForTokenTicker } from "./logicalAssetsToTokens";
-import { ProposedTokenTransfer, TokenTransfer } from "./tokenTransfer";
+import { formatUnits } from "viem";
+import { type FormatFloatOpts, formatFloat } from "./formatFloat";
+import { type ProposedTokenTransfer, type TokenTransfer } from "./tokenTransfer";
 
 type RenderTokenTransferProps = {
   tt: TokenTransfer;
@@ -25,7 +24,7 @@ export const RenderTokenTransfer: React.FC<RenderTokenTransferProps> = ({ tt, op
     truncateTrailingZeroes: opts?.truncateTrailingZeroes !== undefined ? opts.truncateTrailingZeroes : getDefaultTruncateTrailingZeroesForTokenTicker(t.ticker),
   };
   // TODO it'd be nice to show the token image instead of the ticker (eg. USDC icon instead of "USDC"), and the same for the chain --> some apps have adopted the convention of showing a little chain icon in the top left of the token icon... maybe I should do that? where's the open-source code and assets to do so?
-  return <span>{opts?.hideAmount !== true && formatFloat(formatUnits(tt.amountAsBigNumberHexString, t.decimals), getDecimalsToRenderForTokenTicker(t.ticker), formatFloatOpts)}{opts?.hideTicker !== true && ` ${t.tickerCanonical || t.ticker}`}{opts?.hideChainSeparator !== true && ' on'}{opts?.hideChain !== true && ` ${getSupportedChainName(t.chainId)}`}</span>;
+  return <span>{opts?.hideAmount !== true && formatFloat(formatUnits(tt.amount, t.decimals), getDecimalsToRenderForTokenTicker(t.ticker), formatFloatOpts)}{opts?.hideTicker !== true && ` ${t.tickerCanonical || t.ticker}`}{opts?.hideChainSeparator !== true && ' on'}{opts?.hideChain !== true && ` ${getSupportedChainName(t.chainId)}`}</span>;
 }
 
 type RenderProposedTokenTransferProps = {
@@ -36,6 +35,6 @@ type RenderProposedTokenTransferProps = {
 // to render the passed proposed token transfer.
 export const RenderProposedTokenTransfer: React.FC<RenderProposedTokenTransferProps> = ({ ptt }) => {
   const t = ptt.token;
-  return <span>Pay {formatFloat(formatUnits(ptt.amountAsBigNumberHexString, t.decimals), getDecimalsToRenderForTokenTicker(t.ticker))} {t.tickerCanonical || t.ticker} on {getSupportedChainName(t.chainId)
+  return <span>Pay {formatFloat(formatUnits(ptt.amount, t.decimals), getDecimalsToRenderForTokenTicker(t.ticker))} {t.tickerCanonical || t.ticker} on {getSupportedChainName(t.chainId)
   }</span>
 }

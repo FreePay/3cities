@@ -1,4 +1,4 @@
-import { ElementType } from "./ElementType";
+import { type ElementType } from "./ElementType";
 
 /*
 Notes on possible attack vectors:

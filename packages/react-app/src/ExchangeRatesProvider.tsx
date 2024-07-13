@@ -1,16 +1,13 @@
-import { BigNumber } from "@ethersproject/bignumber";
+import { type DeepWritable, type ExchangeRates, areExchangeRatesEqual, isProduction, mainnet, sepolia, toUppercase } from "@3cities/core";
 import React, { useEffect, useState } from 'react';
 import { useImmer } from 'use-immer';
+import { serialize } from 'wagmi';
 import { readContracts } from 'wagmi/actions';
-import { ExchangeRates, areExchangeRatesEqual } from './ExchangeRates';
 import { ExchangeRatesContext } from './ExchangeRatesContext';
-import { DeepWritable } from './Writable';
-import { goerli, mainnet } from './chains';
-import { isProduction } from './isProduction';
-import { ObservableValue, ObservableValueUpdater, ObservableValueUpdaterWithCurrentValue, Observer, makeObservableValue } from './observer';
-import { toUppercase } from './toUppercase';
+import { type ObservableValue, type ObservableValueUpdater, type ObservableValueUpdaterWithCurrentValue, type Observer, makeObservableValue } from './observer';
 import useDebounce from './useDebounce';
 import { useIsPageVisibleOrRecentlyVisible } from './useIsPageVisibleOrRecentlyVisible';
+import { wagmiConfig } from './wagmiClient';
 
 type ExchangeRatesProviderProps = {
   children?: React.ReactNode;
@@ -123,17 +120,18 @@ const exchangeRatesToFetch: Array<ExchangeRateFetcher> = [
     },
     refetchIntervalMilliseconds: defaultRefetchIntervalMilliseconds,
   },
-  ...(!isProduction ? [] : [{ // only fetch Chainlink USD/ETH on mainnet because I can't find the right contract on testnet. TODO what's the testnet oracle contract we can use to run this in testnet, too?
+  {
     denominatorTicker: 'ETH',
     numeratorTicker: 'USD',
     source: 'Chainlink',
     fetchExchangeRate: async (): Promise<number> => {
+      const { chainId, address } = isProduction ? { chainId: mainnet.id, address: '0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419' as const } : { chainId: sepolia.id, address: '0x694AA1769357215DE4FAC081bf1f309aDC325306' as const };
       const chainlinkUSDETHOracleContract = {
-        chainId: isProduction ? mainnet.id : goerli.id,
-        address: ('0x5f4ec3df9cbd43714fe2740f5e3616155c5b8419' satisfies `0x${string}`) as `0x${string}`,
-        abi: [{ "inputs": [], "name": "decimals", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "latestRoundData", "outputs": [{ "internalType": "uint80", "name": "roundId", "type": "uint80" }, { "internalType": "int256", "name": "answer", "type": "int256" }, { "internalType": "uint256", "name": "startedAt", "type": "uint256" }, { "internalType": "uint256", "name": "updatedAt", "type": "uint256" }, { "internalType": "uint80", "name": "answeredInRound", "type": "uint80" }], "stateMutability": "view", "type": "function" }], // only the subset of the ABI we use here. TODO use https://abitype.dev/ for strongly typed abis and result types
+        chainId,
+        address,
+        abi: [{ "inputs": [], "name": "decimals", "outputs": [{ "internalType": "uint8", "name": "", "type": "uint8" }], "stateMutability": "view", "type": "function" }, { "inputs": [], "name": "latestRoundData", "outputs": [{ "internalType": "uint80", "name": "roundId", "type": "uint80" }, { "internalType": "int256", "name": "answer", "type": "int256" }, { "internalType": "uint256", "name": "startedAt", "type": "uint256" }, { "internalType": "uint256", "name": "updatedAt", "type": "uint256" }, { "internalType": "uint80", "name": "answeredInRound", "type": "uint80" }], "stateMutability": "view", "type": "function" }] as const,
       };
-      const [decimals, latestRoundData] = await readContracts({
+      const [decimals, latestRoundData] = await readContracts(wagmiConfig, {
         allowFailure: false,
         contracts: [
           {
@@ -149,17 +147,15 @@ const exchangeRatesToFetch: Array<ExchangeRateFetcher> = [
       });
       if (typeof decimals === 'number' && Array.isArray(latestRoundData)) {
         const price = latestRoundData[1];
-        if (BigNumber.isBigNumber(price)) {
-          const scaleToCents = BigNumber.from(Math.pow(10, decimals - 2));
-          const halfScale = scaleToCents.div(2); // "The technique of adding half of the scale before dividing is a common way to achieve rounding in integer division. It's based on the idea that adding half of the divisor (the scale in this case) to the dividend will push the quotient over the threshold to the next integer if the remainder of the division is more than half of the divisor."
-          const roundedPriceInCents = price.add(halfScale).div(scaleToCents);
-          const priceRoundedToNearestCentInDollars = roundedPriceInCents.toNumber() / 100;
-          return priceRoundedToNearestCentInDollars;
-        } else throw new Error(`invalid price: ${price}`);
-      } else throw new Error(`invalid response: ${JSON.stringify({ decimals, latestRoundData })}`);
+        const scaleToCents = 10n ** BigInt(decimals - 2);
+        const halfScale = scaleToCents / 2n; // "The technique of adding half of the scale before dividing is a common way to achieve rounding in integer division. It's based on the idea that adding half of the divisor (the scale in this case) to the dividend will push the quotient over the threshold to the next integer if the remainder of the division is more than half of the divisor."
+        const roundedPriceInCents = (price + halfScale) / scaleToCents;
+        const priceRoundedToNearestCentInDollars = Number(roundedPriceInCents) / 100;
+        return priceRoundedToNearestCentInDollars;
+      } else throw new Error(`invalid response: ${serialize({ decimals, latestRoundData })}`);
     },
     refetchIntervalMilliseconds: defaultRefetchIntervalMilliseconds,
-  } satisfies ExchangeRateFetcher]),
+  },
 ];
 
 type ExchangeRatesUpdaterProps = {
@@ -203,12 +199,12 @@ const ExchangeRatesUpdaterInner: React.FC<ExchangeRatesUpdaterInnerProps> = ({ e
   const maxDebounceWaitMillis = 150; // see note on flushDebouncedExchangeRates. WARNING if we make maxDebounceWaitMillis too large, then pay links with only payment methods that use exchange rates will be more likely to have UI jank flash "no payment methods available" after the initial payment method loading grace period elapses but exchange rates haven't yet flushed
   const [lastFlushTime, setLastFlushTime] = useState<number>(Date.now());
   const isDuringFlushGracePeriod: boolean = Date.now() - lastFlushTime <= maxDebounceWaitMillis; // when calculated debounced exchange rates, we allow a flush grace period during which the debounce runs normally
-  const flushDebouncedExchangeRates: boolean = !isDuringFlushGracePeriod; Date.now() - lastFlushTime > maxDebounceWaitMillis; // force flush the debounced exchange rates if the time since last debounce exceeds maxDebounceWaitMillis. This protects against a steady stream of new exchange rates causing the debounce to never flush, which would make downstream ExchangeRates stale
+  const flushDebouncedExchangeRates: boolean = !isDuringFlushGracePeriod; // force flush the debounced exchange rates if the time since last debounce exceeds maxDebounceWaitMillis. This protects against a steady stream of new exchange rates causing the debounce to never flush, which would make downstream ExchangeRates stale
 
   useEffect(() => {
     const updateExchangeRates = () => {
       const er: ExchangeRates = getExchangeRates({ minIndepToBeValid: minIndependentExchangeRatesToBeValid, defaultMinIndepToBeValid: defaultMinIndependentExchangeRatesToBeValid, latestExchangeRates, maxAgeMillis: maxExchangeRateAgeMillis, timeNowMillisSinceEpoch: Date.now() });
-      if (newExchangeRates === undefined || !areExchangeRatesEqual(newExchangeRates, er)) {
+      if (!areExchangeRatesEqual(newExchangeRates, er)) {
         setNewExchangeRates(er);
         if (!isDuringFlushGracePeriod) setLastFlushTime(Date.now()); // if we're not in the flush grace period, then newExchangeRates hasn't been updated since the last flush grace period elapsed, so we'll begin a new grace period. This allows a burst of newExchangeRates updates to arrive during the grace period and then when the grace period elapses, trigger only a single ExchangeRates update downstream
       }
@@ -224,7 +220,7 @@ const ExchangeRatesUpdaterInner: React.FC<ExchangeRatesUpdaterInnerProps> = ({ e
 
   useEffect(() => {
     const currentExchangeRates = exchangeRatesObservableValueUpdater.getCurrentValue();
-    if (debouncedExchangeRates !== undefined && (currentExchangeRates === undefined || !areExchangeRatesEqual(currentExchangeRates, debouncedExchangeRates))) exchangeRatesObservableValueUpdater.setValueAndNotifyObservers(debouncedExchangeRates);
+    if (!areExchangeRatesEqual(currentExchangeRates, debouncedExchangeRates)) exchangeRatesObservableValueUpdater.setValueAndNotifyObservers(debouncedExchangeRates);
   }, [debouncedExchangeRates, exchangeRatesObservableValueUpdater]);
 
   return undefined;

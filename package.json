@@ -3,31 +3,39 @@
   "version": "1.0.0",
   "keywords": [
     "ethereum",
-    "react",
-    "workspaces",
-    "yarn"
+    "payments",
+    "react"
   ],
   "private": true,
+  "dependencies": {
+    "@bufbuild/protobuf": "^1.10.0",
+    "@tanstack/react-query": "^5.47",
+    "immer": "^10.1.1",
+    "viem": "2.17.2",
+    "wagmi": "2.10.9"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^7.14.1",
+    "@typescript-eslint/parser": "^7.14.1",
+    "eslint": "^8.57.0",
+    "eslint-plugin-rulesdir": "^0.2.2",
+    "typescript": "^5.5.2"
+  },
   "scripts": {
-    "lint": "yarn workspace @3cities/react-app lint",
-    "build": "yarn workspace @3cities/react-app build",
-    "build:prod-test": "yarn workspace @3cities/react-app build:prod-test",
-    "start": "yarn workspace @3cities/react-app start",
-    "subgraph:auth": "yarn workspace @3cities/subgraph auth",
-    "subgraph:codegen": "yarn workspace @3cities/subgraph codegen",
-    "subgraph:build": "yarn workspace @3cities/subgraph build",
-    "subgraph:deploy": "yarn workspace @3cities/subgraph deploy",
-    "react-app:analyze": "yarn workspace @3cities/react-app analyze",
-    "react-app:build:dev": "yarn workspace @3cities/react-app build:dev",
-    "react-app:build:prod-test": "yarn workspace @3cities/react-app build:prod-test",
-    "react-app:build": "yarn workspace @3cities/react-app build",
-    "react-app:eject": "yarn workspace @3cities/react-app eject",
-    "react-app:start": "yarn workspace @3cities/react-app start",
-    "react-app:test": "yarn workspace @3cities/react-app test"
+    "runTaskInAllPackages": "for package in core eth-transfer-proxy verifier react-app; do echo \"*** $TASK $package ***\" && yarn workspace @3cities/$package $TASK || exit 1; done",
+    "lint": "TASK=lint yarn runTaskInAllPackages",
+    "build": "TASK=build yarn runTaskInAllPackages",
+    "build:prod-test": "TASK='build:prod-test' yarn runTaskInAllPackages",
+    "build:dev": "TASK='build:dev' yarn runTaskInAllPackages",
+    "start": "yarn workspace @3cities/react-app start"
   },
   "workspaces": {
     "packages": [
       "packages/*"
+    ],
+    "nohoist": [
+      "**/forge-std",
+      "**/forge-std/**"
     ]
   }
 }

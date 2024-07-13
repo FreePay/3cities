@@ -2,14 +2,6 @@
 
 # dependencies
 node_modules
-.pnp
-.pnp.js
-
-# testing
-coverage
-
-# production
-build
 
 # misc
 .DS_Store
@@ -23,12 +15,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# subgraph
-packages/subgraph/build/
-packages/subgraph/src/types/
-
 # chain credentials for testing
 3cities-test-private-key
 
 # vscode - don't track settings because the Disable Copilot completions extension works by continuously flipping a flag in this file and it causes confusing and spammy git diffs.
-.vscode/settings.json
+/.vscode/settings.json

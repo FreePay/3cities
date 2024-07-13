@@ -1,5 +1,5 @@
 import { createContext } from "react";
-import { Observer, makeObservableValue } from './observer';
+import { type Observer, makeObservableValue } from './observer';
 
 // IsPageVisibleOrRecentlyVisibleContext provides an observer for the
 // global flag indicating whether or not the page was recently visible.

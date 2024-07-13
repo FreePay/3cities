@@ -1,9 +1,8 @@
-import { BigNumber } from "@ethersproject/bignumber";
+import { parseLogicalAssetAmount } from "@3cities/core";
 import React, { useMemo, useState } from "react";
-import { PayWhatYouWant } from "./Payment";
+import { type PayWhatYouWant } from "./Payment";
 import { ToggleSwitch } from "./ToggleSwitch";
 import { flatMap } from "./flatMap";
-import { parseLogicalAssetAmount } from "./logicalAssets";
 import { useInput } from "./useInput";
 
 // TODO consider converting usePayWhatYouWantInput into the
@@ -34,15 +33,15 @@ export function usePayWhatYouWantInput(inputId: string): {
 
   const [rawSuggestedLogicalAssetAmounts, suggestedLogicalAssetAmountsInputElement] = useInput('', useInputHtmlAttrs, useInputOpts);
 
-  const suggestedLogicalAssetAmountsAsBigNumberHexStrings: string[] = useMemo(() => Array.from(new Set(flatMap(rawSuggestedLogicalAssetAmounts.split(','), a => {
+  const suggestedLogicalAssetAmounts: bigint[] = useMemo(() => Array.from(new Set(flatMap(rawSuggestedLogicalAssetAmounts.split(','), a => {
     try {
-      return parseLogicalAssetAmount(a).toBigInt();
+      return parseLogicalAssetAmount(a);
     } catch {
       return undefined;
     }
   }))).sort((a, b) => (a > b) ? 1 : (a < b) ? -1 : 0) // ascending order so that smaller suggested amounts appear first
-    .filter(a => a > 0n) // NB we don't currently support checking out for a zero amount, so we'll disallow a suggestion of 0
-    .map(a => BigNumber.from(a).toHexString()), [rawSuggestedLogicalAssetAmounts]);
+    .filter(a => a > 0n), // NB we don't currently support checking out for a zero amount, so we'll disallow a suggestion of 0
+    [rawSuggestedLogicalAssetAmounts]);
 
   const [isDynamicPricingEnabled, setIsDynamicPricingEnabled] = useState(true);
 
@@ -50,9 +49,9 @@ export function usePayWhatYouWantInput(inputId: string): {
     return {
       isDynamicPricingEnabled,
       canPayAnyAsset: false, // TODO support canPayAnyAsset
-      suggestedLogicalAssetAmountsAsBigNumberHexStrings,
+      suggestedLogicalAssetAmounts,
     };
-  }, [suggestedLogicalAssetAmountsAsBigNumberHexStrings, isDynamicPricingEnabled]);
+  }, [suggestedLogicalAssetAmounts, isDynamicPricingEnabled]);
 
   const payWhatYouWantInputElement = useMemo((): JSX.Element => {
     return <div className="w-full flex flex-col gap-4 items-center">

@@ -1,30 +1,26 @@
-import { isAddress } from "@ethersproject/address";
+import { type LogicalAssetTicker, allSupportedChainIds, allTokenTickers, getSupportedChainName, isProduction, isTokenTickerSupportedByLogicalAsset, parseLogicalAssetAmount } from "@3cities/core";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaRegCopy, FaTimesCircle } from "react-icons/fa";
 import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
 import { useImmer } from "use-immer";
-import { useAccount, useDisconnect } from "wagmi";
-import { CheckoutSettings } from "./CheckoutSettings";
+import { isAddress } from "viem";
+import { useAccount, useAccountEffect, useDisconnect } from "wagmi";
+import { type CheckoutSettings, type SuccessActionRedirect } from "./CheckoutSettings";
 import { serializedCheckoutSettingsUrlParam } from "./CheckoutSettingsProvider";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
 import { CurrencyAmountInput } from "./CurrencyAmountInput";
+import { isLikelyAnEnsName } from "./isLikelyAnEnsName";
 import { Modal, useModal } from "./Modal";
-import { PaymentMode, ProposedPayment, isPaymentModeWithFixedAmount, isProposedPaymentWithFixedAmount } from "./Payment";
+import { type PaymentMode, type ProposedPayment, isPaymentModeWithFixedAmount, isProposedPaymentWithFixedAmount } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import QRCode from "./QRCode";
-import { renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
-import { Spinner } from "./Spinner";
-import { StrategyPreferences } from "./StrategyPreferences";
-import { ToggleSwitch } from "./ToggleSwitch";
-import { allSupportedChainIds, getSupportedChainName } from "./chains";
-import { isLikelyAnEnsName } from "./isLikelyAnEnsName";
-import { isProduction } from "./isProduction";
-import { LogicalAssetTicker, parseLogicalAssetAmount } from "./logicalAssets";
-import { isTokenTickerSupportedByLogicalAsset } from "./logicalAssetsToTokens";
 import { addToRecentlyUsed, getMostRecentlyUsed, removeFromRecentlyUsed } from "./recentlyUsed";
+import { renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
 import { serializeCheckoutSettings, serializeCheckoutSettingsWithEncryption, serializeCheckoutSettingsWithSignature } from "./serialize";
-import { allTokenTickers } from "./tokens";
+import { Spinner } from "./Spinner";
+import { type StrategyPreferences } from "./StrategyPreferences";
+import { ToggleSwitch } from "./ToggleSwitch";
 import { truncateEthAddress, truncateEthAddressVeryShort } from "./truncateAddress";
 import { useAsyncMemo } from "./useAsyncMemo";
 import useDebounce from "./useDebounce";
@@ -82,9 +78,15 @@ export const RequestMoney: React.FC = () => {
 
   const { address: addressForDebouncedRawReceiverEnsName, isLoading: addressForDebouncedRawReceiverEnsNameIsLoading } = useEnsAddress(debouncedRawReceiver); // the resolved ethereum address for the ENS name which the user typed into the receiver input. NB here we do nothing with the returned error which is fine because instead, below, we show a visual warning if a non-empty debouncedRawReceiver results in an empty computedReceiver (for which one possible but not the only root cause is an error here)
 
-  const clearRawReceiver = useCallback(() => setRawReceiver(''), [setRawReceiver]);
+  const useAccountEffectArgs = useMemo(() => {
+    return {
+      onConnect: () => setRawReceiver(''), // we must clear rawReceiver when wallet connects to avoid an inconsistent state where the value of rawReceiver is stale (something previously typed) prior to wallet being connected
+    };
+  }, [setRawReceiver]);
 
-  const { address: connectedWalletAddress, isConnected } = useAccount({ onConnect: clearRawReceiver }); // here we must clear rawReceiver when wallet connects to avoid an inconsistent state where the value of rawReceiver is stale (something previously typed) prior to wallet being connected
+  useAccountEffect(useAccountEffectArgs);
+
+  const { address: connectedWalletAddress, isConnected } = useAccount();
   const connectedWalletAddressRendered: string | undefined = connectedWalletAddress ? truncateEthAddress(connectedWalletAddress) : undefined; // NB we eagerly calculate connectedWalletAddressRendered to use it as the default value of computedReceiverRendered. If we didn't do this and instead defaulted computedReceiverRendered to undefined, and if the user's wallet is already connected on component mount, the first render from shows "Receive money at <nothing>" until the useEffect runs to set it. A long-term solution may be to migrate to a modern state management library like jotai that provides atomic renders for derived state, which offers benefits of (i) preventing renders from occuring before initial derived state is rendered and (ii) eliminating redundant rerenders from multiple useEffects calculate derived states (ie. jotai calculates any amount of derived state atomically before the next render).
 
   const { ensName: ensNameForConnectedWalletAddress } = useEnsName(connectedWalletAddress);
@@ -268,7 +270,7 @@ export const RequestMoney: React.FC = () => {
   const { payWhatYouWant, payWhatYouWantInputElement } = usePayWhatYouWantInput("PayWhatYouWant-input");
 
   const paymentMode = useMemo((): PaymentMode | undefined => {
-    if (paymentModeType === 'FixedAmount' && amount && amount > 0) return { logicalAssetAmountAsBigNumberHexString: parseLogicalAssetAmount(amount.toString()).toHexString() };
+    if (paymentModeType === 'FixedAmount' && amount && amount > 0) return { logicalAssetAmount: parseLogicalAssetAmount(amount.toString()) };
     else if (paymentModeType === 'PayWhatYouWant') return {
       payWhatYouWant,
     }; else return undefined;
@@ -296,16 +298,19 @@ export const RequestMoney: React.FC = () => {
       return {
         proposedPayment,
         receiverStrategyPreferences: strategyPreferences || {},
-        ...(note && { note: note.trim() }),
+        ...(note && { note: note.trim() } satisfies Pick<CheckoutSettings, 'note'>),
         senderNoteSettings: { mode: 'NONE' }, // TODO support senderNoteSettings
-        ...(successRedirectUrl.length > 0 && {
-          successRedirect: {
-            url: successRedirectUrl,
-            openInNewTab: successRedirectOpenInNewTab,
-            ...(successRedirectCallToAction.trim().length > 0 && { callToAction: successRedirectCallToAction.trim() }),
+        ...(successRedirectUrl.length > 0 && { // TODO support full SuccessAction API
+          successAction: {
+            redirect: {
+              url: successRedirectUrl,
+              openInNewTab: successRedirectOpenInNewTab,
+              ...(successRedirectCallToAction.trim().length > 0 && { callToAction: successRedirectCallToAction.trim() } satisfies Pick<SuccessActionRedirect, 'callToAction'>),
+            },
           },
-        }),
-        ...(webhookUrl.length > 0 && { webhookUrl }),
+        } satisfies Pick<CheckoutSettings, 'successAction'>),
+        ...(webhookUrl.length > 0 && { webhookUrl } satisfies Pick<CheckoutSettings, 'webhookUrl'>),
+        nativeTokenTransferProxy: 'never', // TODO support full nativeTokenTransferProxy API
       } satisfies CheckoutSettings;
     } else return undefined;
   }, [primaryLogicalAssetTicker, secondaryLogicalAssetTickers, computedReceiver, note, strategyPreferences, privacyAndSecurityMode, password, successRedirectUrl, successRedirectCallToAction, successRedirectOpenInNewTab, webhookUrl, paymentMode]);
@@ -346,7 +351,7 @@ export const RequestMoney: React.FC = () => {
 
   const renderedProposedPaymentFixedAmount: string | undefined = checkoutSettings && isProposedPaymentWithFixedAmount(checkoutSettings.proposedPayment) ? renderLogicalAssetAmount({
     logicalAssetTicker: checkoutSettings.proposedPayment.logicalAssetTickers.primary,
-    amountAsBigNumberHexString: checkoutSettings.proposedPayment.paymentMode.logicalAssetAmountAsBigNumberHexString,
+    amount: checkoutSettings.proposedPayment.paymentMode.logicalAssetAmount,
   }) : undefined;
 
   const checkoutTextToShare: string = (() => `Hey, can you please pay me${renderedProposedPaymentFixedAmount !== undefined ? ` ${renderedProposedPaymentFixedAmount}` : ''} using this link`)();
@@ -724,6 +729,6 @@ const SharePayLinkModalContent: React.FC<SharePayLinkModalContentProps> = ({ che
       </button>
     </div>
 
-    {!isProduction && <a href={checkoutLink} target="_blank" rel="noopener noreferrer"><span className="text-xl text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer">Open Link</span></a> /* this is a development feature to make it easy to access the Pay UI for this request */}
+    {!isProduction && <a href={checkoutLink} rel="noopener noreferrer"><span className="text-xl text-primary sm:hover:text-primary-darker sm:hover:cursor-pointer">Open Link In This Tab</span></a> /* this is a development feature to make it easy to access the Pay UI for this request */}
   </div>;
 };

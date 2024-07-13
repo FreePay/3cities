@@ -1,9 +1,8 @@
-import { isAddress } from "@ethersproject/address";
+import { isProduction, mainnet, sepolia } from "@3cities/core";
 import { useMemo } from "react";
+import { isAddress } from "viem";
 import { useEnsAddress as wagmiUseEnsAddress } from 'wagmi';
-import { goerli, mainnet } from "./chains";
-import { isProduction } from "./isProduction";
-import { useIsPageVisibleOrRecentlyVisible } from "./useIsPageVisibleOrRecentlyVisible";
+import { useLiveReloadQueryOptions } from "./useLiveReloadQueryOptions";
 
 // useEnsAddress is our higher-level wrapper around wagmi.useEnsAddress.
 // useEnsAddress returns the passed ENS name's address or `address:
@@ -60,18 +59,16 @@ export function useEnsAddress(ensName: string | undefined): {
   error?: never;
   isLoading: true;
 } {
-  const isPageVisibleOrRecentlyVisible = useIsPageVisibleOrRecentlyVisible();
-  const isEnabled = isPageVisibleOrRecentlyVisible && Boolean(ensName && ensName.length > 0 && !isAddress(ensName)); // NB wagmi returns the cached result while disabled, so setting isEnabled==false while page is invisible does not cause the result to be undefined. NB here !isAddress(ensName) ensures we avoid attempting to fetch an address for a passed ensName that we can statically determine is an invalid ens name because it's actually a valid ethereum address (and every valid ethereum address is an invalid ens name)
-  const args = useMemo(() => {
-    return {
-      chainId: isProduction ? mainnet.id : goerli.id,
-      name: ensName ?? '',
-      enabled: isEnabled,
-      staleTime: 15_000, // milliseconds until cached result is considered stale and will be refetched if subsequently requested. If a user is temporarily offline, a result fetched while offline will be undefined and that undefined result will persist even after the user goes back online, so we mark it as stale to correctly fetch the actual result when back online.
-    }
-  }, [ensName, isEnabled]);
-
-  const { data: address, error, isLoading } = wagmiUseEnsAddress(args);
+  const queryOpts = useLiveReloadQueryOptions();
+  const { data: address, error, isLoading } = wagmiUseEnsAddress({
+    chainId: isProduction ? mainnet.id : sepolia.id,
+    name: ensName,
+    query: {
+      ...queryOpts,
+      enabled: queryOpts.enabled && Boolean(ensName && ensName.length > 0 && !isAddress(ensName)), // here !isAddress(ensName) ensures we avoid attempting to fetch an address for a passed ensName that we can statically determine is an invalid ens name because it's actually a valid ethereum address (and every valid ethereum address is an invalid ens name)
+      notifyOnChangeProps: ['data', 'error', 'isLoading'],
+    },
+  });
 
   const result = useMemo<ReturnType<typeof useEnsAddress>>(() => {
     if (ensName === undefined || ensName.length < 1) return {

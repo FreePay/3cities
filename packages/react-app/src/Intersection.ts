@@ -1,11 +1,12 @@
 
 // Intersection is a TypeScript utility type to compute the
-// set-theoretic intersection of two types. NB in TypeScript, we have
-// builtin sum types `A | B` which TypeScript calls "union types", and
-// we have builtin set-theoretic union types `A & B` which TypeScript
-// calls "intersection types", but TypeScript doesn't have a builtin
-// set-theoretic intersection type, which we provide here.
-export type Intersection<T, U> = Pick<T, SharedKeys<T, U>> & Pick<U, SharedKeys<T, U>>;
+// set-theoretic intersection of two object types. TypeScript has
+// builtin union types `A | B`, which are the values assignable to A or
+// B (or both), and TypeScript has builtin "intersection" types `A & B`,
+// which are the values assignable to both A and B. In contrast to the
+// builtin union and intersection types, Intersection<A, B> are the
+// values that contain keys common to both objects A and B.
+export type Intersection<T extends object, U extends object> = Pick<T, SharedKeys<T, U>> & Pick<U, SharedKeys<T, U>>;
 
 type OptionalKeys<T> = { [K in keyof T]: undefined extends T[K] ? K : never }[keyof T];
 type RequiredKeys<T> = { [K in keyof T]: undefined extends T[K] ? never : K }[keyof T];

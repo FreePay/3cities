@@ -83,13 +83,14 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           githubToken: ${{ secrets.GITHUB_TOKEN }}
-      - name: Pin to IPFS on NFT.Storage
-        id: nft-storage
-        uses: 3cities/ipfs-action@19879f7df881441a7f1ae2257b63674fa33b8f26
-        with:
-          path: ./packages/react-app/build
-          service: nft.storage
-          nftStorageApiKey: ${{ secrets.NFT_STORAGE_API_KEY }}
+      # TODO re-enable Pinning to IPFS which had an error in ipfs-action which I didn't yet attempt to solve https://github.com/3cities/3cities/actions/runs/9844652126/job/27178734939
+      # - name: Pin to IPFS on NFT.Storage
+      #   id: nft-storage
+      #   uses: 3cities/ipfs-action@19879f7df881441a7f1ae2257b63674fa33b8f26
+      #   with:
+      #     path: ./packages/react-app/build
+      #     service: nft.storage
+      #     nftStorageApiKey: ${{ secrets.NFT_STORAGE_API_KEY }}
   push-to-releases-staging:
     needs: [verify-build, deploy-staging, deploy-staging-prod]
     name: 'Push to releases/staging'

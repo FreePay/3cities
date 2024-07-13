@@ -1,15 +1,15 @@
-import { BigNumber } from '@ethersproject/bignumber';
+import { type NativeCurrency, type Token, getTokenKey, nativeCurrencies, tokens } from '@3cities/core';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useImmer } from 'use-immer';
 import { useAccount } from 'wagmi';
-import { AddressContext, emptyAddressContext } from './AddressContext';
+import { type AddressContext, emptyAddressContext } from './AddressContext';
 import { ConnectedAccountContextObserverContext } from './ConnectedAccountContextObserverContext';
-import { NativeCurrency, Token } from './Token';
-import { TokenBalance, isDust } from './TokenBalance';
-import { ObservableValueUpdater, makeObservableValue } from './observer';
-import { getTokenKey, nativeCurrencies, tokens } from './tokens';
+import { type TokenBalance, isDust } from './TokenBalance';
+import { type ObservableValueUpdater, makeObservableValue } from './observer';
 import { useLiveNativeCurrencyBalance } from './useLiveNativeCurrencyBalance';
 import { useLiveTokenBalance } from './useLiveTokenBalance';
+
+// TODO there's a performance bug in ConnectedAccountContextObserverProvider in that ConnectedAccountContextUpdaterInner is both the container for the AddressContext maintained as state as well as the parent for the TokenBalanceUpdater and NativeCurrencyBalanceUpdater components. The result is that every time _any_ token or native currency balance updates, the AddressContext is updated as state, and this causes an unconditional rerender in _all_ updater child components since their parent rerendered due to state update. The solution is to employ a 2nd layer of observer indirection similar to ExchangeRatesUpdater, such that the updater components are not descendants of the component storing AddressContext as state
 
 type ConnectedAccountContextObserverProviderProps = {
   children?: React.ReactNode;
@@ -34,7 +34,7 @@ type NativeCurrencyBalanceUpdaterProps = {
   nonce: number; // a nonce whose increment will cause the current native currency balance to be flushed into the updateNativeCurrencyBalance callback. Used to avoid a useEffect race condition where updated balances are pushed into the updateNativeCurrencyBalance callback and then discarded because the client AddressContext is reset to the empty value after the updated balances are applied
   address: `0x${string}`; // address whose native currency balance we'll keep updated
   nativeCurrency: NativeCurrency; // nativeCurrency whose balance we'll keep updated
-  updateNativeCurrencyBalance: (nc: NativeCurrency, b: BigNumber | undefined) => void; // callback we must call when native currency balance updates
+  updateNativeCurrencyBalance: (nc: NativeCurrency, b: bigint | undefined) => void; // callback we must call when native currency balance updates
 }
 const NativeCurrencyBalanceUpdater: React.FC<NativeCurrencyBalanceUpdaterProps> = ({ nonce, address, nativeCurrency, updateNativeCurrencyBalance }) => {
   const b = useLiveNativeCurrencyBalance(address, nativeCurrency.chainId);
@@ -48,7 +48,7 @@ type TokenBalanceUpdaterProps = {
   nonce: number; // a nonce whose increment will cause the current token balance to be flushed into the updateTokenBalance callback. Used to avoid a useEffect race condition where updated balances are pushed into the updateTokenBalance callback and then discarded because the AddressContext is client reset to the empty value after the updated balances are applied
   address: `0x${string}`; // address whose token balance we'll update
   token: Token; // token whose balance we'll update
-  updateTokenBalance: (t: Token, b: BigNumber | undefined) => void; // callback we must call when token balance updates
+  updateTokenBalance: (t: Token, b: bigint | undefined) => void; // callback we must call when token balance updates
 }
 const TokenBalanceUpdater: React.FC<TokenBalanceUpdaterProps> = ({ nonce, address, token, updateTokenBalance }) => {
   const b = useLiveTokenBalance(token.contractAddress, address, token.chainId);
@@ -85,7 +85,7 @@ const ConnectedAccountContextUpdaterInner: React.FC<ConnectedAccountContextUpdat
     ovu.setValueAndNotifyObservers(ac);
   }, [ovu, ac]);
 
-  const updateNativeCurrencyOrTokenBalance = useCallback((nativeCurrencyOrToken: NativeCurrency | Token, newBalance: BigNumber | undefined) => { // updateNativeCurrencyOrTokenBalance is a single callback to be shared among all NativeCurrencyUpdaters/TokenBalanceUpdaters because each updater passes its own NativeCurrency/Token to this callback to be mapped into a tokenKey to then update AddressContext. Alternatively, we could have baked/curried the NativeCurrency/Token into the callback and created N callbacks, one per token
+  const updateNativeCurrencyOrTokenBalance = useCallback((nativeCurrencyOrToken: NativeCurrency | Token, newBalance: bigint | undefined) => { // updateNativeCurrencyOrTokenBalance is a single callback to be shared among all NativeCurrencyUpdaters/TokenBalanceUpdaters because each updater passes its own NativeCurrency/Token to this callback to be mapped into a tokenKey to then update AddressContext. Alternatively, we could have baked/curried the NativeCurrency/Token into the callback and created N callbacks, one per token
     // console.log("top of updateNativeCurrencyOrTokenBalance callback");
     setAC(draft => {
       // console.log("top of updateNativeCurrencyOrTokenBalance setAC body");
@@ -98,7 +98,7 @@ const ConnectedAccountContextUpdaterInner: React.FC<ConnectedAccountContextUpdat
         const tb: TokenBalance = {
           address: connectedAccount,
           tokenKey: tk,
-          balanceAsBigNumberHexString: newBalance.toHexString(),
+          balance: newBalance,
           balanceAsOf: Date.now(),
         };
         if (isDust(tb)) {

@@ -1,7 +1,7 @@
 import { useContext } from 'react';
-import { AddressContext } from './AddressContext';
+import { type AddressContext } from './AddressContext';
 import { ConnectedAccountContextObserverContext } from './ConnectedAccountContextObserverContext';
-import { Observer, useObservedValue } from './observer';
+import { type Observer, useObservedValue } from './observer';
 
 // useConnectedAccountContext returns the connected account's
 // AddressContext, which is automatically kept synced with latest

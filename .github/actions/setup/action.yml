@@ -5,6 +5,8 @@ name: setup
 runs:
   using: composite
   steps:
+    - name: "Install Foundry"
+      uses: "3cities/foundry-toolchain@8f1998e9878d786675189ef566a2e4bf24869773"
     - uses: 3cities/setup-node@a9893b0cfb0821c9c7b5fec28a6a2e6cdd5e20a4
       with:
         node-version-file: '.nvmrc'
@@ -12,7 +14,10 @@ runs:
     - uses: 3cities/cache@04f198bf0b2a39f7230a4304bf07747a0bddf146
       id: install-cache
       with:
-        path: node_modules/
+        # in addition to caching the standard node_modules, we also cache packages/eth-transfer-proxy/node_modules because some of its dependencies use nohoist that causes the dependency artifacts to be placed directly into this subpackage node_modules
+        path: |
+          node_modules/
+          packages/eth-transfer-proxy/node_modules/
         key: ${{ runner.os }}-install-${{ hashFiles('**/yarn.lock') }}
     - if: steps.install-cache.outputs.cache-hit != 'true'
       run: yarn install --frozen-lockfile --ignore-scripts

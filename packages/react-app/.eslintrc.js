@@ -1,8 +1,5 @@
-// TODO disallow `as` keyword
-// TODO merge that branch with more typesafe eslint rules
+// This package-specific .eslintrc.js file is automatically merged by `eslint` at runtime with our project's root .eslintrs.js https://eslint.org/docs/latest/use/configure/configuration-files#cascading-and-hierarchy
 const path = require('path');
-const rulesDirPlugin = require('eslint-plugin-rulesdir');
-rulesDirPlugin.RULES_DIR = [path.resolve(__dirname, 'eslint-rules')];
 
 module.exports = {
     "settings": {
@@ -15,94 +12,29 @@ module.exports = {
         "es2021": true,
     },
     "extends": [
-        "eslint:recommended",
         "plugin:react/recommended",
         "plugin:react-hooks/recommended",
-        "plugin:@typescript-eslint/recommended",
     ],
-    "parser": "@typescript-eslint/parser",
     "parserOptions": {
         "ecmaFeatures": {
             "jsx": true,
         },
-        "ecmaVersion": "latest",
-        "sourceType": "module",
         "project": path.resolve(__dirname, './tsconfig.json'),
     },
     "plugins": [
         "react",
-        "@typescript-eslint",
-        'rulesdir',
     ],
     "ignorePatterns": [
-        ".eslintrc.js",
         "tailwind.config.js",
         "postcss.config.js",
         "*.test.js",
-        "eslint-rules/",
-        "node_modules/",
-        "build/",
     ],
     "rules": {
-        "@typescript-eslint/switch-exhaustiveness-check": "error",
-        "@typescript-eslint/no-empty-function": "off",
-        "@typescript-eslint/no-inferrable-types": "off",
-        "@typescript-eslint/no-non-null-assertion": [
-            "error",
-        ],
-        "eqeqeq": [
-            "error",
-        ],
-        "no-restricted-imports": [
-            "error",
-            {
-                "paths": [
-                    {
-                        "name": "ethers",
-                        "message": "Please import from '@ethersproject/module' directly to support tree-shaking."
-                    },
-                    {
-                        "name": "@lingui/macro",
-                        "importNames": [
-                            "t"
-                        ],
-                        "message": "Please use <Trans> instead of t."
-                    },
-                    {
-                        "name": "@wagmi/core/chains",
-                        "message": "Import from 3cities './chains' instead."
-                    },
-                ],
-                "patterns": [
-                    {
-                        "group": [
-                            "**/dist"
-                        ],
-                        "message": "Do not import from dist/ - this is an implementation detail, and breaks tree-shaking."
-                    },
-                ],
-            },
-        ],
-        "no-shadow": [
-            "error",
-        ],
-        "no-unreachable": [
-            "error",
-        ],
         "react-hooks/exhaustive-deps": [
             "warn",
             {
                 "additionalHooks": "useEffectSkipFirst*",
             },
-        ],
-        "rulesdir/no-instanceof-ChainMismatchError": [
-            "warn",
-        ],
-        "rulesdir/no-conditional-returns": [
-            "warn",
-        ],
-        "rulesdir/no-use-below": [
-            "error",
         ],
     },
 };

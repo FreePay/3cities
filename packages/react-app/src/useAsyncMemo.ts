@@ -1,4 +1,4 @@
-import { DependencyList, useEffect, useMemo, useState } from 'react';
+import { type DependencyList, useEffect, useMemo, useState } from 'react';
 
 // Design goals of useAsyncMemo (which were achieved)
 //  1. mimic React.useMemo's API but for async values.

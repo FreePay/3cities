@@ -1,8 +1,8 @@
 import React, { useCallback, useMemo, useState } from "react";
 import { Outlet, useMatches, useSearchParams } from "react-router-dom";
-import { CheckoutSettings } from "./CheckoutSettings";
-import { CheckoutSettingsContext, CheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
-import { MaybeCheckoutSettings, deserializeCheckoutSettingsUnknownMessageType, deserializeCheckoutSettingsWithEncryption, deserializeCheckoutSettingsWithSignature } from "./serialize";
+import { type CheckoutSettings } from "./CheckoutSettings";
+import { CheckoutSettingsContext, type CheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
+import { type MaybeCheckoutSettings, deserializeCheckoutSettingsUnknownMessageType, deserializeCheckoutSettingsWithEncryption, deserializeCheckoutSettingsWithSignature } from "./serialize";
 import { useEffectSkipFirst } from "./useEffectSkipFirst";
 
 // TODO for 'CheckoutSettingsHasSignatureToVerify', the benefit of signatures vs encryption is that the cleartext CheckoutSettings is included in the CheckoutSettingsSigned. So, we might leverage that cleartext eg. by showing certain unverified payment details before the password is typed in. Or perhaps to bypass the password and see Pay screen with a big red "UNVERIFIED PAY LINK". One way to do this is to have MaybeCheckoutSettings return something like `type CheckoutSettingsUnverified = { checkoutSettings: CheckoutSettings }` instead of `CheckoutSettingsHasSignatureToVerify` and then the downstream CheckoutSettingsRequiresPassword could have something like `requirement: { kind: 'needToDecrypt' } | { kind: 'needToVerifySignature'; skipVerification: () => void; }` and then the client could call skipVerification. And then for Pay to detect skipped verification and show a warning banner, CheckoutSettingsContext could have `CheckoutSettings | CheckoutSettingsRequiresPassword | CheckoutSettingsUnverified`

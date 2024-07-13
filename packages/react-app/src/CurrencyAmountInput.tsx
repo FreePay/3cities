@@ -1,10 +1,8 @@
-import { BigNumber } from "@ethersproject/bignumber";
+import { type ExchangeRates, type LogicalAsset, type LogicalAssetTicker, convert, getDecimalsToRenderForLogicalAssetTicker, logicalAssetsByTicker, parseLogicalAssetAmount } from "@3cities/core";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import CurrencyInput from "react-currency-input-field";
 import { FaTimesCircle } from "react-icons/fa";
-import { ExchangeRates, convert } from "./ExchangeRates";
 import { RenderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
-import { LogicalAsset, LogicalAssetTicker, getDecimalsToRenderForLogicalAssetTicker, logicalAssetsByTicker, parseLogicalAssetAmount } from "./logicalAssets";
 import { useExchangeRates } from "./useExchangeRates";
 
 interface CurrencyAmountInputProps {
@@ -106,7 +104,7 @@ function useCurrencyAmountInput(logicalAssetTicker: LogicalAssetTicker, inputId:
     return amount && er && logicalAssetTicker !== 'USD' ? convert({
       fromTicker: logicalAssetTicker,
       toTicker: 'USD',
-      fromAmount: parseLogicalAssetAmount(amount.toString()).toBigInt(),
+      fromAmount: parseLogicalAssetAmount(amount.toString()),
       er,
     }) : undefined;
   }, [logicalAssetTicker, amount, er]);
@@ -123,7 +121,7 @@ function useCurrencyAmountInput(logicalAssetTicker: LogicalAssetTicker, inputId:
   const amountInputElement = useMemo<JSX.Element>(() => {
     const la: LogicalAsset = logicalAssetsByTicker[logicalAssetTicker];
     return <div className="relative flex items-center justify-center">
-      {amountUsdEquivalent ? <span className="absolute bottom-[-1.5em] w-fit text-lg text-gray-500"><RenderLogicalAssetAmount logicalAssetTicker={"USD"} amountAsBigNumberHexString={BigNumber.from(amountUsdEquivalent).toHexString()} /></span> : undefined}
+      {amountUsdEquivalent ? <span className="absolute bottom-[-1.5em] w-fit text-lg text-gray-500"><RenderLogicalAssetAmount logicalAssetTicker={"USD"} amount={amountUsdEquivalent} /></span> : undefined}
       <label className={`flex-none text-6xl font-medium text-black ${la.symbol.prefix ? '' : 'invisible pl-6'}`} htmlFor={inputId}>{la.symbol.prefix}{la.symbol.suffix}</label>
       <div className="text-6xl font-bold" style={amountInputContainerStyle}>
         <CurrencyInput

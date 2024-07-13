@@ -1,4 +1,4 @@
-import { DependencyList, EffectCallback, useEffect, useRef } from "react";
+import { type DependencyList, type EffectCallback, useEffect, useRef } from "react";
 
 // useEffectSkipFirst is a wrapper around useEffect that skips the first
 // invocation of the useEffect callback. This is useful to eg. run an

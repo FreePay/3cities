@@ -1,8 +1,8 @@
+import { hasOwnPropertyOfType } from "@3cities/core";
 import React from "react";
 import { Link, useRouteError } from "react-router-dom";
 import useClipboard from "react-use-clipboard";
-import { useAccount } from "wagmi";
-import { hasOwnPropertyOfType } from "./hasOwnProperty";
+import { serialize, useAccount } from "wagmi";
 
 const styleOuterDiv: React.CSSProperties = {
   position: 'absolute',
@@ -38,10 +38,10 @@ export const GlobalErrorBoundary = () => {
 
   const { address } = useAccount();
   const errMsgToCopy = (() => {
-    const errString = JSON.stringify({
+    const errString = serialize({
       url: window.location.href,
       error,
-      errorJson: `${error} ${JSON.stringify(error)}`,
+      errorJson: `${error} ${serialize(error)}`,
     });
     if (address === undefined) return errString;
     else return errString.replace(new RegExp(address, 'gi'), '<redacted connected wallet address>');

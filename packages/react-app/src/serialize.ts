@@ -1,15 +1,12 @@
-import { BigNumber } from "@ethersproject/bignumber";
-import { CheckoutSettings, SenderNoteSettings } from "./CheckoutSettings";
-import { NonEmptyArray, ensureNonEmptyArray } from "./NonEmptyArray";
-import { PaymentMode, ProposedPayment, isPaymentModeWithFixedAmount } from "./Payment";
+import { type LogicalAssetTicker, type NonEmptyArray, allLogicalAssetTickers, ensureNonEmptyArray, hasOwnProperty, hasOwnPropertyOfType, toUppercase } from "@3cities/core";
+import { CheckoutSettingsEncrypted as CheckoutSettingsEncryptedPb, CheckoutSettings as CheckoutSettingsPb, CheckoutSettingsSigned as CheckoutSettingsSignedPb, MessageType as MessageTypePb, CheckoutSettings_PayWhatYouWant_PayWhatYouWantFlags as PayWhatYouWantFlagsPb, CheckoutSettings_PayWhatYouWant as PayWhatYouWantPb, CheckoutSettings_SenderNoteSettingsMode as SenderNoteSettingsModePb } from "@3cities/core/proto/checkout-settings";
+import { LogicalAssetTicker as LogicalAssetTickerPb } from "@3cities/core/proto/logical-assets";
+import { type CheckoutSettings, type SenderNoteSettings, type SuccessActionRedirect } from "./CheckoutSettings";
+import { type PaymentMode, type ProposedPayment, isPaymentModeWithFixedAmount } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
-import { StrategyPreferences } from "./StrategyPreferences";
+import { type StrategyPreferences } from "./StrategyPreferences";
 import { modifiedBase64Decode, modifiedBase64Encode } from "./base64";
 import { decrypt, encrypt, generateSignature, makeIv, makeSalt, verifySignature } from "./crypto";
-import { CheckoutSettingsEncrypted as CheckoutSettingsEncryptedPb, CheckoutSettings as CheckoutSettingsPb, CheckoutSettingsSigned as CheckoutSettingsSignedPb, LogicalAssetTicker as LogicalAssetTickerPb, MessageType as MessageTypePb, CheckoutSettings_PayWhatYouWant_PayWhatYouWantFlags as PayWhatYouWantFlagsPb, CheckoutSettings_PayWhatYouWant as PayWhatYouWantPb, CheckoutSettings_SenderNoteSettingsMode as SenderNoteSettingsModePb } from "./gen/threecities/v1/v1_pb";
-import { hasOwnProperty, hasOwnPropertyOfType } from "./hasOwnProperty";
-import { LogicalAssetTicker, allLogicalAssetTickers } from "./logicalAssets";
-import { toUppercase } from "./toUppercase";
 
 // TODO unit tests for serialization functions. Especially a test that generates random CheckoutSettings and uses CheckoutSettingsPb.equals() to verify the serialization->deserialization didn't change anything
 
@@ -42,13 +39,13 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
       })();
       return {
         value: new PayWhatYouWantPb({
-          ...(flags && { flags }),
-          suggestedLogicalAssetAmounts: p.suggestedLogicalAssetAmountsAsBigNumberHexStrings.map(a => bigIntToFromBytes.to(BigNumber.from(a).toBigInt())),
+          ...(flags && { flags } satisfies Pick<PayWhatYouWantPb, 'flags'>),
+          suggestedLogicalAssetAmounts: p.suggestedLogicalAssetAmounts.map(a => bigIntToFromBytes.to(a)),
         }),
         case: "proposedPaymentPaymentModePayWhatYouWant",
       };
     } else return {
-      value: bigIntToFromBytes.to(BigNumber.from(pm.logicalAssetAmountAsBigNumberHexString).toBigInt()),
+      value: bigIntToFromBytes.to(pm.logicalAssetAmount),
       case: "proposedPaymentPaymentModeLogicalAssetAmount",
     };
   })();
@@ -84,7 +81,7 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
   })();
 
   const successRedirectUrl: string | undefined = (() => {
-    const r = cs.successRedirect;
+    const r = cs.successAction?.redirect;
     if (r) {
       const prefix = r.openInNewTab ? successRedirectUrlOpenInNewTabSentinelChar : ''; // see note on successRedirectUrlOpenInNewTabSentinelChar
       return prefix + r.url;
@@ -98,14 +95,14 @@ function checkoutSettingsToProto(cs: CheckoutSettings): CheckoutSettingsPb {
     proposedPaymentPaymentMode,
     ...(receiverStrategyPreferencesAcceptedTokenTickers && {
       receiverStrategyPreferencesAcceptedTokenTickers
-    }),
-    ...(receiverStrategyPreferencesAcceptedChainIds && { receiverStrategyPreferencesAcceptedChainIds }),
-    ...(cs.note && { note: cs.note }),
-    ...(senderNoteSettingsMode && { senderNoteSettingsMode }),
-    ...(senderNoteSettingsInstructions && { senderNoteSettingsInstructions }),
-    ...(successRedirectUrl && { successRedirectUrl }),
-    ...(cs.successRedirect?.callToAction && { successRedirectCallToAction: cs.successRedirect?.callToAction }),
-    ...(cs.webhookUrl && { webhookUrl: cs.webhookUrl }),
+    } satisfies Pick<CheckoutSettingsPb, 'receiverStrategyPreferencesAcceptedTokenTickers'>),
+    ...(receiverStrategyPreferencesAcceptedChainIds && { receiverStrategyPreferencesAcceptedChainIds } satisfies Pick<CheckoutSettingsPb, 'receiverStrategyPreferencesAcceptedChainIds'>),
+    ...(cs.note && { note: cs.note } satisfies Pick<CheckoutSettingsPb, 'note'>),
+    ...(senderNoteSettingsMode && { senderNoteSettingsMode } satisfies Pick<CheckoutSettingsPb, 'senderNoteSettingsMode'>),
+    ...(senderNoteSettingsInstructions && { senderNoteSettingsInstructions } satisfies Pick<CheckoutSettingsPb, 'senderNoteSettingsInstructions'>),
+    ...(successRedirectUrl && { successRedirectUrl } satisfies Pick<CheckoutSettingsPb, 'successRedirectUrl'>),
+    ...(cs.successAction?.redirect?.callToAction && { successRedirectCallToAction: cs.successAction.redirect.callToAction } satisfies Pick<CheckoutSettingsPb, 'successRedirectCallToAction'>),
+    ...(cs.webhookUrl && { webhookUrl: cs.webhookUrl } satisfies Pick<CheckoutSettingsPb, 'webhookUrl'>),
   });
 }
 
@@ -141,7 +138,7 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
         switch (pm.case) { // NB we use switch instead of an if statement to get case exhaustivity checks in linter
           case undefined: throw new Error("illegal serialization: proposedPaymentPaymentMode.case is undefined");
           case "proposedPaymentPaymentModeLogicalAssetAmount": return {
-            logicalAssetAmountAsBigNumberHexString: BigNumber.from(bigIntToFromBytes.from(pm.value)).toHexString(),
+            logicalAssetAmount: bigIntToFromBytes.from(pm.value),
           };
           case "proposedPaymentPaymentModePayWhatYouWant": {
             const [isDynamicPricingEnabled, canPayAnyAsset] = ((): [boolean, boolean] => {
@@ -156,7 +153,7 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
               payWhatYouWant: {
                 isDynamicPricingEnabled,
                 canPayAnyAsset,
-                suggestedLogicalAssetAmountsAsBigNumberHexStrings: pm.value.suggestedLogicalAssetAmounts.map(a => BigNumber.from(bigIntToFromBytes.from(a)).toHexString()),
+                suggestedLogicalAssetAmounts: pm.value.suggestedLogicalAssetAmounts.map(bigIntToFromBytes.from),
               }
             };
           }
@@ -195,8 +192,8 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
       })();
 
       return {
-        ...(acceptedTokenTickers && { acceptedTokenTickers }),
-        ...(acceptedChainIds && { acceptedChainIds }),
+        ...(acceptedTokenTickers && { acceptedTokenTickers } satisfies Pick<StrategyPreferences, 'acceptedTokenTickers'>),
+        ...(acceptedChainIds && { acceptedChainIds } satisfies Pick<StrategyPreferences, 'acceptedChainIds'>),
       } satisfies StrategyPreferences;
     })();
 
@@ -215,7 +212,7 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
 
     const note: string | undefined = cspb.note.length > 0 ? cspb.note : undefined;
 
-    const successRedirect = ((): CheckoutSettings['successRedirect'] | undefined => {
+    const successRedirect = ((): Required<CheckoutSettings>['successAction']['redirect'] | undefined => {
       if (cspb.successRedirectUrl.length < 1) {
         if (cspb.successRedirectCallToAction.length > 0) throw new Error(`illegal serialization: successRedirectCallToAction is non-empty when successRedirectUrl is empty`);
         else return undefined;
@@ -223,11 +220,11 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
         if (cspb.successRedirectUrl.startsWith(successRedirectUrlOpenInNewTabSentinelChar)) return { // NB see note on successRedirectUrlOpenInNewTabSentinelChar
           url: cspb.successRedirectUrl.slice(1),
           openInNewTab: true,
-          ...(cspb.successRedirectCallToAction.length > 0 && { callToAction: cspb.successRedirectCallToAction }),
+          ...(cspb.successRedirectCallToAction.length > 0 && { callToAction: cspb.successRedirectCallToAction } satisfies Pick<SuccessActionRedirect, 'callToAction'>),
         }; else return {
           url: cspb.successRedirectUrl,
           openInNewTab: false,
-          ...(cspb.successRedirectCallToAction.length > 0 && { callToAction: cspb.successRedirectCallToAction }),
+          ...(cspb.successRedirectCallToAction.length > 0 && { callToAction: cspb.successRedirectCallToAction } satisfies Pick<SuccessActionRedirect, 'callToAction'>),
         };
       }
     })();
@@ -237,10 +234,11 @@ function checkoutSettingsFromProto(cspb: CheckoutSettingsPb): CheckoutSettings {
     return {
       proposedPayment: proposedPayment,
       receiverStrategyPreferences,
-      ...(note && { note }),
+      ...(note && { note } satisfies Pick<CheckoutSettings, 'note'>),
       senderNoteSettings,
-      ...(successRedirect && { successRedirect }),
-      ...(webhookUrl && { webhookUrl }),
+      ...(successRedirect && ({ successAction: { redirect: successRedirect } } satisfies Pick<CheckoutSettings, 'successAction'>)), // TODO support entire successAction API
+      ...(webhookUrl && ({ webhookUrl } satisfies Pick<CheckoutSettings, 'webhookUrl'>)),
+      nativeTokenTransferProxy: 'never', // TODO support full nativeTokenTransferProxy API
     } satisfies CheckoutSettings;
   } catch (e) {
     throw new Error("fromProto error", { cause: e });

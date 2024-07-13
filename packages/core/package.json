@@ -1,0 +1,55 @@
+{
+  "name": "@3cities/core",
+  "license": "MIT",
+  "version": "1.0.0",
+  "main": "./dist/cjs/index.js",
+  "module": "./dist/esm/index.js",
+  "types": "./dist/types/index.d.ts",
+  "files": [
+    "dist/cjs/**/*",
+    "dist/esm/**/*",
+    "dist/types/**/*"
+  ],
+  "exports": {
+    ".": {
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js",
+      "types": "./dist/types/index.d.ts"
+    },
+    "./proto/checkout-settings": {
+      "require": "./dist/cjs/gen/threecities/v1/checkout_settings_pb.js",
+      "import": "./dist/esm/gen/threecities/v1/checkout_settings_pb.js",
+      "types": "./dist/types/gen/threecities/v1/checkout_settings_pb.d.ts"
+    },
+    "./proto/logical-assets": {
+      "require": "./dist/cjs/gen/threecities/v1/logical_assets_pb.js",
+      "import": "./dist/esm/gen/threecities/v1/logical_assets_pb.js",
+      "types": "./dist/types/gen/threecities/v1/logical_assets_pb.d.ts"
+    }
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.34.0",
+    "@bufbuild/protoc-gen-es": "^1.10.0",
+    "nodemon": "^3.1.4"
+  },
+  "scripts": {
+    "clean:ts": "rm -rf ./dist",
+    "clean:cjs": "rm -rf ./dist/cjs",
+    "clean:esm": "rm -rf ./dist/esm",
+    "clean:types": "rm -rf ./dist/types",
+    "clean": "yarn clean:ts",
+    "build:cjs": "yarn clean:cjs && tsc --module commonjs --moduleResolution node --outDir ./dist/cjs --verbatimModuleSyntax false --sourceMap",
+    "build:esm": "yarn clean:esm && tsc --outDir ./dist/esm  --sourceMap",
+    "build:types": "yarn clean:types && tsc --declarationDir ./dist/types --emitDeclarationOnly --declaration --declarationMap",
+    "build:ts": "yarn build:cjs && yarn build:esm && yarn build:types",
+    "build": "yarn build:ts",
+    "build:dev": "yarn build # NB core has no dev build, but we include this so that the root build:dev task works for all packages. Clients must apply any env-specific settings, WARNING especially to pass appropriate env vars to core's isProduction",
+    "build:prod-test": "yarn build # NB core has no prod-test build, but we include this so that the root build:prod-test task works for all packages. Clients must apply any env-specific settings, WARNING especially to pass appropriate env vars to core's isProduction",
+    "gen": "npx buf generate proto",
+    "lint": "eslint . --max-warnings 0 && buf lint",
+    "prepack": "yarn && yarn build",
+    "start": "nodemon --watch 'src/**/*' --ext 'ts,proto' --exec 'yarn build'",
+    "test": "forge test",
+    "test:coverage": "forge coverage"
+  }
+}
