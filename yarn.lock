@@ -7515,9 +7515,10 @@ for-each@^0.3.3:
   dependencies:
     is-callable "^1.1.3"
 
-"forge-std@github:foundry-rs/forge-std#v1.8.1":
-  version "1.7.6"
-  resolved "https://codeload.github.com/foundry-rs/forge-std/tar.gz/bb4ceea94d6f10eeb5b41dc2391c6c8bf8e734ef"
+"forge-std@github:foundry-rs/forge-std#v1.9.1":
+  version "1.9.1"
+  uid "07263d193d621c4b2b0ce8b4d54af58f6957d97d"
+  resolved "https://codeload.github.com/foundry-rs/forge-std/tar.gz/07263d193d621c4b2b0ce8b4d54af58f6957d97d"
 
 fork-ts-checker-webpack-plugin@^6.5.0:
   version "6.5.3"
