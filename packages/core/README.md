@@ -1,6 +1,4 @@
 
-# Overview
+# @3cities/core
 
-TODO
-
-# Usage
+A package for dependencies shared across the 3cities monorepo.
