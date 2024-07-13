@@ -1,6 +1,6 @@
 
-# Overview
+# @3cities/verifier
 
-TODO
+A stateless library to verify token transfers and process payments offchain.
 
-# Usage
+@3cities/verifier is offered in grpc service format in @3cities/service.
