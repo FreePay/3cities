@@ -7,7 +7,7 @@ import { ExchangeRatesContext } from './ExchangeRatesContext';
 import { type ObservableValue, type ObservableValueUpdater, type ObservableValueUpdaterWithCurrentValue, type Observer, makeObservableValue } from './observer';
 import useDebounce from './useDebounce';
 import { useIsPageVisibleOrRecentlyVisible } from './useIsPageVisibleOrRecentlyVisible';
-import { wagmiConfig } from './wagmiClient';
+import { wagmiConfig } from './wagmiConfig';
 
 type ExchangeRatesProviderProps = {
   children?: React.ReactNode;

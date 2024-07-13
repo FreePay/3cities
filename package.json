@@ -4,7 +4,9 @@
   "keywords": [
     "ethereum",
     "payments",
-    "react"
+    "onchain",
+    "blockchain",
+    "stablecoins"
   ],
   "private": true,
   "dependencies": {
@@ -22,12 +24,12 @@
     "typescript": "^5.5.2"
   },
   "scripts": {
-    "runTaskInAllPackages": "for package in core eth-transfer-proxy verifier react-app; do echo \"*** $TASK $package ***\" && yarn workspace @3cities/$package $TASK || exit 1; done",
+    "runTaskInAllPackages": "for package in core eth-transfer-proxy verifier interface service; do echo \"*** $TASK $package ***\" && yarn workspace @3cities/$package $TASK || exit 1; done",
     "lint": "TASK=lint yarn runTaskInAllPackages",
     "build": "TASK=build yarn runTaskInAllPackages",
     "build:prod-test": "TASK='build:prod-test' yarn runTaskInAllPackages",
     "build:dev": "TASK='build:dev' yarn runTaskInAllPackages",
-    "start": "yarn workspace @3cities/react-app start"
+    "start": "yarn workspace @3cities/interface start"
   },
   "workspaces": {
     "packages": [
