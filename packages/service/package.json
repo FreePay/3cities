@@ -28,7 +28,6 @@
     "depcheck": "depcheck",
     "gen": "npx buf generate proto",
     "lint": "yarn eslint . --max-warnings 0 && buf lint",
-    "run": "yarn build && yarn start",
     "start": "yarn start:prod",
     "start:dev": "NODE_EXTRA_CA_CERTS=\"$(mkcert -CAROOT)/rootCA.pem\" dotenvx run -- npx tsx src/server.ts",
     "start:prod": "yarn build && NODE_EXTRA_CA_CERTS=\"$(mkcert -CAROOT)/rootCA.pem\" dotenvx run -- node build/out.js",
