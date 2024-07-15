@@ -147,7 +147,7 @@ type ExecuteTokenTransferButtonUIProps = Pick<ExecuteTokenTransferButtonProps, '
   isExecuteTokenTransferRendered: boolean; // true iff the underlying ExecuteTokenTransfer associated with this ExecuteTokenTransferButton is currently being rendered
 };
 
-const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> = ({ tt, onClickPassthrough, autoReset, autoClickIfNeverClicked, loadForeverOnTransactionFeeUnaffordableError, label, successLabel, warningLabel, errorLabel, disabled, showLoadingSpinnerWhenDisabled, className, disabledClassName, enabledClassName, errorClassName, warningClassName, loadingSpinnerClassName, observer, isExecuteTokenTransferRendered, }) => {
+const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> = ({ tt, onClickPassthrough, autoReset, loadForeverOnTransactionFeeUnaffordableError, label, successLabel, warningLabel, errorLabel, disabled, showLoadingSpinnerWhenDisabled, className, disabledClassName, enabledClassName, errorClassName, warningClassName, loadingSpinnerClassName, observer, isExecuteTokenTransferRendered, }) => {
   const { connector: activeConnector } = useAccount();
   const statusFromObserver: ExecuteTokenTransferStatus | undefined = useObservedValue(observer);
   const status = (isExecuteTokenTransferRendered && statusFromObserver) || defaultExecuteTokenTransferStatus; // if the underlying ExecuteTokenTransfer is not currently being rendered, then any statusFromObserver is by definition stale as it's from an unmounted ExecuteTokenTransfer, so we mustn't use it. NB when ExecuteTokenTransfer is unmounted it sends a final undefined status, but statusFromObserver is updated async based on effect timers, whereas isExecuteTokenTransferRendered is computed synchronously on each render, so when ExecuteTokenTransfer is unmounted, isExecuteTokenTransferRendered flips to false before statusFromObserver becomes the final undefined status
@@ -155,15 +155,17 @@ const ExecuteTokenTransferButtonUI: React.FC<ExecuteTokenTransferButtonUIProps> 
 
   const connectedWalletAutoSigns: boolean = activeConnector ? activeConnector.id.includes("web3auth") : false; // true iff the connected wallet does not ask the user to sign the transaction and instead signs it on their behalf. NB we don't actually use web3auth anymore and it was entirely removed from the codebase, but we retained this as an example of how to handle a wallet that auto-signs transactions
 
-  useEffect(() => {
-    if (!onClickPassthrough && status.suggestAutoExecute) status.execute(); // NB here we never auto execute if onClickPassthrough is defined because passthrough clicks are intended to supercede the button's internal functionality. Eg. if onClickPassthrough was defined to support some client feature, it would be jarring and potentially inconsistent to begin auto executing a token transfer
-  }, [onClickPassthrough, status]);
+  // WARNING this commented-out handler implements automatic execution for suggestAutoExecute. Howver, after the upgrade to wagmi v2, it seems that ExecuteTokenTransfer may rerender "sooner" than expected due to hook internals and produce a next status before suggestAutoExecute is properly unset, leading to this effect handler running twice in a row and duplicate execution, causing the transaction to potentially be signed twice by the user and duplicate payment. TODO rebuild suggestAutoExecute control flow to ensure this can't happen and then re-enable the feature.
+  // useEffect(() => {
+  //   if (!onClickPassthrough && status.suggestAutoExecute) status.execute(); // NB here we never auto execute if onClickPassthrough is defined because passthrough clicks are intended to supercede the button's internal functionality. Eg. if onClickPassthrough was defined to support some client feature, it would be jarring and potentially inconsistent to begin auto executing a token transfer
+  // }, [onClickPassthrough, status]);
 
-  const se = status.execute; // use a local so that the useEffect dependency isn't on the entire object
-  const seclo = status.executeCalledAtLeastOnce; // use a local so that the useEffect dependency isn't on the entire object
-  useEffect(() => { // handle autoClickIfNeverClicked
-    if (!onClickPassthrough && autoClickIfNeverClicked && se && !seclo) se(); // NB here we never auto execute if onClickPassthrough is defined because passthrough clicks are intended to supercede the button's internal functionality. Eg. if onClickPassthrough was defined to support some client feature, it would be jarring and potentially inconsistent to begin auto executing a token transfer
-  }, [onClickPassthrough, autoClickIfNeverClicked, se, seclo]);
+  // WARNING this commented-out handler implements automatic execution for autoClickIfNeverClicked. Howver, after the upgrade to wagmi v2, it seems that ExecuteTokenTransfer may rerender "sooner" than expected due to hook internals and produce a next status before executeCalledAtLeastOnce is properly set, leading to this effect handler running twice in a row and duplicate execution, causing the transaction to potentially be signed twice by the user and duplicate payment. TODO rebuild autoClickIfNeverClicked control flow to ensure this can't happen and then re-enable the feature.
+  // const se = status.execute; // use a local so that the useEffect dependency isn't on the entire object
+  // const seclo = status.executeCalledAtLeastOnce; // use a local so that the useEffect dependency isn't on the entire object
+  // useEffect(() => { // handle autoClickIfNeverClicked
+  //   if (!onClickPassthrough && autoClickIfNeverClicked && se && !seclo) se(); // NB here we never auto execute if onClickPassthrough is defined because passthrough clicks are intended to supercede the button's internal functionality. Eg. if onClickPassthrough was defined to support some client feature, it would be jarring and potentially inconsistent to begin auto executing a token transfer
+  // }, [onClickPassthrough, autoClickIfNeverClicked, se, seclo]);
   // @eslint-no-use-below[se]
   // @eslint-no-use-below[seclo]
 
