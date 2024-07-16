@@ -50,6 +50,20 @@ export function closeIframe(targetOrigin: string | undefined): void {
   postMessageToParentWindow(targetOrigin, { kind: 'CloseIframe' });
 }
 
+// turnOnKeepIframeOpen informs the parent window that it has become
+// unsafe to close the iframe (eg. due to iframe msg data passing
+// requirements) and any request to close the iframe should be denied.
+export function turnOnKeepIframeOpen(targetOrigin: string | undefined): void {
+  postMessageToParentWindow(targetOrigin, { kind: 'TurnOnKeepIframeOpen' });
+}
+
+// turnOffKeepIframeOpen informs the parent window know that it's now
+// safe to close the iframe. This does not close the iframe, it merely
+// indicates it's safe to close if closing is later requested.
+export function turnOffKeepIframeOpen(targetOrigin: string | undefined): void {
+  postMessageToParentWindow(targetOrigin, { kind: 'TurnOffKeepIframeOpen' });
+}
+
 // postMessageToParentWindow requires this window to be running in an
 // iframe and posts a message to the parent window.
 // postMessageToParentWindow helps clients ensure that any message
