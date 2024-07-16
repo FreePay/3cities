@@ -11,7 +11,7 @@ export function transferVerificationRequestFromProto(pb: TransferVerificationReq
     const currency = ((): 'USD' => {
       const c = pb.trusted.currency;
       if (c === 'USD') return c;
-      else throw Error(`trusted.currency must be 'USD'`);
+      else throw Error(`trusted.currency must be 'USD' but it was '${c}'`);
     })();
     const logicalAssetAmount: bigint = (() => {
       try {
