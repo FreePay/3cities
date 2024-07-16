@@ -91,6 +91,6 @@ export function transferVerificationRequestFromProto(pb: TransferVerificationReq
     };
     return [req, undefined];
   } catch (e) {
-    return [undefined, Error(`${e}`)];
+    return [undefined, Error(`${e} req: ${pb.toJsonString()}`)];
   }
 }
