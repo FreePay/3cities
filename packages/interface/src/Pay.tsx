@@ -12,7 +12,7 @@ import { type CheckoutSettingsRequiresPassword, isCheckoutSettingsRequiresPasswo
 import { ConnectWalletButton } from "./ConnectWalletButton";
 import { CurrencyAmountInput } from "./CurrencyAmountInput";
 import { ExternalLink } from "./ExternalLink";
-import { type IframeMessage, closeIframe, isRunningInAStandaloneWindow, isRunningInAnIframe, notifyParentWindowOfSuccessfulCheckout, notifyParentWindowOfTransactionSigned } from "./iframe";
+import { type IframeMessage, closeIframe, isRunningInAStandaloneWindow, isRunningInAnIframe, notifyParentWindowOfSuccessfulCheckout, notifyParentWindowOfTransactionSigned, turnOffKeepIframeOpen, turnOnKeepIframeOpen } from "./iframe";
 import { type Payment, type PaymentWithFixedAmount, type ProposedPaymentWithFixedAmount, type ProposedPaymentWithReceiverAddress, acceptProposedPayment, isPaymentWithFixedAmount, isProposedPaymentWithFixedAmount } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import QRCode from "./QRCode";
@@ -499,6 +499,13 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     };
   }, [checkoutSettings.authenticateSenderAddress, activeDemoAccount, caip222StyleSignature, caip222StyleMessageThatWasSigned, caip222StyleExecuteSign, caip222StyleSignRejected, caip222StyleSignCalledAtLeastOnce, caip222StyleSignatureIsLoading, caip222StyleSignatureLoadingStatus, caip222StyleSignatureIsError, caip222StyleSignatureError, buttonClickedAtLeastOnceAfterSuccessfulCaip222StyleSignature, activeWalletLikelyDoesntSupportAutoExecuteAfterSign]);
 
+  useEffect(() => { // request to the parent window to keep the iframe open during transaction signing to avoid dropped transaction data
+    if (isRunningInAnIframe) {
+      if (status?.userIsSigningTransaction === true) turnOnKeepIframeOpen(checkoutSettings.iframeParentWindowOrigin);
+      else turnOffKeepIframeOpen(checkoutSettings.iframeParentWindowOrigin);
+    }
+  }, [checkoutSettings.iframeParentWindowOrigin, status?.userIsSigningTransaction]);
+
   const [signedTransactionIframeMsgSent, setSignedTransactionIframeMsgSent] = useState(false);
   useEffect(() => {
     if (status?.signedTransaction && !signedTransactionIframeMsgSent) { // NB our strategy here is to notify the iframe as soon as a transaction is signed and before it confirms. This helps minimize the time window for a race condition where the user might close the window before the transaction details have been securely communicated to any server in the parent window. If we instead waited until checkout (ie. transaction confirmation), then we'd know the transaction confirmed, but more time would have elapsed - potentially a lot more time - giving a dangerous time window where the user could close the tab and prevent their transaction details from being sent to any server
@@ -773,19 +780,19 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   </div>, [checkoutVerbLowercase, checkoutVerbCapitalized, checkoutNounLowercase, startTransition, isConnected, checkoutSettings.note, checkoutSettings.proposedPayment.logicalAssetTickers.primary, checkoutSettings.proposedPayment.paymentMode.payWhatYouWant, checkoutSettings.requireInIframeOrErrorWith, proposedPaymentWithFixedAmount, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, payWhatYouWantSelectedSuggestedAmount, setPayWhatYouWantSelectedSuggestedAmount, setRawPayWhatYouWantAmountFromInput, payWhatYouWantLogicalAssetTickerFromInput, payWhatYouWantLogicalAssetTickerSelectionInputElement, derivedPaymentWithFixedAmount, exchangeRates, proposedStrategies, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod]);
 
   const acceptedTokensAndChainsElement: false | JSX.Element = useMemo(() => !statusIsSuccess && <div className="w-full">
-      {(() => {
-        const allStrategiesTokenTickers: string[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.ticker))];
-        const allStrategiesChainIds: number[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.chainId))];
-        return <>
-          <div className="pt-6 font-bold text-lg">Ways to pay</div>
-          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">
-            <span className="font-bold">Tokens:</span> {allStrategiesTokenTickers.join(", ")} <br />
-            {/* <span className="font-bold">on</span> */}
-            <span className="font-bold">Chains:</span> {allStrategiesChainIds.map(getSupportedChainName).join(", ")}
-          </div>
-        </>;
-      })()}
-    </div>, [statusIsSuccess, proposedStrategies]);
+    {(() => {
+      const allStrategiesTokenTickers: string[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.ticker))];
+      const allStrategiesChainIds: number[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.chainId))];
+      return <>
+        <div className="pt-6 font-bold text-lg">Ways to pay</div>
+        <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">
+          <span className="font-bold">Tokens:</span> {allStrategiesTokenTickers.join(", ")} <br />
+          {/* <span className="font-bold">on</span> */}
+          <span className="font-bold">Chains:</span> {allStrategiesChainIds.map(getSupportedChainName).join(", ")}
+        </div>
+      </>;
+    })()}
+  </div>, [statusIsSuccess, proposedStrategies]);
 
   const selectPaymentMethodScreen: false | JSX.Element = useMemo(() => bestStrategy !== undefined && otherStrategies !== undefined && otherStrategies.length > 0 && <div className={`grid grid-cols-1 w-full items-center py-6 ${selectingPaymentMethod ? '' : 'hidden'}`}>
     <div className="font-bold text-2xl">Select a {checkoutNounLowercase} method</div>
