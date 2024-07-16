@@ -772,32 +772,20 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     </div>}
   </div>, [checkoutVerbLowercase, checkoutVerbCapitalized, checkoutNounLowercase, startTransition, isConnected, checkoutSettings.note, checkoutSettings.proposedPayment.logicalAssetTickers.primary, checkoutSettings.proposedPayment.paymentMode.payWhatYouWant, checkoutSettings.requireInIframeOrErrorWith, proposedPaymentWithFixedAmount, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, payWhatYouWantSelectedSuggestedAmount, setPayWhatYouWantSelectedSuggestedAmount, setRawPayWhatYouWantAmountFromInput, payWhatYouWantLogicalAssetTickerFromInput, payWhatYouWantLogicalAssetTickerSelectionInputElement, derivedPaymentWithFixedAmount, exchangeRates, proposedStrategies, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod]);
 
-  const acceptedTokensAndChainsElement: false | JSX.Element = useMemo(() => !statusIsSuccess // NB here we must check statusIsSuccess because the sender may have no payment options after successful payment (eg. if they paid using their only payment method and it was exhausted by the payment) and so `checkoutReadinessState === 'senderHasNoPaymentOptions'` may be true after paying
-    && checkoutReadinessState === 'senderHasNoPaymentOptions' && <div className="w-full">
+  const acceptedTokensAndChainsElement: false | JSX.Element = useMemo(() => !statusIsSuccess && <div className="w-full">
       {(() => {
         const allStrategiesTokenTickers: string[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.ticker))];
         const allStrategiesChainIds: number[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.chainId))];
         return <>
-          <div className="pt-6 font-bold text-lg">Tokens accepted</div>
-          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">{allStrategiesTokenTickers.join(", ")}</div>
-          <div className="pt-6 font-bold text-lg">Chains accepted</div>
-          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">{allStrategiesChainIds.map(getSupportedChainName).join(", ")}</div>
+          <div className="pt-6 font-bold text-lg">Ways to pay</div>
+          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">
+            <span className="font-bold">Tokens:</span> {allStrategiesTokenTickers.join(", ")} <br />
+            {/* <span className="font-bold">on</span> */}
+            <span className="font-bold">Chains:</span> {allStrategiesChainIds.map(getSupportedChainName).join(", ")}
+          </div>
         </>;
       })()}
-    </div>, [statusIsSuccess, checkoutReadinessState, proposedStrategies]);
-
-  // TODO update acceptedTokensAndChainsSummaryElement to stop using "Instantly..." language and start using a summary of tokens and chains similar to acceptedTokensAndChainsElement but in a single payment method box
-  const acceptedTokensAndChainsSummaryElement: false | JSX.Element = useMemo(() => !statusIsSuccess // NB here we must check statusIsSuccess because success status may be preserved even if the sender disconnects their wallet after successful payment, so `!isConnected` may be true after successful payment
-    && !isConnected && <div className="mt-6 w-full">
-      {(() => {
-        const allProposedStrategiesTokenTickers: string[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.ticker))];
-        const allProposedStrategiesChainIds: number[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.chainId))];
-        return <>
-          <div className="font-bold text-lg">{checkoutVerbCapitalized} with</div>
-          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">{allProposedStrategiesTokenTickers.length} token{allProposedStrategiesTokenTickers.length > 1 ? 's' : ''} across {allProposedStrategiesChainIds.length} chain{allProposedStrategiesChainIds.length > 1 ? 's' : ''} accepted by this {checkoutNounLowercase}</div>
-        </>;
-      })()}
-    </div>, [checkoutVerbCapitalized, checkoutNounLowercase, isConnected, statusIsSuccess, proposedStrategies]);
+    </div>, [statusIsSuccess, proposedStrategies]);
 
   const selectPaymentMethodScreen: false | JSX.Element = useMemo(() => bestStrategy !== undefined && otherStrategies !== undefined && otherStrategies.length > 0 && <div className={`grid grid-cols-1 w-full items-center py-6 ${selectingPaymentMethod ? '' : 'hidden'}`}>
     <div className="font-bold text-2xl">Select a {checkoutNounLowercase} method</div>
@@ -942,7 +930,6 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     <div className="grid grid-cols-1">
       {paymentScreen}
       {acceptedTokensAndChainsElement}
-      {acceptedTokensAndChainsSummaryElement}
       {selectPaymentMethodScreen}
       {paymentSuccessfulScreen}
     </div>
