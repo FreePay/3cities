@@ -699,18 +699,19 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       const fixedPayment: PaymentWithFixedAmount | ProposedPaymentWithFixedAmount | undefined = derivedPaymentWithFixedAmount || proposedPaymentWithFixedAmount;
       const willShowTotalSection: boolean = fixedPayment !== undefined;
       const willShowNoteSection: boolean = checkoutSettings.note !== undefined;
+      const willShowReceiverAddressSection: boolean = checkoutSettings.hideReceiverAddress !== true;
       return <>
-        <div className={`p-4 flex items-center gap-4 justify-between w-full border border-gray-300 bg-white ${!willShowTotalSection && !willShowNoteSection ? 'rounded-md' /* if neither the total or note sections will display, then the To section is both the first and last section and needs all of its corners rounded */ : 'rounded-t-md'}`}>
+        {willShowReceiverAddressSection && <div className={`p-4 flex items-center gap-4 justify-between w-full border border-gray-300 bg-white ${!willShowTotalSection && !willShowNoteSection ? 'rounded-md' /* if neither the total or note sections will display, then the To section is both the first and last section and needs all of its corners rounded */ : 'rounded-t-md'}`}>
           <span>To:</span>
           <span className="font-bold inline-flex gap-1 place-content-between" style={{ overflowWrap: 'anywhere' }}>
             <span>{!showFullReceiverAddress && (truncateEnsName(receiverEnsName) || truncateEthAddress(receiverAddress))}{showFullReceiverAddress && receiverAddress && `${receiverAddress}${receiverEnsName ? ` (${receiverEnsName})` : ''}`}{showFullReceiverAddress && !receiverAddress && receiverEnsName}{showFullReceiverAddress && receiverAddressBlockExplorerLink && <ExternalLink href={receiverAddressBlockExplorerLink} className="ml-1">explorer</ExternalLink>}</span>
             <span className="flex place-items-center"><FaEye onClick={() => setShowFullReceiverAddress(v => !v)} className="w-4 sm:hover:text-gray-500 sm:hover:cursor-pointer" /></span>
           </span>
-        </div>
-        {willShowNoteSection && <div className={`p-4 flex items-center w-full border-b border-x border-gray-300 bg-white ${!willShowTotalSection ? 'rounded-b-md' /* if the total section won't display, then the Note section is the last section and needs its bottom corners rounded */ : ''}`}>
+        </div>}
+        {willShowNoteSection && <div className={`p-4 flex items-center w-full  border-gray-300 bg-white ${!willShowReceiverAddressSection ? 'rounded-t-md border' /* if the receiver address section won't display, then the Note section is the first section and needs its top corners rounded and full borders */ : 'border-b border-x'} ${!willShowTotalSection ? 'rounded-b-md' /* if the total section won't display, then the Note section is the last section and needs its bottom corners rounded */ : ''}`}>
           <span className="text-left">{checkoutSettings.note}</span>
         </div>}
-        {willShowTotalSection && fixedPayment !== undefined && <div className="p-4 grid grid-cols-6 w-full border-b border-x border-gray-300 bg-white text-lg rounded-b-md">
+        {willShowTotalSection && fixedPayment !== undefined && <div className={`p-4 grid grid-cols-6 w-full border-b border-x border-gray-300 bg-white text-lg ${!willShowReceiverAddressSection && !willShowNoteSection ? 'rounded-md' /* if the receiver address and note sections won't display, then the Total section is the first section and needs its top corners rounded, too */ : 'rounded-b-md'} `}>
           <span className="font-bold col-span-2">Total:</span>
           <span className="font-bold text-right col-span-4"><RenderLogicalAssetAmount
             logicalAssetTicker={fixedPayment.logicalAssetTickers.primary}
@@ -777,7 +778,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         <span className="text-gray-500 text-xs">{(otherStrategies || []).length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment method{(otherStrategies || []).length > 0 ? 's' : ''} across {[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length} chain{[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length > 1 ? 's' : ''}</span>
       </div>
     </div>}
-  </div>, [checkoutVerbLowercase, checkoutVerbCapitalized, checkoutNounLowercase, startTransition, isConnected, checkoutSettings.note, checkoutSettings.proposedPayment.logicalAssetTickers.primary, checkoutSettings.proposedPayment.paymentMode.payWhatYouWant, checkoutSettings.requireInIframeOrErrorWith, proposedPaymentWithFixedAmount, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, payWhatYouWantSelectedSuggestedAmount, setPayWhatYouWantSelectedSuggestedAmount, setRawPayWhatYouWantAmountFromInput, payWhatYouWantLogicalAssetTickerFromInput, payWhatYouWantLogicalAssetTickerSelectionInputElement, derivedPaymentWithFixedAmount, exchangeRates, proposedStrategies, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod]);
+  </div>, [checkoutSettings.hideReceiverAddress, checkoutVerbLowercase, checkoutVerbCapitalized, checkoutNounLowercase, startTransition, isConnected, checkoutSettings.note, checkoutSettings.proposedPayment.logicalAssetTickers.primary, checkoutSettings.proposedPayment.paymentMode.payWhatYouWant, checkoutSettings.requireInIframeOrErrorWith, proposedPaymentWithFixedAmount, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, payWhatYouWantSelectedSuggestedAmount, setPayWhatYouWantSelectedSuggestedAmount, setRawPayWhatYouWantAmountFromInput, payWhatYouWantLogicalAssetTickerFromInput, payWhatYouWantLogicalAssetTickerSelectionInputElement, derivedPaymentWithFixedAmount, exchangeRates, proposedStrategies, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod]);
 
   const acceptedTokensAndChainsElement: false | JSX.Element = useMemo(() => !statusIsSuccess && <div className="w-full">
     {(() => {
