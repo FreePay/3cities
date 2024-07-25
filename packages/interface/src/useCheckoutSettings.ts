@@ -38,6 +38,7 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
   const verifyEip1271Signature: boolean = ((searchParams.get("verifyEip1271Signature") || undefined)?.length || 0) > 0;
   const clickToCloseIframeLabel: string | undefined = searchParams.get("clickToCloseIframeLabel") || undefined;
   const requireNativeTokenTransferProxy: boolean = ((searchParams.get("requireNativeTokenTransferProxy") || undefined)?.length || 0) > 0;
+  const hideReceiverAddress: boolean = ((searchParams.get("hideReceiverAddress") || undefined)?.length || 0) > 0;
   // @eslint-no-use-below[searchParams] -- all search params have now been assigned. Further use of searchParams is not expected
 
   const csOut = useMemo<CheckoutSettings | CheckoutSettingsRequiresPassword | undefined>(() => {
@@ -154,9 +155,11 @@ function useApplyUrlParamOverrides(csIn: CheckoutSettings | CheckoutSettingsRequ
 
       if (requireNativeTokenTransferProxy) cs = { ...cs, nativeTokenTransferProxy: "require" }; // TODO support full nativeTokenTransferProxy API
 
+      if (hideReceiverAddress) cs = { ...cs, hideReceiverAddress: true, };
+
       return cs;
     }
-  }, [csIn, chainIdsRaw, mode, receiverAddress, currency, usdPerEth, logicalAssetAmountFullPrecision, requireInIframeOrErrorWith, iframeParentWindowOrigin, authenticateSenderAddress, verifyEip1271Signature, clickToCloseIframeLabel, requireNativeTokenTransferProxy]);
+  }, [csIn, chainIdsRaw, mode, receiverAddress, currency, usdPerEth, logicalAssetAmountFullPrecision, requireInIframeOrErrorWith, iframeParentWindowOrigin, authenticateSenderAddress, verifyEip1271Signature, clickToCloseIframeLabel, requireNativeTokenTransferProxy, hideReceiverAddress]);
 
   return csOut;
 }
