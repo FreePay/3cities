@@ -1,7 +1,4 @@
-import { type ExchangeRates, type LogicalAssetTicker, type NativeCurrency, type Token, allTokenTickers, arbitrum, arbitrumNova, base, baseSepolia, blast, chainsSupportedBy3cities, convert, convertLogicalAssetUnits, getAllNativeCurrenciesAndTokensForLogicalAssetTicker, getLogicalAssetTickerForTokenOrNativeCurrencyTicker, getTokenKey, immutableZkEvm, isProduction, isToken, isTokenSupported, linea, mainnet, mode, optimism, polygon, polygonZkEvm, scroll, sepolia, taiko, zkSync, zkSyncSepolia, zora } from "@3cities/core";
-import { type AddressContext } from "./AddressContext";
-import { canAfford } from "./canAfford";
-import { flatMap } from "./flatMap";
+import { type ExchangeRates, type LogicalAssetTicker, type NativeCurrency, type Token, allTokenTickers, arbitrum, arbitrumNova, base, baseSepolia, blast, chainsSupportedBy3cities, convert, convertFromLogicalAssetDecimalsToTokenDecimals, getAllNativeCurrenciesAndTokensForLogicalAssetTicker, getLogicalAssetTickerForTokenOrNativeCurrencyTicker, immutableZkEvm, isProduction, isToken, isTokenSupported, linea, mainnet, mode, optimism, polygon, polygonZkEvm, scroll, sepolia, taiko, zkSync, zkSyncSepolia, zora } from "@3cities/core";
 import { type Intersection } from "./Intersection";
 import { type PaymentWithFixedAmount, type ProposedPaymentWithFixedAmount, isPayment } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
@@ -58,36 +55,6 @@ function getAllNativeCurrenciesAndTokensAcceptedByReceiverForPayment(receiverStr
     .filter(isTokenPermittedByStrategyPreferences.bind(null, receiverStrategyPreferences));
 }
 
-// design note: WARNING today, generation of strategies and proposed
-// strategies are disunified. The definition of the kinds of strategies
-// that can be generated and their semantics are copied into both
-// getStrategiesForPayment and getProposedStrategiesForProposedPayment.
-// We explored two different unification approaches, but both failed.
-// The first approach was to have a single strategy generation function
-// that had overloaded signatures to handle strategies vs proposed
-// strategies. However, TypeScript's overloaded signature capability
-// isn't smart enough to detect the case of "(ProposedPayment is
-// provided) xor (Payment and AddressContext are provided)". Nor is it
-// smart enough to allow a local variable's type to be conditional on a
-// parameter type, eg. (const generatedStrategies: Strategy[] |
-// ProposedStrategy[] --> this sum type can't be conditional on whether
-// or not the passed `p` is a Payment or ProposedPayment). So, the
-// approach of having a single strategy generation function didn't seem
-// to be typesafe and was abandoned. The second approach is to have the
-// strategy generation function produce only proposed strategies, and
-// then to generate strategies, we demote a Payment to a
-// ProposedPayment, generate proposed strategies, and then promote the
-// proposed strategies to strategies. But demoting a Payment to a
-// ProposedPayment felt weird and brittle, and when promoting proposed
-// strategies to strategies, there's a need to filter for strategies
-// that are affordable by the sender's AddressContext, which is trivial
-// for TokenTransfer strategies but may be non-trivial for future kinds
-// of strategies. Eg. when we add bridging strategies, the set of
-// generated bridge strategies may a non-trivial function of the
-// sender's AddressContext. In short, it may be the case that strategies
-// and proposed strategies are intrinsically separate concepts and will
-// always remain disunified.
-
 // getProposedStrategiesForProposedPayment computes the proposed
 // strategies for the passed proposed payment, taking into account the
 // passed receiver strategy preferences. Precondition: the passed
@@ -100,47 +67,41 @@ export function getProposedStrategiesForProposedPayment(er: ExchangeRates | unde
   // Generate proposed strategy type #1: ProposedTokenTransfer, ie. a
   // proposed strategy of paying via a direct token transfer on the same
   // chain. (There is currently only one type of proposed strategy)
-  pss.push(...flatMap(ts, t => {
+  ts.forEach(t => {
     const ptt: ProposedTokenTransfer | undefined = unsafeMakeTokenTransferForPaymentAndToken(er, p, t);
-    if (!ptt) return undefined;
-    else {
+    if (ptt) {
       const s: ProposedStrategy = {
         proposedPayment: p,
         proposedTokenTransfer: ptt,
       };
-      return s;
+      pss.push(s);
     }
-  }));
+  });
 
   return sortStrategiesByPriority(staticChainIdPriority, staticTokenTickerPriority, pss);
 }
 
 // getStrategiesForPayment computes the strategies for the passed
-// payment, taking into account the passed receiver strategy preferences
-// and sender address context. Precondition: the passed receiver
-// strategy preferences are for the same receiver as the passed
-// payment's receiver, and the passed sender address context is for the
-// same sender as the passed payment's sender.
-export function getStrategiesForPayment(er: ExchangeRates | undefined, receiverStrategyPreferences: StrategyPreferences, p: PaymentWithFixedAmount, senderAddressContext: AddressContext): Strategy[] {
+// payment, taking into account the passed receiver strategy
+// preferences. Precondition: the passed receiver strategy preferences
+// are for the same receiver as the passed payment's receiver.
+export function getStrategiesForPayment(er: ExchangeRates | undefined, receiverStrategyPreferences: StrategyPreferences, p: PaymentWithFixedAmount): Strategy[] {
   const ts: (NativeCurrency | Token)[] = getAllNativeCurrenciesAndTokensAcceptedByReceiverForPayment(receiverStrategyPreferences, p);
   const ss: Strategy[] = [];
 
   // Generate strategy type #1: TokenTransfer, ie. a strategy of paying
   // via a direct token transfer on the same chain. (There is currently
   // only one type of strategy)
-  ss.push(
-    ...flatMap(ts, t => {
-      const tt: TokenTransfer | undefined = unsafeMakeTokenTransferForPaymentAndToken(er, p, t);
-      if (!tt) return undefined;
-      else {
-        const s: Strategy = {
-          payment: p,
-          tokenTransfer: tt,
-        };
-        return s;
-      }
-    }).filter(s => canAfford(senderAddressContext, getTokenKey(s.tokenTransfer.token), s.tokenTransfer.amount)) // having already generated the set of possible token transfer strategies, we now further filter these strategies to accept only those affordable by the passed sender address context. Ie. here is where we ensure that the computed token transfer strategies are affordable by the sender
-  );
+  ts.forEach(t => {
+    const tt: TokenTransfer | undefined = unsafeMakeTokenTransferForPaymentAndToken(er, p, t);
+    if (tt) {
+      const s: Strategy = {
+        payment: p,
+        tokenTransfer: tt,
+      };
+      ss.push(s);
+    }
+  });
 
   return sortStrategiesByPriority(staticChainIdPriority, staticTokenTickerPriority, ss);
 }
@@ -157,7 +118,7 @@ function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined
 function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: PaymentWithFixedAmount | ProposedPaymentWithFixedAmount, token: Token | NativeCurrency): TokenTransfer | ProposedTokenTransfer | undefined
 function unsafeMakeTokenTransferForPaymentAndToken(er: ExchangeRates | undefined, p: PaymentWithFixedAmount | ProposedPaymentWithFixedAmount, token: Token | NativeCurrency): TokenTransfer | ProposedTokenTransfer | undefined {
   const amountDenominatedInToken: undefined | bigint = (() => {
-    const amountDenominatedInPrimaryLogicalAssetWithTokensDecimals: bigint = convertLogicalAssetUnits(p.paymentMode.logicalAssetAmount, token.decimals); // WARNING this amount is denominated in the passed Payment's primary logical asset and using the passed token's decimals. But, any exchange rate conversion that may need to be applied has not yet been applied
+    const amountDenominatedInPrimaryLogicalAssetWithTokensDecimals: bigint = convertFromLogicalAssetDecimalsToTokenDecimals(p.paymentMode.logicalAssetAmount, token.decimals); // WARNING this amount is denominated in the passed Payment's primary logical asset and using the passed token's decimals. But, any exchange rate conversion that may need to be applied has not yet been applied
     const logicalAssetTickerForThisTokenTransfer: LogicalAssetTicker | undefined = getLogicalAssetTickerForTokenOrNativeCurrencyTicker(token.ticker);
     if (logicalAssetTickerForThisTokenTransfer === undefined) {
       // case 1. the passed token is not supported by any logical asset. For example, UNI's is not supported by any logical asset because 1 unit of UNI is not pegged to any logical asset. Since the token transfer we're attempting to construct is not supported by any logical asset, we'll attempt an exchange rate conversion directly from the Payment's primary logical asset to the token

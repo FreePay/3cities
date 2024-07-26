@@ -1,4 +1,4 @@
-import { type ExchangeRates, type LogicalAssetTicker, convert, defaultSmallAmountsPerLogicalAsset, getChain, getLogicalAssetTickerForTokenOrNativeCurrencyTicker, getSupportedChainName, getTokenKey, isNativeCurrency, parseLogicalAssetAmount } from "@3cities/core";
+import { type ExchangeRates, type LogicalAssetTicker, convert, convertFromTokenDecimalsToLogicalAssetDecimals, defaultSmallAmountsPerLogicalAsset, getChain, getLogicalAssetTickerForTokenOrNativeCurrencyTicker, getSupportedChainName, getTokenKey, isNativeCurrency, parseLogicalAssetAmount } from "@3cities/core";
 import { getETHTransferProxyContractAddress } from "@3cities/eth-transfer-proxy";
 import React, { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { FaEye } from "react-icons/fa";
@@ -6,19 +6,24 @@ import { Link } from "react-router-dom";
 import useClipboard from "react-use-clipboard";
 import { toast } from "sonner";
 import { serialize, useAccount } from "wagmi";
+import { amountNeededToAfford, partitionStrategiesByAffordability, sortStrategiesByLogicalAmountNeededToAfford } from "./affordability";
 import { getBlockExplorerUrlForAddress, getBlockExplorerUrlForTransaction } from "./blockExplorerUrls";
 import { type CheckoutSettings } from "./CheckoutSettings";
 import { type CheckoutSettingsRequiresPassword, isCheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
 import { ConnectWalletButton } from "./ConnectWalletButton";
 import { CurrencyAmountInput } from "./CurrencyAmountInput";
 import { ExternalLink } from "./ExternalLink";
+import { flatMap } from "./flatMap";
 import { type IframeMessage, closeIframe, isRunningInAStandaloneWindow, isRunningInAnIframe, notifyParentWindowOfSuccessfulCheckout, notifyParentWindowOfTransactionSigned, turnOffKeepIframeOpen, turnOnKeepIframeOpen } from "./iframe";
+import { makeCheckoutUrl } from "./makeCheckoutUrl";
 import { type Payment, type PaymentWithFixedAmount, type ProposedPaymentWithFixedAmount, type ProposedPaymentWithReceiverAddress, acceptProposedPayment, isPaymentWithFixedAmount, isProposedPaymentWithFixedAmount } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
 import QRCode from "./QRCode";
 import { RenderLogicalAssetAmount, renderLogicalAssetAmount } from "./RenderLogicalAssetAmount";
+import { RenderRawTokenBalance } from "./RenderRawTokenBalance";
 import { RenderTokenBalance } from "./RenderTokenBalance";
 import { RenderTokenTransfer } from "./RenderTokenTransfer";
+import { serializeCheckoutSettings } from "./serialize";
 import { type ProposedStrategy, type Strategy, getProposedStrategiesForProposedPayment, getStrategiesForPayment } from "./strategies";
 import { ToggleSwitch } from "./ToggleSwitch";
 import { type TokenTransfer } from "./tokenTransfer";
@@ -262,12 +267,18 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
     return getProposedStrategiesForProposedPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, p).filter(isStrategyPermittedByCheckoutSettings);
   }, [checkoutSettings.receiverStrategyPreferences, checkoutSettings.proposedPayment, exchangeRates, isStrategyPermittedByCheckoutSettings]);
 
-  const strategies = useMemo<Strategy[] | undefined>(() => {
-    if (derivedPaymentWithFixedAmount && ac) return getStrategiesForPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, derivedPaymentWithFixedAmount, ac).filter(isStrategyPermittedByCheckoutSettings);
-    else return undefined;
+  const { affordableStrategies, unaffordableStrategies } = useMemo((): ReturnType<typeof partitionStrategiesByAffordability> | { affordableStrategies: undefined, unaffordableStrategies: undefined } => {
+    if (derivedPaymentWithFixedAmount && ac) {
+      const ret = partitionStrategiesByAffordability(ac, getStrategiesForPayment(exchangeRates, checkoutSettings.receiverStrategyPreferences, derivedPaymentWithFixedAmount).filter(isStrategyPermittedByCheckoutSettings));
+      return {
+        ...ret,
+        unaffordableStrategies: sortStrategiesByLogicalAmountNeededToAfford(exchangeRates, ac, ret.unaffordableStrategies),
+      };
+    }
+    else return { affordableStrategies: undefined, unaffordableStrategies: undefined };
   }, [checkoutSettings.receiverStrategyPreferences, derivedPaymentWithFixedAmount, ac, exchangeRates, isStrategyPermittedByCheckoutSettings]);
 
-  const { bestStrategy, otherStrategies, disableAllStrategiesOriginatingFromChainId, selectStrategy } = useBestStrategy(strategies);
+  const { bestStrategy, otherStrategies, disableAllStrategiesOriginatingFromChainId, selectStrategy } = useBestStrategy(affordableStrategies);
 
   const { signature: caip222StyleSignature, message: caip222StyleMessageThatWasSigned, sign: caip222StyleExecuteSign, signRejected: caip222StyleSignRejected, signCalledAtLeastOnce: caip222StyleSignCalledAtLeastOnce, isError: caip222StyleSignatureIsError, error: caip222StyleSignatureError, isLoading: caip222StyleSignatureIsLoading, loadingStatus: caip222StyleSignatureLoadingStatus, reset: caip222StyleReset } = useCaip222StyleSignature({
     enabled: checkoutSettings.authenticateSenderAddress !== undefined,
@@ -330,7 +341,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
   }, [status?.activeTokenTransfer]);
 
   useEffect(() => {
-    if (strategies !== undefined && status?.error !== undefined && (status.error instanceof TransactionFeeUnaffordableError)) {
+    if (affordableStrategies !== undefined && status?.error !== undefined && (status.error instanceof TransactionFeeUnaffordableError)) {
       disableAllStrategiesOriginatingFromChainId(status.activeTokenTransfer.token.chainId); // here, the user can't afford to pay the transaction fee for the active token transfer, so we'll disable all strategies for the same chainId under the assumption that if the user can't afford this strategy, they can't afford any other strategies on that same chain. WARNING this assumption is untrue in the case where a user can't afford an erc20 transfer but could afford the cheaper native currency transfer. WARNING currently, we never un-disable a chainId, so if the user becomes able to afford the transaction fee on this chain, 3cities will not currently auto-detect that. Today, the page must be reloaded to clear these disabled strategies.
       if (!feeUnaffordableToastDisplayedForCurrentStrategy && (status.buttonClickedAtLeastOnce || userSelectedCurrentStrategy)) {
         // here we have just disabled a strategy because the user can't afford to pay the transaction fee, but the user also clicked a button for this strategy at least once (either the 'pay now' button or selecting this strategy from the payment method screeen), so we are removing a strategy they interacted with, so we'll show a helpful indicator to make this less jarring.
@@ -344,7 +355,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         });
       }
     }
-  }, [checkoutNounCapitalized, strategies, disableAllStrategiesOriginatingFromChainId, status?.error, status?.activeTokenTransfer, status?.buttonClickedAtLeastOnce, userSelectedCurrentStrategy, feeUnaffordableToastDisplayedForCurrentStrategy, setFeeUnaffordableToastDisplayedForCurrentStrategy]);
+  }, [checkoutNounCapitalized, affordableStrategies, disableAllStrategiesOriginatingFromChainId, status?.error, status?.activeTokenTransfer, status?.buttonClickedAtLeastOnce, userSelectedCurrentStrategy, feeUnaffordableToastDisplayedForCurrentStrategy, setFeeUnaffordableToastDisplayedForCurrentStrategy]);
 
   const canSelectNewStrategy: boolean = !( // user may select a new strategy (ie payment method) unless...
     (status?.signedTransaction // the user signed the transaction
@@ -556,7 +567,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         ...(authenticateSenderAddressState.signRejected && { warningLabel: <span>Rejected<br />in wallet</span> } satisfies Pick<ExecuteTokenTransferButtonProps, 'warningLabel'>),
         autoClickIfNeverClicked: false,
         ...(!authenticateSenderAddressState.sign && { // if underlying sign is unavailable, we'll show the button as loading in the hopes that sign may soon become available. If sign never becomes unavailable, checkout can't proceed
-          disabled: 'Pay Now', // here we show the disabled label as 'Pay Now' such that the button looks the same if caip222style's sign or initial eip1271 verification is loading as when the button is laoding ordinarily without use of caip222. If instead we used "Sign Message in Wallet" here, then the button would briefly flicker "Sign Message in Wallet" for accounts with eip1271 signature verification when a signature was previously verified and didn't require re-verification
+          disabled: `${checkoutVerbCapitalized} Now`, // here we show the disabled label as 'Pay Now' such that the button looks the same if caip222style's sign or initial eip1271 verification is loading as when the button is laoding ordinarily without use of caip222. If instead we used "Sign Message in Wallet" here, then the button would briefly flicker "Sign Message in Wallet" for accounts with eip1271 signature verification when a signature was previously verified and didn't require re-verification
           showLoadingSpinnerWhenDisabled: true,
         } satisfies Pick<ExecuteTokenTransferButtonProps, 'disabled' | 'showLoadingSpinnerWhenDisabled'>),
       }; case 'error': return {
@@ -572,7 +583,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         autoClickIfNeverClicked: false,
       };
     }
-  }, [authenticateSenderAddressState.state, authenticateSenderAddressState.sign, authenticateSenderAddressState.signRejected, authenticateSenderAddressState.error?.message]);
+  }, [checkoutVerbCapitalized, authenticateSenderAddressState.state, authenticateSenderAddressState.sign, authenticateSenderAddressState.signRejected, authenticateSenderAddressState.error?.message]);
 
 
   const makeExecuteTokenTransferButton = useCallback((tt: TokenTransfer | undefined, disabled?: true | string) => {
@@ -686,7 +697,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
             type="button"
             className="rounded-md p-3.5 bg-tertiary text-black pointer-events-none w-full"
           >
-            Connected wallet has no {checkoutNounLowercase} options
+            Wallet needs more money to {checkoutVerbLowercase}
           </button>);
           case 'receiverAddressLoading': return maybeMakePayWhatYouWantAmountUiNoSuggestedAmounts(makeExecuteTokenTransferButton(undefined));
           case 'senderAddressContextLoading': return maybeMakePayWhatYouWantAmountUiNoSuggestedAmounts(makeExecuteTokenTransferButton(undefined));
@@ -711,7 +722,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         {willShowNoteSection && <div className={`p-4 flex items-center w-full  border-gray-300 bg-white ${!willShowReceiverAddressSection ? 'rounded-t-md border' /* if the receiver address section won't display, then the Note section is the first section and needs its top corners rounded and full borders */ : 'border-b border-x'} ${!willShowTotalSection ? 'rounded-b-md' /* if the total section won't display, then the Note section is the last section and needs its bottom corners rounded */ : ''}`}>
           <span className="text-left">{checkoutSettings.note}</span>
         </div>}
-        {willShowTotalSection && fixedPayment !== undefined && <div className={`p-4 grid grid-cols-6 w-full border-b border-x border-gray-300 bg-white text-lg ${!willShowReceiverAddressSection && !willShowNoteSection ? 'rounded-md' /* if the receiver address and note sections won't display, then the Total section is the first section and needs its top corners rounded, too */ : 'rounded-b-md'} `}>
+        {willShowTotalSection && fixedPayment !== undefined && <div className={`p-4 grid grid-cols-6 w-full border-gray-300 bg-white text-lg ${!willShowReceiverAddressSection && !willShowNoteSection ? 'rounded-md border' /* if the receiver address and note sections won't display, then the Total section is the first section and needs its top corners rounded, too */ : 'rounded-b-md border-b border-x'} `}>
           <span className="font-bold col-span-2">Total:</span>
           <span className="font-bold text-right col-span-4"><RenderLogicalAssetAmount
             logicalAssetTicker={fixedPayment.logicalAssetTickers.primary}
@@ -764,7 +775,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
           {(() => {
             return <span className="flex justify-between gap-2 items-center">
               <RenderTokenTransfer tt={status?.activeTokenTransfer || bestStrategy.tokenTransfer} opts={{ hideAmount: true }} />
-              {strategies !== undefined && bestStrategy === strategies[0] /* WARNING here condition only on bestStrategy and not activeTokenTransfer when displaying BestStrategyLabel, meaning BestStrategyLabel may be displayed even if activeTokenTransfer is not the current bestStrategy */ ? <BestStrategyLabel /> : undefined}
+              {affordableStrategies !== undefined && bestStrategy === affordableStrategies[0] /* WARNING here condition only on bestStrategy and not activeTokenTransfer when displaying BestStrategyLabel, meaning BestStrategyLabel may be displayed even if activeTokenTransfer is not the current bestStrategy */ ? <BestStrategyLabel /> : undefined}
             </span>;
           })()}
           {canSelectNewStrategy && otherStrategies && otherStrategies.length > 0 && <span className="text-xs"><button
@@ -775,25 +786,76 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
             change
           </button></span>}
         </div>
-        <span className="text-gray-500 text-xs">{(otherStrategies || []).length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment method{(otherStrategies || []).length > 0 ? 's' : ''} across {[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length} chain{[... new Set((strategies || []).map(s => s.tokenTransfer.token.chainId))].length > 1 ? 's' : ''}</span>
+        <span className="text-gray-500 text-xs">{(otherStrategies || []).length + 1 /* + 1 because we count the current bestStrategy among the methods */} payment method{(otherStrategies || []).length > 0 ? 's' : ''} across {[... new Set((affordableStrategies || []).map(s => s.tokenTransfer.token.chainId))].length} chain{[... new Set((affordableStrategies || []).map(s => s.tokenTransfer.token.chainId))].length > 1 ? 's' : ''}</span>
       </div>
     </div>}
-  </div>, [checkoutSettings.hideReceiverAddress, checkoutVerbLowercase, checkoutVerbCapitalized, checkoutNounLowercase, startTransition, isConnected, checkoutSettings.note, checkoutSettings.proposedPayment.logicalAssetTickers.primary, checkoutSettings.proposedPayment.paymentMode.payWhatYouWant, checkoutSettings.requireInIframeOrErrorWith, proposedPaymentWithFixedAmount, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, payWhatYouWantSelectedSuggestedAmount, setPayWhatYouWantSelectedSuggestedAmount, setRawPayWhatYouWantAmountFromInput, payWhatYouWantLogicalAssetTickerFromInput, payWhatYouWantLogicalAssetTickerSelectionInputElement, derivedPaymentWithFixedAmount, exchangeRates, proposedStrategies, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod]);
+  </div>, [checkoutSettings.hideReceiverAddress, checkoutVerbLowercase, checkoutVerbCapitalized, startTransition, isConnected, checkoutSettings.note, checkoutSettings.proposedPayment.logicalAssetTickers.primary, checkoutSettings.proposedPayment.paymentMode.payWhatYouWant, checkoutSettings.requireInIframeOrErrorWith, proposedPaymentWithFixedAmount, receiverAddress, receiverAddressBlockExplorerLink, receiverEnsName, payWhatYouWantSelectedSuggestedAmount, setPayWhatYouWantSelectedSuggestedAmount, setRawPayWhatYouWantAmountFromInput, payWhatYouWantLogicalAssetTickerFromInput, payWhatYouWantLogicalAssetTickerSelectionInputElement, derivedPaymentWithFixedAmount, exchangeRates, proposedStrategies, affordableStrategies, bestStrategy, otherStrategies, canSelectNewStrategy, checkoutReadinessState, makeExecuteTokenTransferButton, showFullReceiverAddress, status?.activeTokenTransfer, statusIsSuccess, selectingPaymentMethod]);
+
+  const [showAllUnaffordableStrategyHelperElements, setShowAllUnaffordableStrategyHelperElements] = useState(false);
 
   const acceptedTokensAndChainsElement: false | JSX.Element = useMemo(() => !statusIsSuccess && <div className="w-full">
     {(() => {
       const allStrategiesTokenTickers: string[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.ticker))];
       const allStrategiesChainIds: number[] = [... new Set(proposedStrategies.map(ps => ps.proposedTokenTransfer.token.chainId))];
+      const sharedCheckoutSettingsForUnaffordableStrategyDeposit: Pick<CheckoutSettings, 'note' | 'senderNoteSettings' | 'nativeTokenTransferProxy' | 'mode' | 'successAction'> = {
+        note: `For your convenience, connect a different wallet and complete this deposit to your account to afford the other ${checkoutNounLowercase}`,
+        senderNoteSettings: { mode: 'NONE' },
+        nativeTokenTransferProxy: 'never',
+        mode: 'deposit',
+        successAction: {
+          closeWindow: {
+            ifStandaloneWindow: { callToAction: `Return to the other ${checkoutNounLowercase}` },
+            ifIframe: { clickToClose: { callToAction: `Return to the other ${checkoutNounLowercase}`, } },
+          },
+        },
+      };
+      const unaffordableStrategyDepositHelperElements: JSX.Element[] = !ac ? [] : flatMap((unaffordableStrategies || []), us => {
+        const tk = getTokenKey(us.tokenTransfer.token);
+        const tb = ac.tokenBalances[tk];
+        if (!tb) return undefined;
+        else return <div key={tk} className="flex flex-col items-start">
+          <RenderTokenBalance tb={tb} />
+          <span className="text-sm"><span className="text-tertiary-darker font-bold">+<RenderRawTokenBalance balance={amountNeededToAfford(ac, tk, us.tokenTransfer.amount)} nativeCurrencyOrToken={us.tokenTransfer.token} opts={{ hideChainSeparator: true, hideChain: true, truncateTrailingZeroes: true }} /></span> needed to pay ~ {(() => {
+            const lat = getLogicalAssetTickerForTokenOrNativeCurrencyTicker(us.tokenTransfer.token.ticker);
+            if (!lat) return undefined;
+            else return <ExternalLink href={makeCheckoutUrl(serializeCheckoutSettings({
+              proposedPayment: {
+                logicalAssetTickers: new PrimaryWithSecondaries(lat),
+                receiver: { address: ac.address },
+                paymentMode: {
+                  logicalAssetAmount: convertFromTokenDecimalsToLogicalAssetDecimals(amountNeededToAfford(ac, tk, us.tokenTransfer.amount), us.tokenTransfer.token.decimals), // NB here we don't need to consider ourselves with any currency conversions because the CheckoutSettings.proposedPayment.logicalAssetTickers.primary is denominated in the unaffordable strategy's token's logical asset, so the `logicalAssetAmount` currency here is always the same as the payment's currency
+                },
+              },
+              receiverStrategyPreferences: {
+                acceptedTokenTickers: { allowlist: new Set([us.tokenTransfer.token.ticker]) },
+                acceptedChainIds: { allowlist: new Set([us.tokenTransfer.token.chainId]) },
+              },
+              ...sharedCheckoutSettingsForUnaffordableStrategyDeposit,
+            })) + '&noReconnectAccount=1' /* disable automatic wallet reconnection so that the user's currently connected wallet does not attempt to fund itself. The idea is that the user should connect a different wallet to fund the wallet that's connected here */ + '&mode=deposit' /* WARNING CheckoutSettings serialization does not actually include CheckoutSettings.mode yet, so we append the mode URL param --> TODO remove this URL param after CheckoutSettings.mode is added to serialization */}>deposit</ExternalLink>;
+          })()}</span>
+        </div>;
+      }).slice(0, showAllUnaffordableStrategyHelperElements ? undefined : 2);
       return <>
+        {checkoutReadinessState === 'senderHasNoPaymentOptions' && <>
+          <div className="pt-6 font-bold text-lg">Pay with</div>
+          <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md flex flex-col gap-2">
+            <div className="text-sm font-bold">{unaffordableStrategyDepositHelperElements.length > 0 ? 'Your money' : 'No money found in your wallet'}</div>
+            {unaffordableStrategyDepositHelperElements.length < 1 && <ExternalLink href={makeCheckoutUrl(serializeCheckoutSettings({
+              ...checkoutSettings,
+              ...sharedCheckoutSettingsForUnaffordableStrategyDeposit,
+            })) + '&noReconnectAccount=1' /* disable automatic wallet reconnection so that the user's currently connected wallet does not attempt to fund itself. The idea is that the user should connect a different wallet to fund the wallet that's connected here */ + '&mode=deposit' /* WARNING CheckoutSettings serialization does not actually include CheckoutSettings.mode yet, so we append the mode URL param --> TODO remove this URL param after CheckoutSettings.mode is added to serialization */}>deposit</ExternalLink>}
+            {unaffordableStrategyDepositHelperElements}
+            {unaffordableStrategyDepositHelperElements.length > 0 && <a onClick={() => setShowAllUnaffordableStrategyHelperElements(v => !v)} className="text-sm text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker">{showAllUnaffordableStrategyHelperElements ? 'show less' : 'show more'}</a>}
+          </div>
+        </>}
         <div className="pt-6 font-bold text-lg">Ways to pay</div>
         <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md">
           <span className="font-bold">Tokens:</span> {allStrategiesTokenTickers.join(", ")} <br />
-          {/* <span className="font-bold">on</span> */}
           <span className="font-bold">Chains:</span> {allStrategiesChainIds.map(getSupportedChainName).join(", ")}
         </div>
       </>;
     })()}
-  </div>, [statusIsSuccess, proposedStrategies]);
+  </div>, [checkoutSettings, checkoutNounLowercase, ac, statusIsSuccess, proposedStrategies, unaffordableStrategies, checkoutReadinessState, showAllUnaffordableStrategyHelperElements]);
 
   const selectPaymentMethodScreen: false | JSX.Element = useMemo(() => bestStrategy !== undefined && otherStrategies !== undefined && otherStrategies.length > 0 && <div className={`grid grid-cols-1 w-full items-center py-6 ${selectingPaymentMethod ? '' : 'hidden'}`}>
     <div className="font-bold text-2xl">Select a {checkoutNounLowercase} method</div>
@@ -817,11 +879,11 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
           }
         }}>
         <RenderTokenTransfer tt={s.tokenTransfer} opts={{ hideAmount: true }} />
-        {strategies && s === strategies[0] && <BestStrategyLabel />}
+        {affordableStrategies && s === affordableStrategies[0] && <BestStrategyLabel />}
         {ac !== undefined && tb && <span className="text-right"> <RenderTokenBalance tb={tb} opts={{ hideChainSeparator: true, hideChain: true }} /></span>}
       </div>
     })}
-  </div>, [checkoutVerbCapitalized, checkoutNounLowercase, ac, strategies, bestStrategy, otherStrategies, canSelectNewStrategy, selectStrategy, selectingPaymentMethod, wantToSetSelectingPaymentMethodToFalse, setWantToSetSelectingPaymentMethodToFalse]);
+  </div>, [checkoutVerbCapitalized, checkoutNounLowercase, ac, affordableStrategies, bestStrategy, otherStrategies, canSelectNewStrategy, selectStrategy, selectingPaymentMethod, wantToSetSelectingPaymentMethodToFalse, setWantToSetSelectingPaymentMethodToFalse]);
 
   const paymentSuccessfulBlockExplorerReceiptLink: string | undefined = (() => {
     if (!status?.isSuccess) return undefined;

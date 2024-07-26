@@ -7,10 +7,10 @@ import { useImmer } from "use-immer";
 import { isAddress } from "viem";
 import { useAccount, useAccountEffect, useDisconnect } from "wagmi";
 import { type CheckoutSettings, type SuccessActionRedirect } from "./CheckoutSettings";
-import { serializedCheckoutSettingsUrlParam } from "./CheckoutSettingsProvider";
 import { ConnectWalletButtonCustom } from "./ConnectWalletButton";
 import { CurrencyAmountInput } from "./CurrencyAmountInput";
 import { isLikelyAnEnsName } from "./isLikelyAnEnsName";
+import { makeCheckoutUrl } from "./makeCheckoutUrl";
 import { Modal, useModal } from "./Modal";
 import { type PaymentMode, type ProposedPayment, isPaymentModeWithFixedAmount, isProposedPaymentWithFixedAmount } from "./Payment";
 import { PrimaryWithSecondaries } from "./PrimaryWithSecondaries";
@@ -329,11 +329,7 @@ export const RequestMoney: React.FC = () => {
     } else return undefined;
   }, [privacyAndSecurityMode, password, checkoutSettings]);
 
-  const checkoutLink = useMemo<string | undefined>(() => {
-    // WARNING we might be tempted to remove the "http://" and "https://" from checkoutLink to make it a bit shorter when pasted. However, the URL protocol is required for the link to be considered valid by the WebShare API, and <a> tags will consider an URL to be a relative link if it contains no protocol, and 3rd party link parsers (to make a pasted link clickable) often require the protocol to properly detect the link, eg. discord won't make "3cities.xyz" clickable without an URL protocol
-    if (serializedCheckoutSettings && !serializedCheckoutSettingsIsLoading) return `${process.env['REACT_APP_DEVELOPMENT_INTRANET_IP'] ? `http://${process.env['REACT_APP_DEVELOPMENT_INTRANET_IP']}${location.port.length > 0 ? `:${location.port}` : ''}` : location.origin}/#/pay?${serializedCheckoutSettingsUrlParam}=${serializedCheckoutSettings}`; // REACT_APP_DEVELOPMENT_INTRANET_IP is a development feature. Set it in .env.local so that payment links generated on your laptop can be opened on your phone using the LAN
-    else return undefined;
-  }, [serializedCheckoutSettings, serializedCheckoutSettingsIsLoading]);
+  const checkoutUrl = useMemo<string | undefined>(() => serializedCheckoutSettings && !serializedCheckoutSettingsIsLoading ? makeCheckoutUrl(serializedCheckoutSettings) : undefined, [serializedCheckoutSettings, serializedCheckoutSettingsIsLoading]);
 
   const [showModalNonce, setShowModalNonce] = useState(0);
   const incrementShowModalNonce = useCallback(() => setShowModalNonce(n => n + 1), [setShowModalNonce]);
@@ -644,8 +640,8 @@ export const RequestMoney: React.FC = () => {
       Send Pay Link
     </button>
     {
-      checkoutLink && <Modal showModalNonce={showModalNonce}>
-        <SharePayLinkModalContent checkoutLink={checkoutLink} checkoutTextToShare={checkoutTextToShare} />
+      checkoutUrl && <Modal showModalNonce={showModalNonce}>
+        <SharePayLinkModalContent checkoutLink={checkoutUrl} checkoutTextToShare={checkoutTextToShare} />
       </Modal>
     }
   </div >;

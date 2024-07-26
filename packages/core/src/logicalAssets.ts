@@ -83,15 +83,29 @@ export function parseLogicalAssetAmount(amount: string): bigint {
   return parseUnits(amount, logicalAssetDecimals);
 }
 
-// convertLogicalAssetUnits converts the passed logicalAssetAmount
-// (which is assumed to have the full-precision logicalAssetDecimals
-// decimal places because it was constructed with
+// convertFromTokenDecimalsToLogicalAssetDecimals converts the passed
+// amount with the passed decimals into a logical asset amount with
+// full-precision logicalAssetDecimals. For example,
+// `convertFromTokenDecimalsToLogicalAssetDecimals(myUsdcAmount,
+// USDC.decimals)` converts the passed USDC token amount into a logical
+// asset amount. WARNING however, the returned amount may still need
+// exchange rate conversions applied to be sensical.
+export function convertFromTokenDecimalsToLogicalAssetDecimals(amount: bigint, decimals: IntRange<0, 19>): bigint {
+  const decimalDiff = logicalAssetDecimals - decimals;
+  if (decimalDiff === 0) return amount;
+  else return amount * (10n ** BigInt(decimalDiff));
+}
+
+// convertFromLogicalAssetDecimalsToTokenDecimals converts the passed
+// logicalAssetAmount (which is assumed to have the full-precision
+// logicalAssetDecimals decimal places because it was constructed with
 // parseLogicalAssetAmount) into the passed newDecimals count of decimal
-// places. For example, `convertLogicalAssetUnits(myLogicalAssetAmount,
+// places. For example,
+// `convertFromLogicalAssetDecimalsToTokenDecimals(myLogicalAssetAmount,
 // USDC.decimals)` converts the passed logical asset amount into an
 // amount with USDC's decimals. WARNING however, the returned amount may
 // still need exchange rate conversions applied to be sensical.
-export function convertLogicalAssetUnits(logicalAssetAmount: bigint, newDecimals: IntRange<0, 19>): bigint {
+export function convertFromLogicalAssetDecimalsToTokenDecimals(logicalAssetAmount: bigint, newDecimals: IntRange<0, 19>): bigint {
   const decimalDiff = logicalAssetDecimals - newDecimals;
   if (decimalDiff === 0) return logicalAssetAmount; // no conversion needed if the decimals are the same
   else if (decimalDiff > 0) {
