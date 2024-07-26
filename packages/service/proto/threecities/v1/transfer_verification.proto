@@ -8,6 +8,7 @@ message TransferVerificationRequest {
     repeated string token_ticker_allowlist = 3; // allowlist of tokens to permit for a successfully verified transfer. WARNING today, not all supported tokens by 3cities are supported by 3cities on every chain (ie. the matrix of tokens * chains is incomplete), so if a ticker in tokenTickerAllowList is not available on the passed chainId, then any transfers of that token will not be detected and verification will fail as if the transfer never happened
     double usd_per_eth = 4; // ETH price in USD exchange rate to be used when verifying logical asset amounts
     string receiver_address = 5; // receiver address on the passed chainId where transfer being verified is expected to have been sent
+    string external_id = 6; // an optional external ID that may be provided by the client for tracking purposes. Not used by 3cities
   }
 
   message UntrustedData { // from the point of view of the verification client (caller), these data are untrusted and will be verified. Verification will be successful if and only if all these untrusted data are proven to be correct and match/correspond to the trusted data. NB as always, the RPC providers used by verification are assumed to be trustworthy - clients are trusting their RPC providers to facilitate verification
@@ -31,6 +32,8 @@ message TransferVerificationResponse {
   bool is_verified = 1; // true iff the transfer verification was successful
   string description = 2; // description of verification result. Eg. if success, "0.023 ETH sent on Arbitrum One", if failure, "ChainID 3933 is not supported", "Insufficient confirmations, wanted=2, found=1"
   string error = 3; // optional error. Empty string indicates undefined. Always undefined if is_verified
+  string external_id = 4; // an optional external ID that may be provided by the client for tracking purposes. Not used by 3cities
+  bool verification_failed_permanently = 5; // true iff the verification is guaranteed to have failed permanently (eg. due to the transaction having reverted) and should not be retried. Must be ignored if is_verified
 }
 
 service TransferVerificationService {
