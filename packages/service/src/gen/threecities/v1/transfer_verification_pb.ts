@@ -90,6 +90,13 @@ export class TransferVerificationRequest_TrustedData extends Message<TransferVer
    */
   receiverAddress = "";
 
+  /**
+   * an optional external ID that may be provided by the client for tracking purposes. Not used by 3cities
+   *
+   * @generated from field: string external_id = 6;
+   */
+  externalId = "";
+
   constructor(data?: PartialMessage<TransferVerificationRequest_TrustedData>) {
     super();
     proto3.util.initPartial(data, this);
@@ -103,6 +110,7 @@ export class TransferVerificationRequest_TrustedData extends Message<TransferVer
     { no: 3, name: "token_ticker_allowlist", kind: "scalar", T: 9 /* ScalarType.STRING */, repeated: true },
     { no: 4, name: "usd_per_eth", kind: "scalar", T: 1 /* ScalarType.DOUBLE */ },
     { no: 5, name: "receiver_address", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 6, name: "external_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): TransferVerificationRequest_TrustedData {
@@ -257,6 +265,20 @@ export class TransferVerificationResponse extends Message<TransferVerificationRe
    */
   error = "";
 
+  /**
+   * an optional external ID that may be provided by the client for tracking purposes. Not used by 3cities
+   *
+   * @generated from field: string external_id = 4;
+   */
+  externalId = "";
+
+  /**
+   * true iff the verification is guaranteed to have failed permanently (eg. due to the transaction having reverted) and should not be retried. Must be ignored if is_verified
+   *
+   * @generated from field: bool verification_failed_permanently = 5;
+   */
+  verificationFailedPermanently = false;
+
   constructor(data?: PartialMessage<TransferVerificationResponse>) {
     super();
     proto3.util.initPartial(data, this);
@@ -268,6 +290,8 @@ export class TransferVerificationResponse extends Message<TransferVerificationRe
     { no: 1, name: "is_verified", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
     { no: 2, name: "description", kind: "scalar", T: 9 /* ScalarType.STRING */ },
     { no: 3, name: "error", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 4, name: "external_id", kind: "scalar", T: 9 /* ScalarType.STRING */ },
+    { no: 5, name: "verification_failed_permanently", kind: "scalar", T: 8 /* ScalarType.BOOL */ },
   ]);
 
   static fromBinary(bytes: Uint8Array, options?: Partial<BinaryReadOptions>): TransferVerificationResponse {

@@ -1,4 +1,4 @@
-import { caip222StyleSignatureMessageDomain, caip222StyleSignatureMessagePrimaryType, caip222StyleSignatureMessageTypes, chainIdOnWhichToSignMessagesAndVerifySignatures, chainsSupportedBy3cities, convert, convertLogicalAssetUnits, erc1271MagicValue, erc1271SmartAccountAbi, getConfirmationsToWait, getLogicalAssetTickerForTokenOrNativeCurrencyTicker, getSupportedChainName, nativeCurrencies, tokens, type Caip222StyleMessageToSign, type Caip222StyleSignature, type NativeCurrency, type Token } from "@3cities/core";
+import { caip222StyleSignatureMessageDomain, caip222StyleSignatureMessagePrimaryType, caip222StyleSignatureMessageTypes, chainIdOnWhichToSignMessagesAndVerifySignatures, chainsSupportedBy3cities, convert, convertFromLogicalAssetDecimalsToTokenDecimals, erc1271MagicValue, erc1271SmartAccountAbi, getConfirmationsToWait, getLogicalAssetTickerForTokenOrNativeCurrencyTicker, getSupportedChainName, nativeCurrencies, tokens, type Caip222StyleMessageToSign, type Caip222StyleSignature, type NativeCurrency, type Token } from "@3cities/core";
 import { ETHTransferProxyABI, getETHTransferProxyContractAddress } from "@3cities/eth-transfer-proxy";
 import { getTransactionConfirmations, getTransactionReceipt, readContract, verifyTypedData, type Config } from "@wagmi/core";
 import { erc20Abi, formatUnits, hashTypedData, isHex, parseEventLogs } from "viem";
@@ -11,6 +11,7 @@ export type TransferVerificationRequest = {
     tokenTickerAllowlist: string[]; // allowlist of tokens to permit for a successfully verified transfer. WARNING today, not all supported tokens by 3cities are supported by 3cities on every chain (ie. the matrix of tokens * chains is incomplete), so if a ticker in tokenTickerAllowList is not available on the passed chainId, then any transfers of that token will not be detected and verification will fail as if the transfer never happened. TODO response can include a note of which token tickers were not found on the passed chain id --> TODO should this be Set<Uppercase<string>>? 
     usdPerEth: number; // ETH price in USD exchange rate to be used when verifying logical asset amounts. TODO consider supporting undefined, in which case USD-to-ETH currency conversions can' be verified
     receiverAddress: `0x${string}`; // receiver address on the passed chainId where transfer being verified is expected to have been sent
+    externalId?: string; // an optional external ID that may be provided by the client for tracking purposes. Not used by 3cities
   };
   untrustedToBeVerified: { // from the point of view of the verification client (caller), these data are untrusted and will be verified. Verification will be successful if and only if all these untrusted data are proven to be correct and match/correspond to the trusted data. NB as always, the RPC providers used by verification are assumed to be trustworthy - clients are trusting their RPC providers to facilitate verification
     chainId: number; // chainId on which the transfer is being verified
@@ -27,19 +28,36 @@ type TransferVerificationResult = {
   isVerified: boolean; // true iff the transfer verification was successful
   description: string; // description of verification result. Eg. if success, "0.023 ETH sent on Arbitrum One", if failure, "ChainID 3933 is not supported", "Insufficient confirmations, wanted=2, found=1"
   error?: Error;
+  externalId?: string; // an optional external ID that may be provided by the client for tracking purposes. Not used by 3cities
+  verificationFailedPermanently?: boolean; // true iff the verification is guaranteed to have failed permanently (eg. due to the transaction having reverted) and should not be retried
   // TODO consider a failureReason enum/structured type to complement `description`
   // TODO consider a structured successData
 } & ({
   isVerified: true;
   description: string;
   error?: never;
+  externalId?: string;
+  verificationFailedPermanently?: never;
 } | {
   isVerified: false;
   description: string;
   error?: Error; //  TODO should Error be unconditionally defined when isVerified=false? probably?
+  externalId?: string;
+  verificationFailedPermanently: boolean;
 });
 
-export async function verifyTransfer({ wagmiConfig, req }: {
+export async function verifyTransfer(params: {
+  wagmiConfig: Config,
+  req: TransferVerificationRequest,
+}): Promise<TransferVerificationResult> {
+  const res = await verifyTransferInternal(params);
+  return {
+    ...res,
+    ...(params.req.trusted.externalId && { externalId: params.req.trusted.externalId } satisfies Pick<TransferVerificationResult, 'externalId'>),
+  };
+}
+
+async function verifyTransferInternal({ wagmiConfig, req }: {
   wagmiConfig: Config,
   req: TransferVerificationRequest,
 }): Promise<TransferVerificationResult> {
@@ -60,12 +78,15 @@ export async function verifyTransfer({ wagmiConfig, req }: {
     isVerified: false,
     description: `Invalid request: sender address error`,
     error: senderAddressError,
+    verificationFailedPermanently: true,
   }; else if (chainsSupportedBy3cities.find(c => c.id === req.untrustedToBeVerified.chainId) === undefined) return {
     isVerified: false,
     description: `Chain ID ${req.untrustedToBeVerified.chainId} is unsupported by 3cities`,
+    verificationFailedPermanently: false, // NB verification has not necessarily failed permanently as 3cities might be update to support this chain ID
   }; else if (confirmationsToWait === undefined) return {
     isVerified: false,
     description: `Chain ID ${req.untrustedToBeVerified.chainId} had undefined confirmationsToWait. This is a bug in 3cities`,
+    verificationFailedPermanently: false,
   }; else {
     const getTransactionReceiptPromise = getTransactionReceipt(wagmiConfig, { hash: req.untrustedToBeVerified.transactionHash, chainId: req.untrustedToBeVerified.chainId });
     const getTransactionConfirmationsPromise = getTransactionConfirmations(wagmiConfig, { hash: req.untrustedToBeVerified.transactionHash, chainId: req.untrustedToBeVerified.chainId });
@@ -132,30 +153,38 @@ export async function verifyTransfer({ wagmiConfig, req }: {
       isVerified: false,
       description: `Failed to get transaction receipt hash=${req.untrustedToBeVerified.transactionHash} chainId=${req.untrustedToBeVerified.chainId}`,
       error: getTransactionReceiptError,
+      verificationFailedPermanently: false,
     }; else if (getTransactionConfirmationsError) return {
       isVerified: false,
       description: `Failed to get transaction confirmations hash=${req.untrustedToBeVerified.transactionHash} chainId=${req.untrustedToBeVerified.chainId}`,
+      verificationFailedPermanently: false,
       error: getTransactionConfirmationsError,
     }; else if (tx.status !== 'success') return {
       isVerified: false,
       description: `Transaction reverted`,
+      verificationFailedPermanently: true,
     }; else if (txConfirmations < confirmationsToWait) return {
       isVerified: false,
       description: `Transaction has insufficient confirmations, wanted=${confirmationsToWait}, found=${txConfirmations}`,
+      verificationFailedPermanently: false,
     }; else if (verifyTypedDataError) return {
       isVerified: false,
-      description: `caip222-style non-eip1271 signature verification error`,
+      description: `caip222-style non-eip1271 signature verification error: ${verifyTypedDataError}`,
       error: verifyTypedDataError,
+      verificationFailedPermanently: false,
     }; else if (verifyTypedDataIsVerified === false) return { // NB verifyTypedDataIsVerified will be undefined if signature verification by this method is disabled
       isVerified: false,
       description: `caip222-style non-eip1271 signature verification failed`,
+      verificationFailedPermanently: true,
     }; else if (eip1271SignatureVerificationError) return {
       isVerified: false,
-      description: `caip222-style eip1271 signature verification error`,
+      description: `caip222-style eip1271 signature verification error: ${eip1271SignatureVerificationError}`,
       error: eip1271SignatureVerificationError,
+      verificationFailedPermanently: false,
     }; else if (eip1271SignatureIsVerified === false) return { // NB eip1271SignatureIsVerified will be undefined if signature verification by this method is disabled
       isVerified: false,
       description: `caip222-style eip1271 signature verification failed`,
+      verificationFailedPermanently: true,
     }; else {
       const ethTransferProxyContractAddress = getETHTransferProxyContractAddress(req.untrustedToBeVerified.chainId); // NB if ethTransferProxyContractAddress is undefined, then this chain does not support verifiable ETH transfers
 
@@ -193,7 +222,7 @@ export async function verifyTransfer({ wagmiConfig, req }: {
                   if (!nc) return [undefined, Error(`unexpected: native currency not found chainId=${req.untrustedToBeVerified.chainId}`)];
                   else {
                     tempSuccessTokenForLog = nc;
-                    return [convertLogicalAssetUnits(expectedUsdAmountInFullPrecisionLogicalAssetUnits, nc.decimals), undefined];
+                    return [convertFromLogicalAssetDecimalsToTokenDecimals(expectedUsdAmountInFullPrecisionLogicalAssetUnits, nc.decimals), undefined];
                   }
                 } else {
                   // erc20 transfer
@@ -201,7 +230,7 @@ export async function verifyTransfer({ wagmiConfig, req }: {
                   if (!t) return [undefined, Error(`unexpected: token not found when converting transfer amount decimals contractAddress=${l.address}`)];
                   else {
                     tempSuccessTokenForLog = t;
-                    return [convertLogicalAssetUnits(expectedUsdAmountInFullPrecisionLogicalAssetUnits, t.decimals), undefined];
+                    return [convertFromLogicalAssetDecimalsToTokenDecimals(expectedUsdAmountInFullPrecisionLogicalAssetUnits, t.decimals), undefined];
                   }
                 }
               })();
@@ -254,11 +283,13 @@ export async function verifyTransfer({ wagmiConfig, req }: {
 
       if (logVerificationErrors.length > 0) return {
         isVerified: false,
-        description: `Transfer amount verification error(s)`,
+        description: `Transfer amount verification error(s): ${logVerificationErrors.map(e => e.message).join('; ')}`,
         error: new Error(`Transfer amount verification error(s): ${logVerificationErrors.map(e => e.message).join('; ')}`),
+        verificationFailedPermanently: true,
       }; else if (successfullyVerifiedLogs.length < 1) return {
         isVerified: false,
         description: `Transaction contained no satisfactory asset transfer`,
+        verificationFailedPermanently: true,
       }; else {
         const verificationSuccessReport = {
           senderAddress,

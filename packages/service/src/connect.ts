@@ -18,11 +18,15 @@ export default (router: ConnectRouter) =>
           wagmiConfig,
           req,
         });
-        return {
+        const resPb: TransferVerificationResponse = new TransferVerificationResponse({
           isVerified: res.isVerified,
           description: res.description,
           ...(res.error && { error: res.error?.message } satisfies Pick<TransferVerificationResponse, 'error'>),
-        };
+          ...(res.externalId && { externalId: res.externalId } satisfies Pick<TransferVerificationResponse, 'externalId'>),
+          ...(res.verificationFailedPermanently && { verificationFailedPermanently: res.verificationFailedPermanently } satisfies Pick<TransferVerificationResponse, 'verificationFailedPermanently'>),
+        });
+        console.info(`req=${reqPb.toJsonString()} resp=${resPb.toJsonString()}`);
+        return resPb;
       }
     },
   });

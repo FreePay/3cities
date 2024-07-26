@@ -76,6 +76,7 @@ export function transferVerificationRequestFromProto(pb: TransferVerificationReq
     })();
     const req: TransferVerificationRequest = {
       trusted: {
+        ...(pb.trusted.externalId.length > 0 && { externalId: pb.trusted.externalId } satisfies Pick<TransferVerificationRequest['trusted'], 'externalId'>),
         currency,
         logicalAssetAmount,
         tokenTickerAllowlist: pb.trusted.tokenTickerAllowlist,
