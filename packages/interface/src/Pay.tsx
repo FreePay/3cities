@@ -596,7 +596,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       {...computedExecuteTokenTransferButtonPropValues}
       tt={tt}
       nativeTokenTransferProxy={checkoutSettings.nativeTokenTransferProxy}
-      autoReset={true}
+      autoReset={status?.error ? false : true}
       loadForeverOnTransactionFeeUnaffordableError={true}
       label={`${checkoutVerbCapitalized} Now`}
       successLabel="Paid ✅"
@@ -615,7 +615,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
       )}
       {retryButton}
     </div>;
-  }, [checkoutSettings.nativeTokenTransferProxy, setStatus, checkoutVerbCapitalized, activeDemoAccount, retryButton, executeTokenTransferButtonPropValues]);
+  }, [checkoutSettings.nativeTokenTransferProxy, status?.error, setStatus, checkoutVerbCapitalized, activeDemoAccount, retryButton, executeTokenTransferButtonPropValues]);
 
   const paymentScreen: false | JSX.Element = useMemo(() => !statusIsSuccess && <div className={`${selectingPaymentMethod ? 'hidden' : '' /* WARNING here we hide the payment screen when selecting payment method instead of destroying it. This avoids an ExecuteTokenTransferButton remount each time the payment method changes, which is a mechanism to test reset logic and code paths. */}`}>
     <div className="w-full py-6">
