@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConnectKitProvider } from "connectkit";
 import React from "react";
-import { Outlet, ScrollRestoration } from "react-router-dom";
+import { Outlet, ScrollRestoration, useSearchParams } from "react-router-dom";
 import { Toaster } from 'sonner';
 import { WagmiProvider } from 'wagmi';
 import { ConnectedAccountContextObserverProvider } from "./ConnectedAccountContextObserverProvider";
@@ -33,10 +33,12 @@ const connectKitOptions/* : ConnectKitOptions --> type ConnectKitOptions no long
 };
 
 export const GlobalProviders = () => {
+  const [searchParams] = useSearchParams();
+  const noReconnectAccount: boolean = ((searchParams.get("noReconnectAccount") || undefined)?.length || 0) > 0;
   return <div>
     <ShowIfRunningNotInProduction />
     <ScrollRestoration /> {/* https://reactrouter.com/en/main/components/scroll-restoration */}
-    <WagmiProvider config={wagmiConfig} reconnectOnMount={true}>
+    <WagmiProvider config={wagmiConfig} reconnectOnMount={!noReconnectAccount}>
       <QueryClientProvider client={queryClient}>
         <IsPageVisibleOrRecentlyVisibleProvider>
           <DemoAccountProvider> {/* WARNING DemoAccountProvider must be nested inside IsPageVisibleOrRecentlyVisibleProvider because DemoAccountProvider depends on ens name resolution and that depends on page recent visiblity */}

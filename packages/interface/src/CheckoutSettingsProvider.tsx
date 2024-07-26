@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from "react";
 import { Outlet, useMatches, useSearchParams } from "react-router-dom";
 import { type CheckoutSettings } from "./CheckoutSettings";
 import { CheckoutSettingsContext, type CheckoutSettingsRequiresPassword } from "./CheckoutSettingsContext";
+import { serializedCheckoutSettingsUrlParam } from "./makeCheckoutUrl";
 import { type MaybeCheckoutSettings, deserializeCheckoutSettingsUnknownMessageType, deserializeCheckoutSettingsWithEncryption, deserializeCheckoutSettingsWithSignature } from "./serialize";
 import { useEffectSkipFirst } from "./useEffectSkipFirst";
 
@@ -44,8 +45,6 @@ const checkoutSettingsEncryptedOrSignedGlobalCache: { [checkoutSettingsEncrypted
 type Props = {
   elementForPathIfCheckoutSettingsNotFound: { [path: string]: React.ReactNode }; // fallback element per react router path to render if CheckoutSettings couldn't be deserialized
 }
-
-export const serializedCheckoutSettingsUrlParam = "c"; // url param where CheckoutSettingsProvider expects to find the serialized CheckoutSettings. Clients constructing urls with serialized CheckoutSettings should use this export to ensure they are picking the url param correctly. In the future, we could fully hide this url param inside this library with an API like eg. addSerializedCheckoutSettingsToUrl(url: URL, cs: CheckoutSettings): URL
 
 // CheckoutSettingsProvider is a provider component that makes a
 // required CheckoutSettings available to descendant components via the
