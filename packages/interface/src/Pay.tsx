@@ -840,10 +840,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
           <div className="pt-6 font-bold text-lg">Pay with</div>
           <div className="mt-2 p-4 border border-gray-300 bg-white rounded-md flex flex-col gap-2">
             <div className="text-sm font-bold">{unaffordableStrategyDepositHelperElements.length > 0 ? 'Your money' : 'No money found in your wallet'}</div>
-            {unaffordableStrategyDepositHelperElements.length < 1 && <ExternalLink href={makeCheckoutUrl(serializeCheckoutSettings({
-              ...checkoutSettings,
-              ...sharedCheckoutSettingsForUnaffordableStrategyDeposit,
-            })) + '&noReconnectAccount=1' /* disable automatic wallet reconnection so that the user's currently connected wallet does not attempt to fund itself. The idea is that the user should connect a different wallet to fund the wallet that's connected here */ + '&mode=deposit' /* WARNING CheckoutSettings serialization does not actually include CheckoutSettings.mode yet, so we append the mode URL param --> TODO remove this URL param after CheckoutSettings.mode is added to serialization */}>deposit</ExternalLink>}
+            {unaffordableStrategyDepositHelperElements.length < 1 && connectedAddress && <Link target="blank" to={`/${connectedAddress}` + '?noReconnectAccount=1' /* disable automatic wallet reconnection so that the user's currently connected wallet does not attempt to fund itself. The idea is that the user should connect a different wallet to fund the wallet that's connected here */ + '&mode=deposit' /* WARNING CheckoutSettings serialization does not actually include CheckoutSettings.mode yet, so we append the mode URL param --> TODO remove this URL param after CheckoutSettings.mode is added to serialization */} className={`text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker inline-flex items-center gap-1`} >deposit to your wallet</Link>}
             {unaffordableStrategyDepositHelperElements}
             {unaffordableStrategyDepositHelperElements.length > 0 && <a onClick={() => setShowAllUnaffordableStrategyHelperElements(v => !v)} className="text-sm text-primary sm:hover:cursor-pointer sm:hover:text-primary-darker">{showAllUnaffordableStrategyHelperElements ? 'show less' : 'show more'}</a>}
           </div>
@@ -855,7 +852,7 @@ const PayInner: React.FC<PayInnerProps> = ({ checkoutSettings }) => {
         </div>
       </>;
     })()}
-  </div>, [checkoutSettings, checkoutNounLowercase, ac, statusIsSuccess, proposedStrategies, unaffordableStrategies, checkoutReadinessState, showAllUnaffordableStrategyHelperElements]);
+  </div>, [checkoutNounLowercase, ac, connectedAddress, statusIsSuccess, proposedStrategies, unaffordableStrategies, checkoutReadinessState, showAllUnaffordableStrategyHelperElements]);
 
   const selectPaymentMethodScreen: false | JSX.Element = useMemo(() => bestStrategy !== undefined && otherStrategies !== undefined && otherStrategies.length > 0 && <div className={`grid grid-cols-1 w-full items-center py-6 ${selectingPaymentMethod ? '' : 'hidden'}`}>
     <div className="font-bold text-2xl">Select a {checkoutNounLowercase} method</div>
