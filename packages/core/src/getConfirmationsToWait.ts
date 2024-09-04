@@ -11,7 +11,7 @@ const confirmationsToWait: { [chainId: number]: number } = isProduction ? {
   [base.id]: 90, // ~3 minutes
   [blast.id]: 90, // ~3 minutes
   [immutableZkEvm.id]: 60, // ~3 minutes
-  [linea.id]: 90, // ~3 minutes
+  [linea.id]: 10, // 2s block time is final. 10 seconds would be conservative, 10 seconds (conservative wait time) ÷ 2 seconds (block time) = 5 blocks, adding 10 block confermation
   [mainnet.id]: 15, // ~3 minutes
   [mode.id]: 60, // ~3 minutes
   [optimism.id]: 90, // ~3 minutes
