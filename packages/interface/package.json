@@ -20,7 +20,8 @@
   "dependencies": {
     "@3cities/core": "^1.0.0",
     "@3cities/eth-transfer-proxy": "^1.0.0",
-    "@walletconnect/ethereum-provider": "^2.13.3",
+    "@3cities/verifier": "^1.0.0",
+    "@walletconnect/ethereum-provider": "^2.16.1",
     "connectkit": "^1.8.2",
     "localforage": "^1.10.0",
     "qr-code-styling": "^1.6.0-rc.1",
