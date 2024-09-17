@@ -12,6 +12,7 @@ import { type PartialFor } from "./PartialFor";
 import { Spinner } from "./Spinner";
 import { type TokenTransfer, type TokenTransferForNativeCurrency, type TokenTransferForToken, isTokenAndNotNativeCurrencyTransfer } from "./tokenTransfer";
 import { useMemoObject } from "./useMemoObject";
+import { wagmiConfig } from "./wagmiConfig";
 
 // TODO build and save list of test cases to check all ExecuteTokenTransfer code paths, eg. (automatic retries, other features) X (token, native currency) X (wallets) X (chains) X (different transfer amounts including very small amounts)
 
