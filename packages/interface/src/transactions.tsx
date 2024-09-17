@@ -1,9 +1,10 @@
 import { type Writable, getSupportedChainName, hasOwnPropertyOfType } from "@3cities/core";
 import { ETHTransferProxyABI, getETHTransferProxyContractAddress } from "@3cities/eth-transfer-proxy";
+import { type SwitchChainErrorType, getBlockNumber } from "@wagmi/core";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ChainMismatchError, SwitchChainError, type TransactionReceipt, UserRejectedRequestError, erc20Abi } from "viem";
-import { serialize, useAccount, useEstimateGas, useSendTransaction, useSimulateContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
-import { type SwitchChainErrorType } from "wagmi/actions";
+import { ChainMismatchError, SwitchChainError, type TransactionReceipt, UserRejectedRequestError, erc20Abi, parseAbiItem } from "viem";
+import { getLogs } from 'viem/actions';
+import { serialize, useAccount, useClient, useEstimateGas, useSendTransaction, useSimulateContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 import { type Intersection } from "./Intersection";
 import { type Narrow } from "./Narrow";
 import { type Observer, makeObservableValue, useObservedValue } from "./observer";
@@ -441,7 +442,7 @@ export type ExecuteTokenTransferProps = {
 // that's why ExecuteTokenTransfer is built on wagmi hooks and not wagmi
 // core actions.
 export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setStatus, ...props }) => {
-  const { isConnected, chain: activeChain } = useAccount();
+  const { isConnected, chain: activeChain, address: connectedAddress } = useAccount();
   const [doReset, setDoReset] = useState(false); // doReset is set to true to immediately trigger an internal reset. doReset exists so that reset()'s useCallback doesn't depend on props.tt, so that a client that changes props.tt isn't triggering unnecessary rerenders and status updates, which can cause infinite render loops if an ancestor updates its state on status update.
   const [cachedTT, setCachedTT] = useState<ExecuteTokenTransferProps['tt']>(props.tt); // wagmi's prepare/write/wait hooks aren't particularly resilient to automatic changes in the transfer details. Instead, we cache props.tt to lock in the transfer instance. Clients that wish to change the value of tt can call status.reset() to force a recache to the latest value of props.tt.
 
@@ -452,6 +453,16 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
   const [retries, setRetries] = useState(0); // number of retries, where a retry is attempted when an error occurs that isRetryableError (and would otherwise be a fatal error if it weren't retrayble). This retry count is used to prevent an infinite number of retries. WARNING `retries` is the only state that isn't automatically cleared across resets as it tracks the number of resets in service of automatic retries. Instead, `retries` is cleared only if the client calls status.reset(), so that the retry count is properly reset if the tokenTransfer changes.
   const [willAutoRetry, setWillAutoRetry] = useState(false); // true iff the transfer should update its autoExecuteState to automatically retry on a reset, instead of normally setting autoExecuteState="none"
   const isMaxRetriesExceeded: boolean = retries > 1;
+  const [blockNumber, setBlockNumber] = useState<undefined | bigint>(undefined);
+  const [writeErrorRecoveryAttemptStatus, setWriteErrorRecoveryAttemptStatus] = useState<'none' | 'in progress' | 'done'>('none');
+
+  useEffect(() => {
+    let isMounted = true;
+    getBlockNumber(wagmiConfig, {
+      chainId: cachedTT.token.chainId,
+    }).then((n) => { if (isMounted) setBlockNumber(n) });
+    return () => { isMounted = false; };
+  }, [cachedTT]);
 
   const onTransactionSigned = useCallback<(hash: `0x${string}`) => void>((hash) => {
     setSignedTransaction(prev => {
@@ -480,6 +491,61 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
       }
     })();
 
+  const wagmiClient = useClient({ chainId: cachedTT.token.chainId });
+
+  const isUnrecoverableWriteError = (e: Error | undefined | null) => e && !(isUserRejectedTransactionSignRequestError(e) || tryMakeTransactionFeeUnaffordableError(e) !== undefined || isRetryableError(e));
+
+  const onWriteError = useCallback<(e: Error) => void>(async (e) => {
+    if (!isUnrecoverableWriteError(e)) return;
+    else {
+      const maxRetries = 5;
+      const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+      let retryCount = 0;
+      let success = false;
+
+      const logsAddress = nativeTokenTransferProxyContractAddress || cachedTT.token.contractAddress;
+
+      if (connectedAddress && wagmiClient && blockNumber && logsAddress) {
+        setWriteErrorRecoveryAttemptStatus('in progress');
+        while (retryCount < maxRetries && !success) {
+          try {
+            const logs = await getLogs(wagmiClient, {
+              address: logsAddress,
+              event: parseAbiItem('event Transfer(address indexed from, address indexed to, uint256 value)'),
+              args: {
+                from: connectedAddress,
+                to: cachedTT.receiverAddress
+              },
+              fromBlock: blockNumber + 1n,
+              toBlock: 'latest',
+            });
+            if (logs.length < 1) throw new Error("no logs found");
+            else {
+              const lastHash = logs[logs.length - 1]?.transactionHash;
+              if (lastHash) {
+                onTransactionSigned(lastHash);
+                success = true;
+              }
+            }
+          } catch (err) {
+            retryCount++;
+            if (retryCount >= maxRetries) {
+              console.error("ExecuteTokenTransfer: error during write error recovery attempt. This error:", err, "Write error:", null);
+            } else {
+              const waitTime = 2 ** (retryCount - 1) * 1000;
+              // console.log(`Retrying in ${waitTime / 1000} seconds...`);
+              await delay(waitTime);
+            }
+          }
+        }
+      }
+      setWriteErrorRecoveryAttemptStatus('done');
+      return;
+    }
+  }, [cachedTT, connectedAddress, blockNumber, onTransactionSigned, nativeTokenTransferProxyContractAddress, wagmiClient]);
+
+
   // ********** BEGIN hooks used only for token transfers (and not native currency transfers) **********
   const simulateContractParamsForErc20Transfer = useMemo((): Parameters<typeof useSimulateContract<typeof erc20Abi, 'transfer', readonly [`0x${string}`, bigint]>>[0] => { // here we must memoize so that a new object isn't created each render which would cause useSimulateContract to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
     if (transferMode === 'erc20Transfer') return {
@@ -496,9 +562,10 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
     return {
       mutation: {
         onSuccess: onTransactionSigned,
+        onError: onWriteError,
       },
     };
-  }, [onTransactionSigned]);
+  }, [onTransactionSigned, onWriteError]);
   const writeContractForErc20Transfer = useMemoObject(useWriteContract(writeContractParamsForErc20Transfer), ['writeContract', 'data', 'status', 'error', 'reset']); // WARNING the object returned by useWriteContract is unconditionally recreated each render and so we use useMemoObject to stabilize the reference
 
   const wcerc20 = writeContractForErc20Transfer.writeContract; // allow hook dependency to be only on writeContract instead of entire object
@@ -530,9 +597,10 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
     return {
       mutation: {
         onSuccess: onTransactionSigned,
+        onError: onWriteError,
       },
     };
-  }, [onTransactionSigned]);
+  }, [onTransactionSigned, onWriteError]);
   const sendTransactionForNativeTokenTransfer = useMemoObject(useSendTransaction(sendTransactionParamsForNativeTokenTransfer), ['sendTransaction', 'data', 'status', 'error', 'reset']); // WARNING the object returned by useSendTransaction is unconditionally recreated each render and so we use useMemoObject to stabilize the reference
   // TODO warning are 'sendTransaction', 'data', 'error' stable across renders?
 
@@ -567,9 +635,10 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
     return {
       mutation: {
         onSuccess: onTransactionSigned,
+        onError: onWriteError,
       },
     };
-  }, [onTransactionSigned]);
+  }, [onTransactionSigned, onWriteError]);
   const writeContractForNativeTokenTransferProxy = useMemoObject(useWriteContract(writeContractParamsForNativeTokenTransferProxy), ['writeContract', 'data', 'status', 'error', 'reset']); // WARNING the object returned by useWriteContract is unconditionally recreated each render and so we use useMemoObject to stabilize the reference --> TODO actual
 
   const { isSuccess: wcnttIsSuccess, data: wcnttData } = simulateContractForNativeTokenTransferProxy; // allow hook dependency to be only on isSuccess and data instead of entire object
@@ -660,10 +729,10 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
   const waitParams = useMemo(() => { // here we must memoize waitParams so that a new object isn't created each render which would cause useWaitForTransaction to return a new value each render and trigger unnecessary status updates, which can then cause infinite render loops if an ancestor component rerenders each status update.
     return {
       chainId: cachedTT.token.chainId,
-      hash: write.data, // NB auto-sets `enabled:false` iff write.data is undefined
+      hash: signedTransaction?.transactionHash, // NB auto-sets `enabled:false` iff hash is undefined
       confirmations: props.confirmationsBeforeSuccess === undefined ? 1 : props.confirmationsBeforeSuccess,
     };
-  }, [props.confirmationsBeforeSuccess, cachedTT.token.chainId, write.data]);
+  }, [props.confirmationsBeforeSuccess, cachedTT.token.chainId, signedTransaction?.transactionHash]);
 
   const wait = useWaitForTransactionReceipt(waitParams);
   useEffect(() => { // tanstack query v5 removed onSuccess for good reasons (https://tkdodo.eu/blog/breaking-react-querys-api-on-purpose#react-query-v5), so we simulate it here using an effect handler. NB we don't want our local state machine to rely on `wait.data` as `wait` can sometimes reset itself (such as on chain switch)
@@ -748,6 +817,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
       writeReset();
       swr();
       setExecuteCalledAtLeastOnce(false);
+      setWriteErrorRecoveryAttemptStatus('none');
       setDoReset(false);
     }
   }, [props.tt, setCachedTT, setIsSuccess, isSuccess, setSignedTransaction, setAutoExecuteState, setTransactionReceipt, writeReset, swr, setExecuteCalledAtLeastOnce, executeCalledAtLeastOnce, setDoReset, doReset, willAutoRetry, setWillAutoRetry]);
@@ -845,7 +915,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
         (prepare.error
           && !isChainMismatchError(prepare.error)
           && !isEphemeralPrepareError(prepare.error)
-        ) || (write.error && !userRejectedTransactionSignRequest)
+        ) || (write.error && !userRejectedTransactionSignRequest && !(isUnrecoverableWriteError(write.error) && (writeErrorRecoveryAttemptStatus !== 'done') || signedTransaction)) // the idea here is that a write error only constitutes a true error if its unrecoverable and the recovery system failed to identify a signed transaction
         || waitError
       )) {
         const errorToIncludeInStatus: Error = (() => {
@@ -873,6 +943,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
         !isConnected // below we'll compute a status of Loading - Init when the wallet isn't connected as a way to gracefully degrade since we can't transfer a token without a connected wallet
         || prepare.isLoading
         || write.isPending
+        || (isUnrecoverableWriteError(write.error) && writeErrorRecoveryAttemptStatus !== 'done')
         || waitIsLoading
         || switchChain.isPending
         || isEverythingIdle // NB see note on isEverythingIdle definition 
@@ -888,7 +959,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
           ) return 'Init';
           else if (switchChain.isPending) return 'SwitchingChain';
           else if (write.isPending) return 'SigningTransaction';
-          else if (waitIsLoading) return 'ConfirmingTransaction';
+          else if (waitIsLoading || (isUnrecoverableWriteError(write.error) && writeErrorRecoveryAttemptStatus !== 'done')) return 'ConfirmingTransaction';
           else throw new Error(`ExecuteTokenTransfer: unexpected loading status`);
         })();
         if (loadingStatus === 'ConfirmingTransaction') {
@@ -1005,7 +1076,7 @@ export const ExecuteTokenTransfer: React.FC<ExecuteTokenTransferProps> = ({ setS
       }
     })();
     setStatus(nextStatus); // design note: in general, nextStatus may be identical to the current status cached by clients. This is because there's a loss of information between this useEffect's dependencies when computing nextStatus. For example, [edit: note that the following example is no longer true as of wagmi v2 because switchChain.switchChain is now unconditionally defined, however we kept the example becuase the spirit is still correct] if switchChain becomes defined, we will compute nextStatus, but both the current and next status may have nothing to do with switchChain being defined or not. In fact, this is exactly what usually happens when this component initializes: switchChain.switchChain is initially undefined, and it becomes defined shortly after mounting [edit: again, this is no longer true as of wagmi v2], which triggers computation of nextStatus, but both the current status and nextStatus are "Loading - Init", so we know we're usually sending a redundant nextStatus to the client. If we wanted to fix this, a good way to do so may be to do a deep comparison of ObservableValue.getCurrentValue vs. nextStatus in ExecuteTokenTransferButton, and skip calling setValueAndNotifyObservers if the current and next statuses are equal. A good deep comparison library is fast-deep-equal, it is both fast and relatively small (13kb), but that's still an extra 13kb of bundle size. But currently, we think it's better to shave 13kb off the bundle size vs. avoiding a few unnecessary rerenders that React handles instantly and without any UI jank/disruptions because the shadow DOM diff interprets the redundant status update as a no-op, so that's why right now, nextStatus may be identical to the current status cached by clients.
-  }, [setStatus, isConnected, cachedTT, transferMode, prepare.error, write.error, waitError, switchChain.error, prepare.isLoading, write.isPending, waitIsLoading, switchChain.isPending, isEverythingIdle, needToSwitchChain, execute, reset, transactionReceipt, isSuccess, signedTransaction, signAndSendTransaction, autoExecuteState, userRejectedTransactionSignRequest, transactionFeeUnaffordableError, executeCalledAtLeastOnce, autoRetryInProgress]);
+  }, [setStatus, isConnected, cachedTT, writeErrorRecoveryAttemptStatus, transferMode, prepare.error, write.error, waitError, switchChain.error, prepare.isLoading, write.isPending, waitIsLoading, switchChain.isPending, isEverythingIdle, needToSwitchChain, execute, reset, transactionReceipt, isSuccess, signedTransaction, signAndSendTransaction, autoExecuteState, userRejectedTransactionSignRequest, transactionFeeUnaffordableError, executeCalledAtLeastOnce, autoRetryInProgress]);
 
   useEffect(() => { // when this component unmounts, send a final undefined status so the client knows that any defined status is stale
     return () => setStatus(undefined);
